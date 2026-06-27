@@ -172,10 +172,46 @@ app.MapGet("/health", () => Results.Ok(new {
     env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "<not set>"
 }));
 
+// Direct POST handler for login form (uses /auth/login to avoid conflict with Blazor's /login page route)
+app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var email = form["FormData.Email"].ToString();
+    var password = form["FormData.Password"].ToString();
+    var rememberMe = form["FormData.RememberMe"] == "true";
+
+    logger.LogInformation("Login POST: email={Email}, rememberMe={RememberMe}", email, rememberMe);
+
+    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+    {
+        return Results.Redirect("/login?error=1");
+    }
+
+    var success = await auth.SignInAsync(email, password, rememberMe);
+    logger.LogInformation("Login result for {Email}: {Success}", email, success);
+
+    if (success)
+    {
+        return Results.Redirect("/dashboard");
+    }
+    return Results.Redirect("/login?error=1");
+});
+
 app.MapGet("/logout", async (AuthService auth) =>
 {
     await auth.SignOutAsync();
     return Results.Redirect("/login");
+});
+
+// Direct POST handler for register form
+app.MapPost("/auth/register", async (HttpContext ctx, ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var firstName = form["FormData.FirstName"].ToString();
+    var lastName = form["FormData.LastName"].ToString();
+    var email = form["FormData.Email"].ToString();
+    logger.LogInformation("Register POST: firstName={FirstName}, email={Email}", firstName, email);
+    return Results.Redirect("/login?registered=1");
 });
 
 app.MapRazorComponents<App>()

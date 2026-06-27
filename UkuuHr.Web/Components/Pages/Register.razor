@@ -64,22 +64,20 @@
                 <p class="bk-auth-sub">Submit your details — our team will review and activate your workspace within 24 hours.</p>
             </div>
 
-            <EditForm Model="@_model" OnValidSubmit="@Submit" class="bk-form">
-                <DataAnnotationsValidator />
-
+            <form method="post" action="/auth/register" class="bk-form">
                 <div class="bk-form-grid-2">
                     <div class="bk-field">
                         <label class="bk-label">First name</label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon">person_outline</span>
-                            <input type="text" class="bk-input" @bind="_model.FirstName" placeholder="Chungu" required />
+                            <input type="text" name="FormData.FirstName" value="@FormData?.FirstName" class="bk-input" placeholder="Chungu" />
                         </div>
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Last name</label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon">person_outline</span>
-                            <input type="text" class="bk-input" @bind="_model.LastName" placeholder="Chama" required />
+                            <input type="text" name="FormData.LastName" value="@FormData?.LastName" class="bk-input" placeholder="Chama" />
                         </div>
                     </div>
                 </div>
@@ -88,7 +86,7 @@
                     <label class="bk-label">Work email</label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon">mail_outline</span>
-                        <input type="email" class="bk-input" @bind="_model.Email" placeholder="you@company.com" required />
+                        <input type="email" name="FormData.Email" value="@FormData?.Email" class="bk-input" placeholder="you@company.com" />
                     </div>
                 </div>
 
@@ -96,7 +94,7 @@
                     <label class="bk-label">Phone number</label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon">phone</span>
-                        <input type="tel" class="bk-input" @bind="_model.Phone" placeholder="+260 97 123 4567" />
+                        <input type="tel" name="FormData.Phone" value="@FormData?.Phone" class="bk-input" placeholder="+260 97 123 4567" />
                     </div>
                 </div>
 
@@ -104,7 +102,7 @@
                     <label class="bk-label">Organization name</label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon">business</span>
-                        <input type="text" class="bk-input" @bind="_model.Organization" placeholder="Acme Ltd" required />
+                        <input type="text" name="FormData.Organization" value="@FormData?.Organization" class="bk-input" placeholder="Acme Ltd" />
                     </div>
                 </div>
 
@@ -113,12 +111,12 @@
                         <label class="bk-label">Country</label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon">public</span>
-                            <select class="bk-input" @bind="_model.Country">
-                                <option value="Zambia">Zambia</option>
-                                <option value="Tanzania">Tanzania</option>
-                                <option value="Malawi">Malawi</option>
-                                <option value="Kenya">Kenya</option>
-                                <option value="South Africa">South Africa</option>
+                            <select name="FormData.Country" class="bk-input">
+                                <option value="Zambia" selected="@(FormData?.Country == "Zambia")">Zambia</option>
+                                <option value="Tanzania" selected="@(FormData?.Country == "Tanzania")">Tanzania</option>
+                                <option value="Malawi" selected="@(FormData?.Country == "Malawi")">Malawi</option>
+                                <option value="Kenya" selected="@(FormData?.Country == "Kenya")">Kenya</option>
+                                <option value="South Africa" selected="@(FormData?.Country == "South Africa")">South Africa</option>
                             </select>
                         </div>
                     </div>
@@ -126,29 +124,42 @@
                         <label class="bk-label">Industry</label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon">factory</span>
-                            <select class="bk-input" @bind="_model.Industry">
+                            <select name="FormData.Industry" class="bk-input">
                                 <option value="">Select...</option>
-                                <option value="Technology">Technology</option>
-                                <option value="Finance">Finance</option>
-                                <option value="Healthcare">Healthcare</option>
-                                <option value="Education">Education</option>
-                                <option value="Manufacturing">Manufacturing</option>
-                                <option value="Other">Other</option>
+                                <option value="Technology" selected="@(FormData?.Industry == "Technology")">Technology</option>
+                                <option value="Finance" selected="@(FormData?.Industry == "Finance")">Finance</option>
+                                <option value="Healthcare" selected="@(FormData?.Industry == "Healthcare")">Healthcare</option>
+                                <option value="Education" selected="@(FormData?.Industry == "Education")">Education</option>
+                                <option value="Manufacturing" selected="@(FormData?.Industry == "Manufacturing")">Manufacturing</option>
+                                <option value="Other" selected="@(FormData?.Industry == "Other")">Other</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
                 <label class="bk-check-row">
-                    <input type="checkbox" class="bk-check" @bind="_agree" />
+                    <input type="checkbox" name="_agree" value="true" class="bk-check" />
                     <span class="bk-check-label">I agree to the <a href="#" class="bk-auth-link">Terms of Service</a> and <a href="#" class="bk-auth-link">Privacy Policy</a>.</span>
                 </label>
 
-                <button type="submit" class="bk-auth-submit" disabled="@(!_agree)">
+                <button type="submit" class="bk-auth-submit" id="bk-register-submit" disabled>
                     <span>Submit request</span>
                     <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
                 </button>
-            </EditForm>
+            </form>
+
+<script>
+    // Enable submit button only when terms checkbox is checked
+    (function() {
+        var checkbox = document.querySelector('input[name="_agree"]');
+        var submit = document.getElementById('bk-register-submit');
+        if (checkbox && submit) {
+            checkbox.addEventListener('change', function() {
+                submit.disabled = !checkbox.checked;
+            });
+        }
+    })();
+</script>
 
             <div class="bk-auth-footer">
                 Already have an account? <a href="/login">Sign in</a>
@@ -158,16 +169,23 @@
 </div>
 
 @code {
-    private RegisterModel _model = new();
+    [SupplyParameterFromForm(FormName = "register")]
+    public RegisterModel? FormData { get; set; }
+
     private bool _agree = false;
+
+    protected override void OnInitialized()
+    {
+        FormData ??= new RegisterModel();
+    }
 
     private void Submit()
     {
         Snackbar.Add("Request submitted! Our team will contact you within 24 hours.", Severity.Success);
-        Nav.NavigateTo("/login");
+        Nav.NavigateTo("/login", forceLoad: true);
     }
 
-    private class RegisterModel
+    public class RegisterModel
     {
         public string FirstName { get; set; } = "";
         public string LastName { get; set; } = "";
