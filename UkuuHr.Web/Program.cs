@@ -18,11 +18,17 @@ var explicitConnStr = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_ST
     ?? Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
+Console.WriteLine($"[DB-DEBUG] DATABASE_URL present: {!string.IsNullOrWhiteSpace(databaseUrl)}");
+Console.WriteLine($"[DB-DEBUG] DATABASE_URL prefix: {(databaseUrl ?? "<null>")}");
+Console.WriteLine($"[DB-DEBUG] explicitConnStr present: {!string.IsNullOrWhiteSpace(explicitConnStr)}");
+
 var connectionString = !string.IsNullOrWhiteSpace(explicitConnStr)
     ? explicitConnStr
     : !string.IsNullOrWhiteSpace(databaseUrl)
         ? ConvertRenderDatabaseUrlToNpgsql(databaseUrl)
         : "Host=localhost;Port=5432;Database=ukuuhr;Username=postgres;Password=postgres";
+
+Console.WriteLine($"[DB-DEBUG] final connection string host: {ExtractHost(connectionString)}");
 
 builder.Services.AddDbContext<UkuuHrDbContext>(options =>
     options.UseNpgsql(connectionString)
@@ -37,6 +43,18 @@ static string ConvertRenderDatabaseUrlToNpgsql(string url)
     var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
     var ssl = uri.Host.EndsWith(".render.com", StringComparison.OrdinalIgnoreCase) || uri.Port != 5432;
     return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={user};Password={pass};TrustServerCertificate=true;SSL Mode={(ssl ? "Require" : "Prefer")};Timeout=15;CommandTimeout=60";
+}
+
+static string ExtractHost(string connStr)
+{
+    var parts = connStr.Split(';');
+    foreach (var p in parts)
+    {
+        var kv = p.Split('=', 2);
+        if (kv.Length == 2 && kv[0].Trim().Equals("Host", StringComparison.OrdinalIgnoreCase))
+            return kv[1].Trim();
+    }
+    return "<unknown>";
 }
 
 // ───────────── Authentication ─────────────
