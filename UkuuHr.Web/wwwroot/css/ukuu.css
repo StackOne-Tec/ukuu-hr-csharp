@@ -2422,3 +2422,52 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 480px) {
     .bk-form-grid-2 { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   BUILDERKING AUTH FORM — Blazor InputText/InputCheckbox overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* InputText renders as <input type="text" class="bk-input valid" /> — make sure
+   the .valid/.invalid classes from Blazor don't override our styling */
+.bk-input.valid,
+.bk-input.invalid {
+    border-color: var(--bk-line);
+    background-image: none;
+    padding-right: 16px;
+}
+
+.bk-input.valid:focus,
+.bk-input.invalid:focus {
+    border-color: var(--bk-ink);
+}
+
+.bk-input.invalid {
+    border-color: #dc2626;
+}
+
+/* InputText doesn't get padding-left automatically when we have an icon — fix it */
+.bk-input-wrap .inputvalid,
+.bk-input-wrap input.bk-input {
+    padding-left: 44px;
+}
+
+/* For password field with toggle button */
+.bk-input-wrap input.bk-input[style*="padding-right:48px"],
+.bk-input-wrap input.bk-input[style*="padding-right: 48px"] {
+    padding-right: 48px;
+}
+
+/* ValidationMessage */
+.validation-message {
+    font-size: 12px;
+    color: #dc2626;
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+/* Make sure InputCheckbox inside .bk-check-row doesn't get default styling */
+.bk-check-row input[type="checkbox"].bk-check {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}

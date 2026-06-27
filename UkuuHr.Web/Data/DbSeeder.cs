@@ -461,6 +461,56 @@ public static class DbSeeder
         );
         await db.SaveChangesAsync();
 
+        // ───── User accounts (for PostgreSQL-backed authentication) ─────
+        // The admin account (admin@ukuuhr.demo / Admin@2025) is what the login form checks against.
+        // AuthUid="demo-admin" marks these as demo accounts with the known Admin@2025 password.
+        db.UserAccounts.AddRange(
+            new UserAccount
+            {
+                OrganizationId = org.Id,
+                AuthUid = "demo-admin",
+                Email = "admin@ukuuhr.demo",
+                FirstName = "Chungu",
+                LastName = "Chama",
+                Role = UserRole.SuperAdmin,
+                UserType = "owner",
+                Status = AccountStatus.Active,
+                IsFirstLogin = false,
+                EmployeeId = employees[0].Id,
+                CreatedAt = DateTime.UtcNow.AddDays(-365),
+                LastActivatedAt = DateTime.UtcNow.AddDays(-365)
+            },
+            new UserAccount
+            {
+                OrganizationId = org.Id,
+                AuthUid = "demo-admin",
+                Email = "thandiwe.banda@ukuuhr.demo",
+                FirstName = "Thandiwe",
+                LastName = "Banda",
+                Role = UserRole.HrAdmin,
+                UserType = "admin",
+                Status = AccountStatus.Active,
+                IsFirstLogin = false,
+                EmployeeId = employees[1].Id,
+                CreatedAt = DateTime.UtcNow.AddDays(-330)
+            },
+            new UserAccount
+            {
+                OrganizationId = org.Id,
+                AuthUid = "demo-admin",
+                Email = "grace.mwape@ukuuhr.demo",
+                FirstName = "Grace",
+                LastName = "Mwape",
+                Role = UserRole.FinancePayrollAdmin,
+                UserType = "admin",
+                Status = AccountStatus.Active,
+                IsFirstLogin = false,
+                EmployeeId = employees[3].Id,
+                CreatedAt = DateTime.UtcNow.AddDays(-300)
+            }
+        );
+        await db.SaveChangesAsync();
+
         // ───── License code ─────
         db.LicenseCodes.Add(new LicenseCode
         {

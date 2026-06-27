@@ -68,14 +68,23 @@
             <EditForm Model="@_model" OnValidSubmit="@SignIn" class="bk-form">
                 <DataAnnotationsValidator />
 
-                <div class="bk-field">
-                    <div class="bk-auth-row">
-                        <label class="bk-label" for="bk-email">Email address</label>
+                @if (_error != null)
+                {
+                    <div style="margin-bottom:16px;padding:10px 14px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;color:#991b1b;font-size:13px;display:flex;align-items:center;gap:8px;">
+                        <span class="material-icons-round" style="font-size:18px;">error_outline</span>
+                        @_error
                     </div>
+                }
+
+                <div class="bk-field">
+                    <label class="bk-label" for="bk-email">Email address</label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon">mail_outline</span>
-                        <input id="bk-email" type="email" class="bk-input" @bind="_model.Email" placeholder="you@company.com" autocomplete="email" required />
+                        <InputText id="bk-email" @bind-Value="_model.Email" @bind-Value:event="oninput"
+                                   class="bk-input" placeholder="you@company.com"
+                                   autocomplete="email" />
                     </div>
+                    <ValidationMessage For="@(() => _model.Email)" style="font-size:12px;color:#dc2626;margin-top:4px;" />
                 </div>
 
                 <div class="bk-field">
@@ -85,15 +94,19 @@
                     </div>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon">lock_outline</span>
-                        <input id="bk-password" type="@(_showPassword ? "text" : "password")" class="bk-input" @bind="_model.Password" placeholder="••••••••" autocomplete="current-password" style="padding-right:48px;" required />
+                        <InputText id="bk-password" Type="@(_showPassword ? InputType.Text : InputType.Password)"
+                                   @bind-Value="_model.Password" @bind-Value:event="oninput"
+                                   class="bk-input" placeholder="••••••••"
+                                   autocomplete="current-password" style="padding-right:48px;" />
                         <button type="button" class="bk-input-toggle" @onclick="@(() => _showPassword = !_showPassword)" aria-label="Toggle password visibility">
                             <span class="material-icons-round" style="font-size:18px;">@(_showPassword ? "visibility_off" : "visibility")</span>
                         </button>
                     </div>
+                    <ValidationMessage For="@(() => _model.Password)" style="font-size:12px;color:#dc2626;margin-top:4px;" />
                 </div>
 
                 <label class="bk-check-row">
-                    <input type="checkbox" class="bk-check" @bind="_model.RememberMe" />
+                    <InputCheckbox @bind-Value="_model.RememberMe" class="bk-check" />
                     <span class="bk-check-label">Remember me for 30 days</span>
                 </label>
 
@@ -146,13 +159,15 @@
     private LoginModel _model = new();
     private bool _showPassword = false;
     private bool _signingIn = false;
+    private string? _error = null;
 
     private async Task SignIn()
     {
+        _error = null;
         _signingIn = true;
         try
         {
-            var success = await Auth.SignInAsync(_model.Email, _model.Password, _model.RememberMe);
+            var success = await Auth.SignInAsync(_model.Email ?? "", _model.Password ?? "", _model.RememberMe);
             if (success)
             {
                 Snackbar.Add("Welcome back, Chungu!", Severity.Success);
@@ -160,8 +175,14 @@
             }
             else
             {
+                _error = "Invalid email or password. Try admin@ukuuhr.demo / Admin@2025";
                 Snackbar.Add("Invalid email or password. Try admin@ukuuhr.demo / Admin@2025", Severity.Error);
             }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Sign-in failed: {ex.Message}";
+            Snackbar.Add($"Sign-in failed: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -171,8 +192,13 @@
 
     private class LoginModel
     {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Enter a valid email")]
         public string Email { get; set; } = "admin@ukuuhr.demo";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
         public string Password { get; set; } = "Admin@2025";
+
         public bool RememberMe { get; set; } = true;
     }
 }
