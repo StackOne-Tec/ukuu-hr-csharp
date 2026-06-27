@@ -200,20 +200,20 @@
 
             @if (!_collapsed)
             {
-                <button class="bk-logout-btn" @onclick="Logout">
+                <a href="/logout" class="bk-logout-btn">
                     <span class="bk-logout-btn-icon">
                         <span class="material-icons-round" style="font-size:20px;">logout</span>
                     </span>
                     <span>Sign Out</span>
-                </button>
+                </a>
             }
             else
             {
-                <button class="bk-logout-btn" @onclick="Logout" style="justify-content:center;padding:10px;" title="Sign Out">
+                <a href="/logout" class="bk-logout-btn" style="justify-content:center;padding:10px;" title="Sign Out">
                     <span class="bk-logout-btn-icon">
                         <span class="material-icons-round" style="font-size:20px;">logout</span>
                     </span>
-                </button>
+                </a>
             }
         </div>
     </div>

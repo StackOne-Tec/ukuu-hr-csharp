@@ -202,7 +202,7 @@ app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Pro
 app.MapGet("/logout", async (AuthService auth) =>
 {
     await auth.SignOutAsync();
-    return Results.Redirect("/login");
+    return Results.Redirect("/landing");
 });
 
 // Direct POST handler for register form
