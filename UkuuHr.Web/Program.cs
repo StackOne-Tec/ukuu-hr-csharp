@@ -7,18 +7,20 @@ using UkuuHr.Components;
 using UkuuHr.Data;
 using UkuuHr.Services;
 
+// Use legacy timestamp behavior so DateTime is treated as 'timestamp without time zone'
+// This avoids the "Cannot apply binary operation on types 'timestamp with time zone' and 'timestamp without time zone'" error
+// when comparing DateTime properties with DateTime.Today/Now in LINQ queries.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ───────────── Database (PostgreSQL only) ─────────────
 // Priority: explicit Npgsql connection string env var > DATABASE_URL (Render) > appsettings.json
+// When running in our Docker container, entrypoint.sh exports POSTGRES_CONNECTION_STRING pointing to localhost.
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var explicitConnStr = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING")
     ?? Environment.GetEnvironmentVariable("ConnectionString")
     ?? Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING");
-
-Console.WriteLine($"[DB-DEBUG] DATABASE_URL present: {!string.IsNullOrWhiteSpace(databaseUrl)}");
-Console.WriteLine($"[DB-DEBUG] DATABASE_URL prefix: {(databaseUrl ?? "<null>")}");
-Console.WriteLine($"[DB-DEBUG] explicitConnStr present: {!string.IsNullOrWhiteSpace(explicitConnStr)}");
 
 string connectionString;
 if (!string.IsNullOrWhiteSpace(explicitConnStr))
@@ -28,8 +30,6 @@ else if (!string.IsNullOrWhiteSpace(databaseUrl))
 else
     connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
         ?? "Host=localhost;Port=5432;Database=ukuuhr;Username=postgres;Password=postgres";
-
-Console.WriteLine($"[DB-DEBUG] final connection string host: {ExtractHost(connectionString)}");
 
 builder.Services.AddDbContext<UkuuHrDbContext>(options =>
     options.UseNpgsql(connectionString)
