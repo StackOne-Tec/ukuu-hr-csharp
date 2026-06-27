@@ -168,20 +168,9 @@ app.MapGet("/health", () => Results.Ok(new {
     status = "ok",
     timestamp = DateTime.UtcNow,
     uptime_seconds = (DateTime.UtcNow - startTime).TotalSeconds,
-    db_url_present = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DATABASE_URL")),
-    db_url_host = ExtractDbHost(Environment.GetEnvironmentVariable("DATABASE_URL")),
-    effective_host = ExtractHost(connectionString),
-    postgres_url_present = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING")),
-    render_external_url = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL") ?? "<not set>",
+    db_host = ExtractHost(connectionString),
     env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "<not set>"
 }));
-
-static string ExtractDbHost(string? url)
-{
-    if (string.IsNullOrWhiteSpace(url)) return "<DATABASE_URL not set>";
-    if (Uri.TryCreate(url, UriKind.Absolute, out var uri)) return uri.Host;
-    return $"<not a URL: {url.Substring(0, Math.Min(40, url.Length))}>";
-}
 
 app.MapGet("/logout", async (AuthService auth) =>
 {

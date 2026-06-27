@@ -13,15 +13,3 @@ services:
         value: Production
       - key: DOTNET_SYSTEM_GLOBALIZATION_INVARIANT
         value: "false"
-      - key: KEEP_ALIVE_URL
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: ukuu-hr-db
-          property: connectionString
-
-databases:
-  - name: ukuu-hr-db
-    plan: free
-    region: oregon
-    ipAllowList: []
