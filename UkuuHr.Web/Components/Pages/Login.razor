@@ -5,78 +5,141 @@
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
 
-<div class="ukuu-auth-bg" style="display:flex;align-items:center;justify-content:center;padding:24px;">
-    <div class="ukuu-auth-card ukuu-fade-in">
-        <div style="text-align:center;margin-bottom:36px;">
-            <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#25163F 0%,#6E5F92 100%);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 32px rgba(37,22,63,0.3);">
-                <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:28px;color:#FCFBFF;">U</span>
+<div class="bk-auth">
+    @* ─────────── LEFT: Visual panel ─────────── *@
+    <aside class="bk-auth-visual">
+        <a href="/landing" class="bk-auth-brand" style="text-decoration:none;color:inherit;">
+            <div class="bk-auth-brand-logo">U</div>
+            <div>
+                <div class="bk-auth-brand-name">UKUU HR</div>
+                <div class="bk-auth-brand-tag">HRMS Platform</div>
             </div>
-            <h1 style="font-size:24px;font-weight:800;color:var(--ukuu-text);margin-bottom:6px;">Welcome back</h1>
-            <p style="color:var(--ukuu-text-muted);font-size:13px;margin:0;">Sign in to your Ukuu HR workspace</p>
+        </a>
+
+        <div class="bk-auth-visual-mid">
+            <span class="bk-auth-visual-eyebrow">Remote HR platform · Africa</span>
+            <h1>Welcome back to your <span class="bk-word-outline">workforce</span> command center.</h1>
+            <p class="bk-auth-visual-lead">Sign in to manage employees, run country-compliant payroll, approve leave, and track attendance — all from one focused HR platform built for African businesses.</p>
         </div>
 
-        <EditForm Model="@_model" OnValidSubmit="@SignIn" class="ukuu-form">
-            <DataAnnotationsValidator />
-
-            <div style="margin-bottom:16px;">
-                <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Email Address</label>
-                <MudTextField @bind-Value="_model.Email" Placeholder="you@company.com" Variant="Variant.Outlined" Margin="Margin.None" Required Style="width:100%;"
-                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" IconSize="Size.Small" />
-            </div>
-
-            <div style="margin-bottom:8px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <label style="font-size:12px;font-weight:600;color:var(--ukuu-text-muted);text-transform:uppercase;letter-spacing:0.05em;">Password</label>
-                    <a href="#" style="font-size:12px;color:var(--ukuu-ink);font-weight:600;text-decoration:none;">Forgot?</a>
+        <div class="bk-auth-visual-foot">
+            <div class="bk-auth-quote">
+                <p>"Ukuu HR replaced three separate tools for us. Payroll runs in minutes instead of days, and our audit trail is finally clean."</p>
+                <div class="bk-auth-quote-foot">
+                    <div class="bk-auth-quote-avatar">TB</div>
+                    <div>
+                        <strong>Thandiwe Banda</strong>
+                        <div>HR Manager · UkuuHR Demo Ltd</div>
+                    </div>
                 </div>
-                <MudTextField @bind-Value="_model.Password" InputType="@(_showPassword ? InputType.Text : InputType.Password)" Placeholder="••••••••" Variant="Variant.Outlined" Margin="Margin.None" Required Style="width:100%;"
-                              Adornment="Adornment.End" AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)" OnAdornmentClick="@(() => _showPassword = !_showPassword)" />
             </div>
 
-            <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 24px;">
-                <MudCheckBox @bind-Value="_model.RememberMe" Color="Color.Primary" Label="Remember me for 30 days" Style="font-size:13px;" />
+            <div class="bk-auth-visual-stats">
+                <div><strong>8</strong><span>Employees managed</span></div>
+                <div><strong>ZMW 157K</strong><span>Monthly payroll</span></div>
+                <div><strong>100%</strong><span>ZRA 2025 compliant</span></div>
+            </div>
+        </div>
+    </aside>
+
+    @* ─────────── RIGHT: Form panel ─────────── *@
+    <main class="bk-auth-form-side">
+        <a href="/landing" class="bk-auth-back">
+            <span class="material-icons-round" style="font-size:14px;">arrow_back</span>
+            Back to home
+        </a>
+
+        <div class="bk-auth-card bk-fade-in">
+            @* Mobile brand (hidden on desktop where visual side is shown) *@
+            <a href="/landing" class="bk-auth-mobile-brand">
+                <div class="bk-auth-brand-logo">U</div>
+                <div>
+                    <div class="bk-auth-brand-name" style="color:var(--bk-ink);">UKUU HR</div>
+                    <div class="bk-auth-brand-tag">HRMS Platform</div>
+                </div>
+            </a>
+
+            <div class="bk-auth-header">
+                <span class="bk-auth-eyebrow">Sign in</span>
+                <h1 class="bk-auth-h1">Welcome back</h1>
+                <p class="bk-auth-sub">Sign in to your Ukuu HR workspace to continue.</p>
             </div>
 
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Submit" FullWidth="true" Size="Size.Large" Style="height:48px;font-size:14px;font-weight:700;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">
-                @if (_signingIn)
-                {
-                    <MudProgressCircular Size="Size.Small" Color="Color.Surface" Style="margin-right:8px;" />
-                    <span>Signing in...</span>
-                }
-                else
-                {
-                    <span>Sign In to Dashboard</span>
-                }
-            </MudButton>
-        </EditForm>
+            <EditForm Model="@_model" OnValidSubmit="@SignIn" class="bk-form">
+                <DataAnnotationsValidator />
 
-        <div style="display:flex;align-items:center;gap:12px;margin:24px 0;">
-            <div style="flex:1;height:1px;background:var(--ukuu-divider);"></div>
-            <span style="font-size:11px;color:var(--ukuu-text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">or continue with</span>
-            <div style="flex:1;height:1px;background:var(--ukuu-divider);"></div>
-        </div>
+                <div class="bk-field">
+                    <div class="bk-auth-row">
+                        <label class="bk-label" for="bk-email">Email address</label>
+                    </div>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">mail_outline</span>
+                        <input id="bk-email" type="email" class="bk-input" @bind="_model.Email" placeholder="you@company.com" autocomplete="email" required />
+                    </div>
+                </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" Style="height:44px;border-color:var(--ukuu-border-soft);">
-                <MudIcon Icon="@Icons.Custom.Brands.Google" Size="Size.Small" Style="margin-right:8px;" />
-                <span style="font-weight:600;font-size:13px;">Google</span>
-            </MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" Style="height:44px;border-color:var(--ukuu-border-soft);">
-                <MudIcon Icon="@Icons.Custom.Brands.Microsoft" Size="Size.Small" Style="margin-right:8px;" />
-                <span style="font-weight:600;font-size:13px;">Microsoft</span>
-            </MudButton>
-        </div>
+                <div class="bk-field">
+                    <div class="bk-auth-row">
+                        <label class="bk-label" for="bk-password">Password</label>
+                        <a href="#" class="bk-auth-link">Forgot?</a>
+                    </div>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">lock_outline</span>
+                        <input id="bk-password" type="@(_showPassword ? "text" : "password")" class="bk-input" @bind="_model.Password" placeholder="••••••••" autocomplete="current-password" style="padding-right:48px;" required />
+                        <button type="button" class="bk-input-toggle" @onclick="@(() => _showPassword = !_showPassword)" aria-label="Toggle password visibility">
+                            <span class="material-icons-round" style="font-size:18px;">@(_showPassword ? "visibility_off" : "visibility")</span>
+                        </button>
+                    </div>
+                </div>
 
-        <div style="margin-top:28px;padding:16px;background:var(--ukuu-surface-alt);border:1px dashed var(--ukuu-accent-gold);border-radius:var(--ukuu-radius-md);text-align:center;">
-            <div style="font-size:11px;font-weight:700;color:var(--ukuu-ink);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Demo Credentials</div>
-            <div style="font-size:13px;color:var(--ukuu-text);font-weight:600;">admin@ukuuhr.demo</div>
-            <div style="font-size:13px;color:var(--ukuu-text-muted);font-family:var(--ukuu-font-mono);margin-top:2px;">Admin@2025</div>
-        </div>
+                <label class="bk-check-row">
+                    <input type="checkbox" class="bk-check" @bind="_model.RememberMe" />
+                    <span class="bk-check-label">Remember me for 30 days</span>
+                </label>
 
-        <div style="text-align:center;margin-top:24px;font-size:13px;color:var(--ukuu-text-muted);">
-            Don't have an account? <a href="/register" style="color:var(--ukuu-ink);font-weight:700;text-decoration:none;">Request access</a>
+                <button type="submit" class="bk-auth-submit" disabled="@_signingIn">
+                    @if (_signingIn)
+                    {
+                        <span class="bk-auth-submit-spinner"></span>
+                        <span>Signing in...</span>
+                    }
+                    else
+                    {
+                        <span>Sign In to Dashboard</span>
+                        <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
+                    }
+                </button>
+            </EditForm>
+
+            <div class="bk-divider"><span>or continue with</span></div>
+
+            <div class="bk-social-grid">
+                <button type="button" class="bk-social-btn">
+                    <span class="bk-social-icon bk-social-icon-google"></span>
+                    Google
+                </button>
+                <button type="button" class="bk-social-btn">
+                    <span class="bk-social-icon bk-social-icon-ms">
+                        <span></span><span></span><span></span><span></span>
+                    </span>
+                    Microsoft
+                </button>
+            </div>
+
+            <div class="bk-demo-creds">
+                <div class="bk-demo-creds-label">Demo credentials</div>
+                <div class="bk-demo-creds-row">
+                    <span class="bk-demo-creds-email">admin@ukuuhr.demo</span>
+                    <span class="bk-demo-creds-sep">·</span>
+                    <span class="bk-demo-creds-pass">Admin@2025</span>
+                </div>
+            </div>
+
+            <div class="bk-auth-footer">
+                Don't have an account? <a href="/register">Request access</a>
+            </div>
         </div>
-    </div>
+    </main>
 </div>
 
 @code {

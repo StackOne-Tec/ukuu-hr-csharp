@@ -4,71 +4,177 @@
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
 
-<div class="ukuu-auth-bg" style="display:flex;align-items:center;justify-content:center;padding:24px;">
-    <div class="ukuu-auth-card ukuu-fade-in" style="max-width:560px;">
-        <div style="text-align:center;margin-bottom:32px;">
-            <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#25163F 0%,#6E5F92 100%);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 32px rgba(37,22,63,0.3);">
-                <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:24px;color:#FCFBFF;">U</span>
+<div class="bk-auth">
+    @* ─────────── LEFT: Visual panel ─────────── *@
+    <aside class="bk-auth-visual">
+        <a href="/landing" class="bk-auth-brand" style="text-decoration:none;color:inherit;">
+            <div class="bk-auth-brand-logo">U</div>
+            <div>
+                <div class="bk-auth-brand-name">UKUU HR</div>
+                <div class="bk-auth-brand-tag">HRMS Platform</div>
             </div>
-            <h1 style="font-size:22px;font-weight:800;color:var(--ukuu-text);margin-bottom:6px;">Request Access</h1>
-            <p style="color:var(--ukuu-text-muted);font-size:13px;margin:0;">Submit your details — our team will review and activate your workspace within 24 hours.</p>
+        </a>
+
+        <div class="bk-auth-visual-mid">
+            <span class="bk-auth-visual-eyebrow">Request access · 24h turnaround</span>
+            <h1>Modernize your <span class="bk-word-outline">HR</span> operations end-to-end.</h1>
+            <p class="bk-auth-visual-lead">Submit your details and our team will review and activate your workspace within 24 hours. Get employees, attendance, leave, payroll and statutory compliance — all in one platform.</p>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <MudTextField T="string" Label="First Name" Variant="Variant.Outlined" Required />
-            <MudTextField T="string" Label="Last Name" Variant="Variant.Outlined" Required />
-        </div>
-        <div style="margin-top:12px;">
-            <MudTextField T="string" Label="Work Email" Variant="Variant.Outlined" Required Style="width:100%;" />
-        </div>
-        <div style="margin-top:12px;">
-            <MudTextField T="string" Label="Phone Number" Variant="Variant.Outlined" Style="width:100%;" />
-        </div>
-        <div style="margin-top:12px;">
-            <MudTextField T="string" Label="Organization Name" Variant="Variant.Outlined" Required Style="width:100%;" />
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-            <MudSelect T="string" Label="Country" Variant="Variant.Outlined" Value="@("Zambia")">
-                <MudSelectItem T="string" Value="@("Zambia")">Zambia</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Tanzania")">Tanzania</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Malawi")">Malawi</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Kenya")">Kenya</MudSelectItem>
-                <MudSelectItem T="string" Value="@("South Africa")">South Africa</MudSelectItem>
-            </MudSelect>
-            <MudSelect T="string" Label="Industry" Variant="Variant.Outlined">
-                <MudSelectItem T="string" Value="@("Technology")">Technology</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Finance")">Finance</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Healthcare")">Healthcare</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Education")">Education</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Manufacturing")">Manufacturing</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Other")">Other</MudSelectItem>
-            </MudSelect>
-        </div>
+        <div class="bk-auth-visual-foot">
+            <div class="bk-auth-quote">
+                <p>"The onboarding wizard alone saved us a week. New hires are added with banking and statutory details in 4 steps — payroll preview included."</p>
+                <div class="bk-auth-quote-foot">
+                    <div class="bk-auth-quote-avatar">GP</div>
+                    <div>
+                        <strong>Grace Mwape</strong>
+                        <div>Finance & Payroll · UkuuHR Demo Ltd</div>
+                    </div>
+                </div>
+            </div>
 
-        <div style="margin:24px 0 16px;display:flex;align-items:flex-start;gap:8px;">
-            <MudCheckBox @bind-Value="_agree" Color="Color.Primary" />
-            <span style="font-size:12px;color:var(--ukuu-text-muted);">
-                I agree to the <a href="#" style="color:var(--ukuu-ink);font-weight:600;">Terms of Service</a>
-                and <a href="#" style="color:var(--ukuu-ink);font-weight:600;">Privacy Policy</a>.
-            </span>
+            <div class="bk-auth-visual-stats">
+                <div><strong>24h</strong><span>Activation turnaround</span></div>
+                <div><strong>3</strong><span>Country payrolls</span></div>
+                <div><strong>9</strong><span>HR modules included</span></div>
+            </div>
         </div>
+    </aside>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Disabled="@(!_agree)" OnClick="@Submit" Style="height:48px;font-weight:700;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">
-            Submit Request
-        </MudButton>
+    @* ─────────── RIGHT: Form panel ─────────── *@
+    <main class="bk-auth-form-side">
+        <a href="/landing" class="bk-auth-back">
+            <span class="material-icons-round" style="font-size:14px;">arrow_back</span>
+            Back to home
+        </a>
 
-        <div style="text-align:center;margin-top:24px;font-size:13px;color:var(--ukuu-text-muted);">
-            Already have an account? <a href="/login" style="color:var(--ukuu-ink);font-weight:700;text-decoration:none;">Sign in</a>
+        <div class="bk-auth-card bk-fade-in" style="max-width:520px;">
+            @* Mobile brand *@
+            <a href="/landing" class="bk-auth-mobile-brand">
+                <div class="bk-auth-brand-logo">U</div>
+                <div>
+                    <div class="bk-auth-brand-name" style="color:var(--bk-ink);">UKUU HR</div>
+                    <div class="bk-auth-brand-tag">HRMS Platform</div>
+                </div>
+            </a>
+
+            <div class="bk-auth-header">
+                <span class="bk-auth-eyebrow">Request access</span>
+                <h1 class="bk-auth-h1">Get your workspace</h1>
+                <p class="bk-auth-sub">Submit your details — our team will review and activate your workspace within 24 hours.</p>
+            </div>
+
+            <EditForm Model="@_model" OnValidSubmit="@Submit" class="bk-form">
+                <DataAnnotationsValidator />
+
+                <div class="bk-form-grid-2">
+                    <div class="bk-field">
+                        <label class="bk-label">First name</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon">person_outline</span>
+                            <input type="text" class="bk-input" @bind="_model.FirstName" placeholder="Chungu" required />
+                        </div>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Last name</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon">person_outline</span>
+                            <input type="text" class="bk-input" @bind="_model.LastName" placeholder="Chama" required />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">Work email</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">mail_outline</span>
+                        <input type="email" class="bk-input" @bind="_model.Email" placeholder="you@company.com" required />
+                    </div>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">Phone number</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">phone</span>
+                        <input type="tel" class="bk-input" @bind="_model.Phone" placeholder="+260 97 123 4567" />
+                    </div>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">Organization name</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">business</span>
+                        <input type="text" class="bk-input" @bind="_model.Organization" placeholder="Acme Ltd" required />
+                    </div>
+                </div>
+
+                <div class="bk-form-grid-2">
+                    <div class="bk-field">
+                        <label class="bk-label">Country</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon">public</span>
+                            <select class="bk-input" @bind="_model.Country">
+                                <option value="Zambia">Zambia</option>
+                                <option value="Tanzania">Tanzania</option>
+                                <option value="Malawi">Malawi</option>
+                                <option value="Kenya">Kenya</option>
+                                <option value="South Africa">South Africa</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Industry</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon">factory</span>
+                            <select class="bk-input" @bind="_model.Industry">
+                                <option value="">Select...</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Finance">Finance</option>
+                                <option value="Healthcare">Healthcare</option>
+                                <option value="Education">Education</option>
+                                <option value="Manufacturing">Manufacturing</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <label class="bk-check-row">
+                    <input type="checkbox" class="bk-check" @bind="_agree" />
+                    <span class="bk-check-label">I agree to the <a href="#" class="bk-auth-link">Terms of Service</a> and <a href="#" class="bk-auth-link">Privacy Policy</a>.</span>
+                </label>
+
+                <button type="submit" class="bk-auth-submit" disabled="@(!_agree)">
+                    <span>Submit request</span>
+                    <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
+                </button>
+            </EditForm>
+
+            <div class="bk-auth-footer">
+                Already have an account? <a href="/login">Sign in</a>
+            </div>
         </div>
-    </div>
+    </main>
 </div>
 
 @code {
+    private RegisterModel _model = new();
     private bool _agree = false;
 
     private void Submit()
     {
         Snackbar.Add("Request submitted! Our team will contact you within 24 hours.", Severity.Success);
         Nav.NavigateTo("/login");
+    }
+
+    private class RegisterModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Organization { get; set; } = "";
+        public string Country { get; set; } = "Zambia";
+        public string Industry { get; set; } = "";
     }
 }
