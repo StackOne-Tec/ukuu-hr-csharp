@@ -6,11 +6,8 @@
     [Parameter] public RenderFragment? Body { get; set; }
     private bool _collapsed = false;
     private bool _mobileOpen = false;
-    private string _searchText = string.Empty;
     private string _currentUrl = string.Empty;
-    private bool _userMenuOpen = false;
     private string _userName = "Chungu Chama";
-    private string _userEmail = "admin@ukuuhr.demo";
     private string _userRole = "Super Admin";
 
     protected override void OnInitialized()
@@ -53,108 +50,138 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<div class="ukuu-sidebar @(_collapsed ? "collapsed" : "") @(_mobileOpen ? "mobile-open" : "")">
-    <a href="/dashboard" class="ukuu-sidebar-brand" style="text-decoration:none;">
-        <div class="ukuu-sidebar-brand-logo">U</div>
-        @if (!_collapsed)
-        {
-            <div class="ukuu-sidebar-brand-text">
-                <div class="ukuu-sidebar-brand-name">Ukuu HR</div>
-                <div class="ukuu-sidebar-brand-tag">HRMS Platform</div>
-            </div>
-        }
-    </a>
-
-    <nav class="ukuu-sidebar-nav">
-        @if (!_collapsed)
-        {
-            <div class="ukuu-sidebar-section-label">Workspace</div>
-        }
-
-        <SidebarItem Icon="dashboard" Label="Dashboard" Url="dashboard" Active="@IsActive("dashboard")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/dashboard"))" />
-        <SidebarItem Icon="people" Label="Employees" Url="employees" Active="@IsActive("employees")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/employees"))" />
-        <SidebarItem Icon="schedule" Label="Attendance" Url="attendance" Active="@IsActive("attendance")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/attendance"))" />
-        <SidebarItem Icon="event_available" Label="Leave" Url="leave" Active="@IsActive("leave")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/leave"))" Badge="3" />
-        <SidebarItem Icon="payments" Label="Payroll" Url="payroll" Active="@IsActive("payroll")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/payroll"))" Badge="4" />
-        <SidebarItem Icon="calendar_month" Label="Scheduling" Url="scheduling" Active="@IsActive("scheduling")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/scheduling"))" />
-
-        @if (!_collapsed)
-        {
-            <div class="ukuu-sidebar-section-label">Operations</div>
-        }
-
-        <SidebarItem Icon="folder" Label="Documents" Url="documents" Active="@IsActive("documents")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/documents"))" />
-        <SidebarItem Icon="forum" Label="Messages" Url="messages" Active="@IsActive("messages")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/messages"))" />
-        <SidebarItem Icon="bar_chart" Label="Reports" Url="reports" Active="@IsActive("reports")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/reports"))" />
-
-        @if (!_collapsed)
-        {
-            <div class="ukuu-sidebar-section-label">Administration</div>
-        }
-
-        <SidebarItem Icon="settings" Label="Settings" Url="settings" Active="@IsActive("settings")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/settings"))" />
-        <SidebarItem Icon="shield" Label="Security & Audit" Url="security" Active="@IsActive("security")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/security"))" />
-        <SidebarItem Icon="receipt_long" Label="Billing" Url="billing" Active="@IsActive("billing")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/billing"))" />
-    </nav>
-
-    <div class="ukuu-sidebar-footer">
-        <div class="ukuu-sidebar-user">
-            <div class="ukuu-sidebar-user-avatar">CC</div>
+<div class="bk-admin-body">
+    <div class="bk-admin-sidebar @(_collapsed ? "collapsed" : "") @(_mobileOpen ? "mobile-open" : "")">
+        <a href="/dashboard" class="bk-admin-sidebar-brand">
+            <div class="bk-admin-sidebar-brand-logo">U</div>
             @if (!_collapsed)
             {
-                <div style="overflow:hidden;flex:1;min-width:0;">
-                    <div class="ukuu-sidebar-user-name">@_userName</div>
-                    <div class="ukuu-sidebar-user-role">@_userRole</div>
+                <div>
+                    <div class="bk-admin-sidebar-brand-name">UKUU HR</div>
+                    <div class="bk-admin-sidebar-brand-tag">HRMS Platform</div>
                 </div>
             }
+        </a>
+
+        <nav class="bk-admin-sidebar-nav">
             @if (!_collapsed)
             {
-                <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" Color="Color.Inherit" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.BottomLeft" Style="color:rgba(252,251,255,0.6);">
-                    <MudMenuItem Icon="@Icons.Material.Filled.Person" OnClick="@(() => Nav.NavigateTo("/settings"))">Profile Settings</MudMenuItem>
-                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="@Logout">Sign Out</MudMenuItem>
-                </MudMenu>
+                <div class="bk-admin-sidebar-section-label">Workspace</div>
             }
+
+            <a href="/dashboard" class="bk-admin-sidebar-item @(IsActive("dashboard") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">dashboard</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Dashboard</span> }
+            </a>
+            <a href="/employees" class="bk-admin-sidebar-item @(IsActive("employees") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">groups</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Employees</span> }
+            </a>
+            <a href="/attendance" class="bk-admin-sidebar-item @(IsActive("attendance") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">schedule</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Attendance</span> }
+            </a>
+            <a href="/leave" class="bk-admin-sidebar-item @(IsActive("leave") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">event_available</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Leave</span> }
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-badge">3</span> }
+            </a>
+            <a href="/payroll" class="bk-admin-sidebar-item @(IsActive("payroll") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">payments</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Payroll</span> }
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-badge">4</span> }
+            </a>
+            <a href="/scheduling" class="bk-admin-sidebar-item @(IsActive("scheduling") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">calendar_month</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Scheduling</span> }
+            </a>
+
+            @if (!_collapsed)
+            {
+                <div class="bk-admin-sidebar-section-label">Operations</div>
+            }
+
+            <a href="/documents" class="bk-admin-sidebar-item @(IsActive("documents") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">folder</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Documents</span> }
+            </a>
+            <a href="/messages" class="bk-admin-sidebar-item @(IsActive("messages") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">forum</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Messages</span> }
+            </a>
+            <a href="/reports" class="bk-admin-sidebar-item @(IsActive("reports") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">bar_chart</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Reports</span> }
+            </a>
+
+            @if (!_collapsed)
+            {
+                <div class="bk-admin-sidebar-section-label">Administration</div>
+            }
+
+            <a href="/settings" class="bk-admin-sidebar-item @(IsActive("settings") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">settings</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Settings</span> }
+            </a>
+            <a href="/security" class="bk-admin-sidebar-item @(IsActive("security") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">shield</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Security & Audit</span> }
+            </a>
+            <a href="/billing" class="bk-admin-sidebar-item @(IsActive("billing") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">receipt_long</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Billing</span> }
+            </a>
+        </nav>
+
+        <div class="bk-admin-sidebar-footer">
+            <a href="/settings" class="bk-admin-sidebar-user">
+                <div class="bk-admin-sidebar-user-avatar">CC</div>
+                @if (!_collapsed)
+                {
+                    <div style="overflow:hidden;flex:1;min-width:0;">
+                        <div class="bk-admin-sidebar-user-name">@_userName</div>
+                        <div class="bk-admin-sidebar-user-role">@_userRole</div>
+                    </div>
+                }
+            </a>
         </div>
     </div>
-</div>
 
-<div class="ukuu-main @(_collapsed ? "collapsed" : "")">
-    <header class="ukuu-topbar no-print">
-        <button class="ukuu-topbar-icon-btn" @onclick="ToggleSidebar" style="border:none;background:transparent;">
-            <MudIcon Icon="@Icons.Material.Filled.Menu" Size="Size.Medium" />
-        </button>
+    <div class="bk-admin-main @(_collapsed ? "collapsed" : "")">
+        <header class="bk-admin-topbar">
+            <button class="bk-admin-topbar-toggle" @onclick="ToggleSidebar">
+                <MudIcon Icon="@Icons.Material.Filled.Menu" Size="Size.Medium" />
+            </button>
 
-        <div class="ukuu-topbar-search">
-            <span class="ukuu-topbar-search-icon">
-                <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small" />
-            </span>
-            <input type="text" placeholder="Search employees, payroll, leave..." @bind="_searchText" />
-        </div>
+            <div class="bk-admin-topbar-search">
+                <span class="bk-admin-topbar-search-icon">
+                    <span class="material-icons-round" style="font-size:20px;">search</span>
+                </span>
+                <input type="text" placeholder="Search employees, payroll, leave..." />
+            </div>
 
-        <div style="flex:1"></div>
+            <div style="flex:1"></div>
 
-        <button class="ukuu-topbar-icon-btn" title="Sync status">
-            <MudIcon Icon="@Icons.Material.Filled.CloudDone" Size="Size.Small" />
-        </button>
+            <a href="/health" class="bk-admin-topbar-icon-btn" title="System status">
+                <span class="material-icons-round" style="font-size:18px;">cloud_done</span>
+            </a>
+            <button class="bk-admin-topbar-icon-btn" title="Notifications">
+                <span class="material-icons-round" style="font-size:18px;">notifications</span>
+                <span class="bk-dot"></span>
+            </button>
+            <a href="/settings" class="bk-admin-topbar-icon-btn" title="Help">
+                <span class="material-icons-round" style="font-size:18px;">help_outline</span>
+            </a>
+            <a href="/settings" class="bk-admin-topbar-avatar">CC</a>
+        </header>
 
-        <button class="ukuu-topbar-icon-btn" title="Notifications">
-            <MudIcon Icon="@Icons.Material.Filled.Notifications" Size="Size.Small" />
-            <span class="ukuu-dot"></span>
-        </button>
+        @if (_mobileOpen)
+        {
+            <div @onclick="CloseMobile" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;"></div>
+        }
 
-        <button class="ukuu-topbar-icon-btn" title="Help">
-            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" />
-        </button>
-
-        <MudAvatar Color="Color.Primary" Size="Size.Medium" Style="margin-left:8px;cursor:pointer;">CC</MudAvatar>
-    </header>
-
-    @if (_mobileOpen)
-    {
-        <div @onclick="CloseMobile" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;"></div>
-    }
-
-    <main class="ukuu-content">
-        @Body
-    </main>
+        <main class="bk-admin-content bk-admin-fade-in">
+            @Body
+        </main>
+    </div>
 </div>

@@ -2471,3 +2471,687 @@ h1, h2, h3, h4, h5, h6 {
     -webkit-appearance: none;
     -moz-appearance: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   BUILDERKING-INSPIRED ADMIN THEME
+   Applies the warm off-white + gold + dark ink palette to the admin shell
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ───── Admin body ───── */
+.bk-admin-body {
+    background:
+        repeating-linear-gradient(90deg, rgba(10, 10, 10, 0.025) 0 1px, transparent 1px 72px),
+        linear-gradient(180deg, #fbfaf6 0%, #ffffff 54%, #fbfaf6 100%);
+    color: var(--bk-ink);
+    font-family: "Geist", "Plus Jakarta Sans", system-ui, sans-serif;
+    min-height: 100vh;
+}
+
+/* ───── Admin sidebar (dark ink, not purple) ───── */
+.bk-admin-sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    background:
+        radial-gradient(ellipse 60% 40% at 20% 0%, rgba(216, 156, 17, 0.10) 0%, transparent 60%),
+        linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+    color: rgba(255, 255, 255, 0.85);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.bk-admin-sidebar.collapsed { width: 84px; }
+
+.bk-admin-sidebar-brand {
+    padding: 24px 24px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    text-decoration: none;
+    color: inherit;
+}
+
+.bk-admin-sidebar-brand-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--bk-accent), #b8810a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Geist", sans-serif;
+    font-weight: 850;
+    font-size: 18px;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(216, 156, 17, 0.3);
+}
+
+.bk-admin-sidebar-brand-name {
+    font-family: "Geist", sans-serif;
+    font-weight: 850;
+    font-size: 18px;
+    color: #FCFBFF;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.bk-admin-sidebar-brand-tag {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ───── Sidebar nav ───── */
+.bk-admin-sidebar-nav {
+    flex: 1;
+    padding: 16px 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.bk-admin-sidebar-section-label {
+    font-family: "JetBrains Mono", "Geist Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 12px 12px 6px;
+    white-space: nowrap;
+}
+
+.bk-admin-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.15s ease;
+    margin-bottom: 2px;
+    text-decoration: none;
+    position: relative;
+}
+
+.bk-admin-sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #FCFBFF;
+}
+
+.bk-admin-sidebar-item.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #FCFBFF;
+}
+
+.bk-admin-sidebar-item.active::before {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 24px;
+    background: linear-gradient(180deg, var(--bk-accent) 0%, #b8810a 100%);
+    border-radius: 0 4px 4px 0;
+}
+
+.bk-admin-sidebar-item-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bk-admin-sidebar-item-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bk-admin-sidebar-item-badge {
+    background: var(--bk-accent-4);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 100px;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* ───── Sidebar footer (user) ───── */
+.bk-admin-sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bk-admin-sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.bk-admin-sidebar-user:hover { background: rgba(255, 255, 255, 0.05); }
+
+.bk-admin-sidebar-user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--bk-accent), #b8810a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    color: white;
+    flex-shrink: 0;
+}
+
+.bk-admin-sidebar-user-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #FCFBFF;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bk-admin-sidebar-user-role {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+}
+
+/* ───── Admin main ───── */
+.bk-admin-main {
+    margin-left: 280px;
+    min-height: 100vh;
+    transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bk-admin-main.collapsed { margin-left: 84px; }
+
+/* ───── Admin topbar ───── */
+.bk-admin-topbar {
+    height: 64px;
+    background: rgba(251, 250, 246, 0.78);
+    border-bottom: 1px solid rgba(10, 10, 10, 0.08);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.bk-admin-topbar-toggle {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--bk-line);
+    background: rgba(255, 255, 255, 0.74);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bk-ink-2);
+    transition: all 0.15s ease;
+}
+
+.bk-admin-topbar-toggle:hover {
+    border-color: var(--bk-line-strong);
+    background: white;
+    color: var(--bk-ink);
+}
+
+.bk-admin-topbar-search {
+    flex: 1;
+    max-width: 480px;
+    position: relative;
+}
+
+.bk-admin-topbar-search input {
+    width: 100%;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--bk-line);
+    background: rgba(255, 255, 255, 0.74);
+    padding: 0 16px 0 40px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--bk-ink);
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.bk-admin-topbar-search input::placeholder { color: var(--bk-ink-3); }
+
+.bk-admin-topbar-search input:focus {
+    background: white;
+    border-color: var(--bk-ink);
+    box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.06);
+}
+
+.bk-admin-topbar-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bk-ink-3);
+    pointer-events: none;
+    font-size: 20px;
+}
+
+.bk-admin-topbar-icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--bk-line);
+    background: rgba(255, 255, 255, 0.74);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bk-ink-2);
+    position: relative;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.bk-admin-topbar-icon-btn:hover {
+    border-color: var(--bk-line-strong);
+    background: white;
+    color: var(--bk-ink);
+}
+
+.bk-admin-topbar-icon-btn .bk-dot {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--bk-accent-4);
+    border: 2px solid var(--bk-bg);
+}
+
+.bk-admin-topbar-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--bk-ink), #262626);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    margin-left: 8px;
+    text-decoration: none;
+}
+
+/* ───── Admin content ───── */
+.bk-admin-content {
+    padding: 32px 40px 48px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* ───── Admin section header ───── */
+.bk-admin-section-header {
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.bk-admin-section-header-left { flex: 1; min-width: 300px; }
+
+.bk-admin-greeting {
+    font-family: "JetBrains Mono", "Geist Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--bk-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bk-admin-greeting::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--bk-accent-3);
+    box-shadow: 0 0 0 4px rgba(20, 163, 127, 0.14);
+}
+
+.bk-admin-h1 {
+    font-size: 32px;
+    font-weight: 760;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--bk-ink);
+    margin: 0 0 4px 0;
+    font-family: "Geist", sans-serif;
+}
+
+.bk-admin-sub {
+    color: var(--bk-ink-2);
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.bk-admin-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* ───── Admin KPI cards ───── */
+.bk-admin-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.bk-admin-kpi-card {
+    background: var(--bk-bg-strong);
+    border: 1px solid var(--bk-line);
+    border-radius: var(--bk-radius);
+    padding: 24px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.bk-admin-kpi-card:hover {
+    border-color: var(--bk-line-strong);
+    box-shadow: var(--bk-shadow);
+    transform: translateY(-2px);
+}
+
+.bk-admin-kpi-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.bk-admin-kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bk-admin-kpi-icon.blue { background: rgba(108, 99, 255, 0.12); color: var(--bk-accent-2); }
+.bk-admin-kpi-icon.green { background: rgba(20, 163, 127, 0.12); color: var(--bk-accent-3); }
+.bk-admin-kpi-icon.gold { background: rgba(216, 156, 17, 0.12); color: var(--bk-accent); }
+.bk-admin-kpi-icon.pink { background: rgba(232, 93, 117, 0.12); color: var(--bk-accent-4); }
+.bk-admin-kpi-icon.ink { background: rgba(10, 10, 10, 0.08); color: var(--bk-ink); }
+
+.bk-admin-kpi-value {
+    font-family: "Geist", sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--bk-ink);
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+}
+
+.bk-admin-kpi-label {
+    font-family: "JetBrains Mono", "Geist Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--bk-ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+}
+
+.bk-admin-kpi-sub {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--bk-ink-3);
+}
+
+.bk-admin-kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.bk-admin-kpi-delta.up { background: rgba(20, 163, 127, 0.12); color: var(--bk-accent-3); }
+.bk-admin-kpi-delta.down { background: rgba(232, 93, 117, 0.12); color: var(--bk-accent-4); }
+.bk-admin-kpi-delta.neutral { background: var(--bk-muted); color: var(--bk-ink-2); }
+
+/* ───── Admin card (generic) ───── */
+.bk-admin-card {
+    background: var(--bk-bg-strong);
+    border: 1px solid var(--bk-line);
+    border-radius: var(--bk-radius);
+    overflow: hidden;
+}
+
+.bk-admin-card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--bk-line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.bk-admin-card-header h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--bk-ink);
+    margin: 0;
+    font-family: "Geist", sans-serif;
+}
+
+.bk-admin-card-header p {
+    font-size: 12px;
+    color: var(--bk-ink-3);
+    margin: 2px 0 0 0;
+}
+
+.bk-admin-card-content { padding: 20px 24px; }
+
+/* ───── Admin status pills ───── */
+.bk-admin-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", "Geist Mono", monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bk-admin-pill::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.bk-admin-pill.active { background: rgba(20, 163, 127, 0.12); color: var(--bk-accent-3); }
+.bk-admin-pill.probation { background: rgba(216, 156, 17, 0.12); color: var(--bk-accent); }
+.bk-admin-pill.inactive { background: rgba(232, 93, 117, 0.12); color: var(--bk-accent-4); }
+.bk-admin-pill.pending { background: rgba(216, 156, 17, 0.12); color: var(--bk-accent); }
+.bk-admin-pill.approved { background: rgba(20, 163, 127, 0.12); color: var(--bk-accent-3); }
+.bk-admin-pill.rejected { background: rgba(232, 93, 117, 0.12); color: var(--bk-accent-4); }
+
+/* ───── Admin progress bar ───── */
+.bk-admin-progress {
+    height: 8px;
+    background: var(--bk-muted);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.bk-admin-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bk-ink) 0%, var(--bk-accent) 100%);
+    border-radius: 999px;
+    transition: width 0.6s ease;
+}
+
+/* ───── Admin table ───── */
+.bk-admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.bk-admin-table thead th {
+    background: var(--bk-muted);
+    color: var(--bk-ink-3);
+    font-family: "JetBrains Mono", "Geist Mono", monospace;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--bk-line);
+}
+
+.bk-admin-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--bk-line);
+    color: var(--bk-ink);
+    font-size: 13px;
+}
+
+.bk-admin-table tbody tr:last-child td { border-bottom: none; }
+.bk-admin-table tbody tr:hover { background: var(--bk-muted); }
+
+/* ───── Admin avatar ───── */
+.bk-admin-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--bk-ink), #262626);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.bk-admin-avatar.gold { background: linear-gradient(135deg, var(--bk-accent), #b8810a); }
+.bk-admin-avatar.green { background: linear-gradient(135deg, var(--bk-accent-3), #0d8061); }
+.bk-admin-avatar.purple { background: linear-gradient(135deg, var(--bk-accent-2), #4f46e5); }
+.bk-admin-avatar.pink { background: linear-gradient(135deg, var(--bk-accent-4), #be4258); }
+
+/* ───── Admin grid layouts ───── */
+.bk-admin-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+}
+
+@media (max-width: 1200px) {
+    .bk-admin-grid-2 { grid-template-columns: 1fr; }
+}
+
+.bk-admin-grid-2-even {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 900px) {
+    .bk-admin-grid-2-even { grid-template-columns: 1fr; }
+}
+
+/* ───── Admin stat box (in cards) ───── */
+.bk-admin-stat-box {
+    text-align: center;
+    padding: 16px;
+    background: var(--bk-muted);
+    border-radius: var(--bk-radius);
+}
+
+.bk-admin-stat-box-label {
+    font-family: "JetBrains Mono", "Geist Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--bk-ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.bk-admin-stat-box-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--bk-ink);
+    margin-top: 4px;
+    font-family: "Geist", sans-serif;
+}
+
+.bk-admin-stat-box.dark {
+    background: linear-gradient(135deg, var(--bk-ink) 0%, #262626 100%);
+    color: white;
+}
+
+.bk-admin-stat-box.dark .bk-admin-stat-box-label { color: rgba(255, 255, 255, 0.6); }
+.bk-admin-stat-box.dark .bk-admin-stat-box-value { color: var(--bk-accent); }
+
+/* ───── Admin fade-in ───── */
+@keyframes bkAdminFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.bk-admin-fade-in { animation: bkAdminFadeIn 0.5s ease-out; }
+
+/* ───── Responsive ───── */
+@media (max-width: 1024px) {
+    .bk-admin-sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+    }
+    .bk-admin-sidebar.mobile-open { transform: translateX(0); }
+    .bk-admin-main { margin-left: 0 !important; }
+    .bk-admin-content { padding: 20px; }
+}
