@@ -1,0 +1,11 @@
+@* Minimal layout for public pages (login/register/landing) — no sidebar *@
+<main style="min-height:100vh;">
+    <MudPopoverProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
+    @Body
+</main>
+
+@code {
+    [Parameter] public RenderFragment? Body { get; set; }
+}

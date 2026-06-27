@@ -1,0 +1,9 @@
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? Value { get; set; }
+}
+
+<div>
+    <div style="font-size:11px;color:var(--ukuu-text-subtle);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:4px;">@Label</div>
+    <div style="font-size:13px;font-weight:500;color:var(--ukuu-text);">@(string.IsNullOrWhiteSpace(Value) ? "—" : Value)</div>
+</div>

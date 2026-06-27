@@ -1,0 +1,8 @@
+@inject NavigationManager Nav
+@code {
+    protected override void OnInitialized()
+    {
+        // Send anonymous visitors to the public landing page (not directly to /login)
+        Nav.NavigateTo("/landing", forceLoad: true);
+    }
+}

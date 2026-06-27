@@ -1,0 +1,28 @@
+@using System.Web
+@inject IHttpContextAccessor HttpAccessor
+@inject NavigationManager Nav
+
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(UkuuHr.Components.Layout.AdminLayout)">
+            <NotAuthorized>
+                @if (HttpAccessor.HttpContext?.User?.Identity?.IsAuthenticated != true)
+                {
+                    <RedirectToLogin />
+                }
+                else
+                {
+                    <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--ukuu-bg);">
+                        <div style="text-align:center;padding:48px;">
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Color="Color.Error" />
+                            <MudText Typo="Typo.h5" Style="margin-top:16px;">Access Denied</MudText>
+                            <MudText Typo="Typo.body1" Color="Color.Surface" Style="opacity:.6;margin-top:8px;">You don't have permission to view this page.</MudText>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/dashboard"))" Style="margin-top:24px;">Back to Dashboard</MudButton>
+                        </div>
+                    </div>
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

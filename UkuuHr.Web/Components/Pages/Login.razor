@@ -1,0 +1,115 @@
+@page "/login"
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@layout UkuuHr.Components.Layout.PublicLayout
+@attribute [AllowAnonymous]
+
+<div class="ukuu-auth-bg" style="display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div class="ukuu-auth-card ukuu-fade-in">
+        <div style="text-align:center;margin-bottom:36px;">
+            <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#25163F 0%,#6E5F92 100%);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 32px rgba(37,22,63,0.3);">
+                <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:28px;color:#FCFBFF;">U</span>
+            </div>
+            <h1 style="font-size:24px;font-weight:800;color:var(--ukuu-text);margin-bottom:6px;">Welcome back</h1>
+            <p style="color:var(--ukuu-text-muted);font-size:13px;margin:0;">Sign in to your Ukuu HR workspace</p>
+        </div>
+
+        <EditForm Model="@_model" OnValidSubmit="@SignIn" class="ukuu-form">
+            <DataAnnotationsValidator />
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Email Address</label>
+                <MudTextField @bind-Value="_model.Email" Placeholder="you@company.com" Variant="Variant.Outlined" Margin="Margin.None" Required Style="width:100%;"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" IconSize="Size.Small" />
+            </div>
+
+            <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <label style="font-size:12px;font-weight:600;color:var(--ukuu-text-muted);text-transform:uppercase;letter-spacing:0.05em;">Password</label>
+                    <a href="#" style="font-size:12px;color:var(--ukuu-ink);font-weight:600;text-decoration:none;">Forgot?</a>
+                </div>
+                <MudTextField @bind-Value="_model.Password" InputType="@(_showPassword ? InputType.Text : InputType.Password)" Placeholder="••••••••" Variant="Variant.Outlined" Margin="Margin.None" Required Style="width:100%;"
+                              Adornment="Adornment.End" AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)" OnAdornmentClick="@(() => _showPassword = !_showPassword)" />
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 24px;">
+                <MudCheckBox @bind-Value="_model.RememberMe" Color="Color.Primary" Label="Remember me for 30 days" Style="font-size:13px;" />
+            </div>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Submit" FullWidth="true" Size="Size.Large" Style="height:48px;font-size:14px;font-weight:700;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">
+                @if (_signingIn)
+                {
+                    <MudProgressCircular Size="Size.Small" Color="Color.Surface" Style="margin-right:8px;" />
+                    <span>Signing in...</span>
+                }
+                else
+                {
+                    <span>Sign In to Dashboard</span>
+                }
+            </MudButton>
+        </EditForm>
+
+        <div style="display:flex;align-items:center;gap:12px;margin:24px 0;">
+            <div style="flex:1;height:1px;background:var(--ukuu-divider);"></div>
+            <span style="font-size:11px;color:var(--ukuu-text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">or continue with</span>
+            <div style="flex:1;height:1px;background:var(--ukuu-divider);"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" Style="height:44px;border-color:var(--ukuu-border-soft);">
+                <MudIcon Icon="@Icons.Custom.Brands.Google" Size="Size.Small" Style="margin-right:8px;" />
+                <span style="font-weight:600;font-size:13px;">Google</span>
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" Style="height:44px;border-color:var(--ukuu-border-soft);">
+                <MudIcon Icon="@Icons.Custom.Brands.Microsoft" Size="Size.Small" Style="margin-right:8px;" />
+                <span style="font-weight:600;font-size:13px;">Microsoft</span>
+            </MudButton>
+        </div>
+
+        <div style="margin-top:28px;padding:16px;background:var(--ukuu-surface-alt);border:1px dashed var(--ukuu-accent-gold);border-radius:var(--ukuu-radius-md);text-align:center;">
+            <div style="font-size:11px;font-weight:700;color:var(--ukuu-ink);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Demo Credentials</div>
+            <div style="font-size:13px;color:var(--ukuu-text);font-weight:600;">admin@ukuuhr.demo</div>
+            <div style="font-size:13px;color:var(--ukuu-text-muted);font-family:var(--ukuu-font-mono);margin-top:2px;">Admin@2025</div>
+        </div>
+
+        <div style="text-align:center;margin-top:24px;font-size:13px;color:var(--ukuu-text-muted);">
+            Don't have an account? <a href="/register" style="color:var(--ukuu-ink);font-weight:700;text-decoration:none;">Request access</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel _model = new();
+    private bool _showPassword = false;
+    private bool _signingIn = false;
+
+    private async Task SignIn()
+    {
+        _signingIn = true;
+        try
+        {
+            var success = await Auth.SignInAsync(_model.Email, _model.Password, _model.RememberMe);
+            if (success)
+            {
+                Snackbar.Add("Welcome back, Chungu!", Severity.Success);
+                Nav.NavigateTo("/dashboard", forceLoad: true);
+            }
+            else
+            {
+                Snackbar.Add("Invalid email or password. Try admin@ukuuhr.demo / Admin@2025", Severity.Error);
+            }
+        }
+        finally
+        {
+            _signingIn = false;
+        }
+    }
+
+    private class LoginModel
+    {
+        public string Email { get; set; } = "admin@ukuuhr.demo";
+        public string Password { get; set; } = "Admin@2025";
+        public bool RememberMe { get; set; } = true;
+    }
+}

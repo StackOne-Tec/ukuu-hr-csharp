@@ -1,0 +1,220 @@
+@page "/reports"
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+
+<div class="ukuu-fade-in">
+    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+            <h1>Reports & Analytics</h1>
+            <p>Workforce insights — headcount, payroll spend, attendance, and leave trends.</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <MudSelect @bind-Value="_period" Variant="Variant.Outlined" Label="Period" Style="min-width:160px;">
+                <MudSelectItem Value="@("30d")">Last 30 days</MudSelectItem>
+                <MudSelectItem Value="@("90d")">Last quarter</MudSelectItem>
+                <MudSelectItem Value="@("ytd")">Year to date</MudSelectItem>
+            </MudSelect>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Download">Export PDF</MudButton>
+        </div>
+    </div>
+
+    <!-- KPI Row -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:24px;">
+        <div class="ukuu-kpi-card">
+            <div class="ukuu-kpi-label">Total Headcount</div>
+            <div class="ukuu-kpi-value">@_totalEmps</div>
+            <div style="margin-top:8px;font-size:12px;color:var(--ukuu-success);font-weight:600;">↑ 12% vs last quarter</div>
+        </div>
+        <div class="ukuu-kpi-card">
+            <div class="ukuu-kpi-label">Avg Salary</div>
+            <div class="ukuu-kpi-value">ZMW @_avgSalary.ToString("N0")</div>
+            <div style="margin-top:8px;font-size:12px;color:var(--ukuu-warning);font-weight:600;">↑ 4% inflation-adjusted</div>
+        </div>
+        <div class="ukuu-kpi-card">
+            <div class="ukuu-kpi-label">Avg Attendance</div>
+            <div class="ukuu-kpi-value">@_avgAttendance.ToString("0.0")%</div>
+            <div style="margin-top:8px;font-size:12px;color:var(--ukuu-success);font-weight:600;">↑ 2.3% MoM</div>
+        </div>
+        <div class="ukuu-kpi-card">
+            <div class="ukuu-kpi-label">Leave Utilization</div>
+            <div class="ukuu-kpi-value">@_leaveUtil.ToString("0.0")%</div>
+            <div style="margin-top:8px;font-size:12px;color:var(--ukuu-text-subtle);font-weight:600;">— stable</div>
+        </div>
+    </div>
+
+    <!-- Headcount trend chart -->
+    <div class="mud-card" style="margin-bottom:24px;">
+        <div class="mud-card-header">
+            <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Headcount Growth — Last 12 Months</h3>
+            <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">Cumulative employee count by month</p>
+        </div>
+        <div class="mud-card-content">
+            <svg viewBox="0 0 800 240" style="width:100%;height:240px;">
+                @{
+                    var data = new[] { 4, 5, 5, 6, 6, 7, 7, 7, 7, 8, 8, _totalEmps };
+                    var maxData = data.Max();
+                    var w = 800.0; var h = 200.0;
+                    var padding = 40;
+                }
+                <!-- Grid lines -->
+                @for (int i = 0; i <= 4; i++)
+                {
+                    var y = padding + (h - 2 * padding) * i / 4;
+                    <line x1="@padding" y1="@y" x2="@(w-padding)" y2="@y" stroke="var(--ukuu-divider)" stroke-width="1" stroke-dasharray="3 3" />
+                }
+                <!-- Area path -->
+                <path d="@GetAreaPath(data, w, h, padding, maxData)" fill="url(#headcountGradient)" opacity="0.4" />
+                <!-- Line path -->
+                <path d="@GetLinePath(data, w, h, padding, maxData)" fill="none" stroke="#25163F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Data points -->
+                @for (int i = 0; i < data.Length; i++)
+                {
+                    var x = padding + (w - 2 * padding) * i / (data.Length - 1);
+                    var y = padding + (h - 2 * padding) * (1 - (double)data[i] / maxData);
+                    <circle cx="@x" cy="@y" r="4" fill="#25163F" stroke="white" stroke-width="2" />
+                }
+                <defs>
+                    <linearGradient id="headcountGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#25163F" stop-opacity="0.4" />
+                        <stop offset="100%" stop-color="#25163F" stop-opacity="0" />
+                    </linearGradient>
+                </defs>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Two columns -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+        <!-- Department distribution -->
+        <div class="mud-card">
+            <div class="mud-card-header">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">By Department</h3>
+                <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">Headcount distribution</p>
+            </div>
+            <div class="mud-card-content">
+                @{
+                    var total = _byDept.Values.Sum();
+                    var colors = new[] { "#25163F", "#4A3C68", "#6E5F92", "#9C8FB8", "#5E4B85", "#7B6A9F", "#B8A7D4" };
+                }
+                <div style="display:flex;align-items:center;gap:24px;">
+                    <svg width="160" height="160" viewBox="0 0 160 160">
+                        @{
+                            var cumulative = 0.0;
+                            var idx = 0;
+                        }
+                        @foreach (var dept in _byDept.OrderByDescending(d => d.Value))
+                        {
+                            var pct = (double)dept.Value / total;
+                            var startAngle = cumulative * 2 * Math.PI - Math.PI / 2;
+                            var endAngle = (cumulative + pct) * 2 * Math.PI - Math.PI / 2;
+                            var x1 = 80 + 70 * Math.Cos(startAngle);
+                            var y1 = 80 + 70 * Math.Sin(startAngle);
+                            var x2 = 80 + 70 * Math.Cos(endAngle);
+                            var y2 = 80 + 70 * Math.Sin(endAngle);
+                            var largeArc = pct > 0.5 ? 1 : 0;
+                            var pathD = $"M 80 80 L {x1:F2} {y1:F2} A 70 70 0 {largeArc} 1 {x2:F2} {y2:F2} Z";
+                            <path d="@pathD" fill="@colors[idx % colors.Length]" />
+                            cumulative += pct;
+                            idx++;
+                        }
+                        <circle cx="80" cy="80" r="40" fill="var(--ukuu-surface)" />
+                    </svg>
+                    <div style="position:absolute;top:50%;left:80px;transform:translate(-50%,-50%);text-align:center;width:80px;">
+                        <div style="font-size:22px;font-weight:800;color:var(--ukuu-ink);line-height:1;">@total</div>
+                        <div style="font-size:10px;color:var(--ukuu-text-muted);font-weight:600;margin-top:4px;">EMPLOYEES</div>
+                    </div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+                        @{ idx = 0; }
+                        @foreach (var dept in _byDept.OrderByDescending(d => d.Value))
+                        {
+                            <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+                                <span style="width:10px;height:10px;border-radius:3px;background:@colors[idx % colors.Length];"></span>
+                                <span style="flex:1;color:var(--ukuu-text-muted);">@dept.Key</span>
+                                <span style="font-weight:700;color:var(--ukuu-text);">@dept.Value</span>
+                                <span style="color:var(--ukuu-text-subtle);width:36px;text-align:right;">@(((double)dept.Value / total * 100).ToString("0"))%</span>
+                            </div>
+                            idx++;
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payroll trend -->
+        <div class="mud-card">
+            <div class="mud-card-header">
+                <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Payroll Spend — Last 6 Months</h3>
+                <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">Total monthly gross payroll</p>
+            </div>
+            <div class="mud-card-content">
+                <svg viewBox="0 0 400 200" style="width:100%;height:200px;">
+                    @{
+                        var bars = new[] { 85000.0, 92000, 98000, 102000, 108000, 115000 };
+                        var maxBar = bars.Max();
+                    }
+                    @for (int i = 0; i < bars.Length; i++)
+                    {
+                        var barH = (bars[i] / maxBar) * 140;
+                        var x = 40 + i * 60;
+                        <rect x="@x" y="@(180-barH)" width="40" height="@barH" fill="url(#barGradient)" rx="6" />
+                    }
+                    <defs>
+                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#6E5F92" />
+                            <stop offset="100%" stop-color="#25163F" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _period = "90d";
+    private int _totalEmps;
+    private double _avgSalary;
+    private double _avgAttendance;
+    private double _leaveUtil;
+    private Dictionary<string, int> _byDept = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        var emps = await Db.Employees.Where(e => e.OrganizationId == org.Id).ToListAsync();
+        _totalEmps = emps.Count;
+        _avgSalary = emps.Any() ? emps.Average(e => e.BasicSalary) : 0;
+        _byDept = emps.Where(e => e.Department != null).GroupBy(e => e.Department!).ToDictionary(g => g.Key, g => g.Count());
+
+        var attendance = await Db.Attendances.Where(a => a.OrganizationId == org.Id && a.Date >= DateTime.Today.AddDays(-30)).ToListAsync();
+        _avgAttendance = attendance.Any() ? attendance.Count(a => a.Status != AttendanceStatus.Absent) * 100.0 / attendance.Count : 0;
+
+        var totalLeave = 21; // annual entitlement
+        var approvedLeaves = await Db.LeaveRequests
+            .Where(l => l.OrganizationId == org.Id && l.Status == LeaveRequestStatus.Approved)
+            .ToListAsync();
+        var usedLeave = approvedLeaves.Where(l => l.StartDate.Year == DateTime.Now.Year).Sum(l => l.RequestedDays);
+        var divisor = totalLeave * _totalEmps;
+        _leaveUtil = divisor > 0 ? Math.Min(100, usedLeave * 100.0 / divisor) : 0;
+    }
+
+    private string GetLinePath(int[] data, double w, double h, int padding, int max)
+    {
+        var pts = data.Select((v, i) => new {
+            X = padding + (w - 2 * padding) * i / (data.Length - 1),
+            Y = padding + (h - 2 * padding) * (1 - (double)v / max)
+        }).ToList();
+        return "M " + string.Join(" L ", pts.Select(p => $"{p.X:0.00} {p.Y:0.00}"));
+    }
+
+    private string GetAreaPath(int[] data, double w, double h, int padding, int max)
+    {
+        var pts = data.Select((v, i) => new {
+            X = padding + (w - 2 * padding) * i / (data.Length - 1),
+            Y = padding + (h - 2 * padding) * (1 - (double)v / max)
+        }).ToList();
+        return $"M {pts.First().X:0.00} {h - padding} L " + string.Join(" L ", pts.Select(p => $"{p.X:0.00} {p.Y:0.00}")) + $" L {pts.Last().X:0.00} {h - padding} Z";
+    }
+}

@@ -1,0 +1,130 @@
+@page "/employees"
+@using Microsoft.EntityFrameworkCore
+@inject EmployeeService EmployeeSvc
+@inject UkuuHrDbContext Db
+
+<div class="ukuu-fade-in">
+    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+            <h1>Employee Directory</h1>
+            <p>Manage your workforce — @_employees.Count active employees across @_departments.Count departments.</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Upload">Import CSV</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Download">Export</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="@(() => Nav.NavigateTo("/employees/add"))" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Add Employee</MudButton>
+        </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="mud-card" style="margin-bottom:24px;">
+        <div class="mud-card-content" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:16px 24px !important;">
+            <div style="flex:1;min-width:260px;position:relative;">
+                <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ukuu-text-subtle);font-size:20px;">search</span>
+                <input type="text" @bind="_search" @bind:event="oninput" @onclick="LoadAsync" placeholder="Search by name, email, code or job title..." style="width:100%;height:40px;border:1px solid var(--ukuu-border-soft);border-radius:8px;background:var(--ukuu-surface-alt);padding:0 16px 0 40px;font-family:inherit;font-size:13px;outline:none;" />
+            </div>
+            <MudSelect @bind-Value="_filterDept" Variant="Variant.Outlined" Label="Department" Style="min-width:180px;" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Business">
+                <MudSelectItem Value="@("All")">All Departments</MudSelectItem>
+                @foreach (var d in _departments)
+                {
+                    <MudSelectItem Value="@d">@d</MudSelectItem>
+                }
+            </MudSelect>
+            <MudSelect @bind-Value="_filterStatus" Variant="Variant.Outlined" Label="Status" Style="min-width:140px;" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.FilterList">
+                <MudSelectItem Value="@("All")">All Status</MudSelectItem>
+                <MudSelectItem Value="@("Active")">Active</MudSelectItem>
+                <MudSelectItem Value="@("Probation")">Probation</MudSelectItem>
+                <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
+            </MudSelect>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div style="display:flex;justify-content:center;padding:60px;"><div class="ukuu-loader"></div></div>
+    }
+    else
+    {
+        <div class="mud-card" style="overflow:hidden;">
+            <MudTable Items="@_filtered" Hover="true" Elevation="0" Style="border-radius:0;">
+                <HeaderContent>
+                    <MudTh>Employee</MudTh>
+                    <MudTh>Department</MudTh>
+                    <MudTh>Job Title</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Salary</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <MudAvatar Color="Color.Primary" Size="Size.Medium" Style="background:linear-gradient(135deg,#25163F,#6E5F92);">@context.Initials</MudAvatar>
+                            <div>
+                                <div style="font-weight:600;color:var(--ukuu-text);font-size:13px;">@context.FullName</div>
+                                <div style="font-size:11px;color:var(--ukuu-text-subtle);">@context.Email · @context.EmployeeCode</div>
+                            </div>
+                        </div>
+                    </MudTd>
+                    <MudTd Style="font-weight:500;">@context.Department</MudTd>
+                    <MudTd>@context.JobTitle</MudTd>
+                    <MudTd>
+                        <span style="font-size:12px;color:var(--ukuu-text-muted);">@context.ContractType</span>
+                    </MudTd>
+                    <MudTd>
+                        <div style="font-weight:600;color:var(--ukuu-ink);">@context.DisplayCurrency @context.BasicSalary.ToString("N0")</div>
+                        <div style="font-size:11px;color:var(--ukuu-text-subtle);">+@context.TotalAllowances.ToString("N0") allowances</div>
+                    </MudTd>
+                    <MudTd>
+                        <span class="ukuu-status-pill @(context.Status == EmploymentStatus.Active ? "ukuu-status-active" : context.Status == EmploymentStatus.Probation ? "ukuu-status-probation" : "ukuu-status-inactive")">
+                            @context.StatusDisplay
+                        </span>
+                    </MudTd>
+                    <MudTd Style="text-align:right;">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Default" Size="Size.Small" OnClick="@(() => Nav.NavigateTo($"/employees/{context.Id}"))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => Nav.NavigateTo($"/employees/{context.Id}/edit"))" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <div class="ukuu-empty">
+                        <div class="ukuu-empty-icon"><span class="material-icons-round">person_off</span></div>
+                        <h3 style="font-size:16px;margin-bottom:4px;">No employees found</h3>
+                        <p style="font-size:13px;">Try adjusting your search or filters, or add a new employee.</p>
+                    </div>
+                </NoRecordsContent>
+            </MudTable>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Employee> _employees = new();
+    private List<string> _departments = new();
+    private bool _loading = true;
+    private string _search = string.Empty;
+    private string _filterDept = "All";
+    private string _filterStatus = "All";
+
+    private IEnumerable<Employee> _filtered => _employees.Where(e =>
+        (string.IsNullOrWhiteSpace(_search) ||
+         e.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+         (e.Email ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+         (e.EmployeeCode ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+         (e.JobTitle ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase)) &&
+        (_filterDept == "All" || e.Department == _filterDept) &&
+        (_filterStatus == "All" || e.StatusDisplay == _filterStatus));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org != null)
+        {
+            _employees = await EmployeeSvc.GetAllAsync(org.Id);
+            _departments = await EmployeeSvc.GetDepartmentsAsync(org.Id);
+        }
+        _loading = false;
+    }
+}

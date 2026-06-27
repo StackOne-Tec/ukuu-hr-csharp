@@ -1,0 +1,36 @@
+# ───────── .NET ─────────
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+.vs/
+.idea/
+
+# ───────── Build outputs ─────────
+[Uu]kuuhr.db
+[Uu]kuuhr.db-*
+*.db-shm
+*.db-wal
+*.db
+appsettings.*.Development.json
+
+# ───────── IDE ─────────
+.vscode/
+*.swp
+*~
+
+# ───────── OS ─────────
+.DS_Store
+Thumbs.db
+
+# ───────── Logs ─────────
+*.log
+logs/
+
+# ───────── Secrets ─────────
+appsettings.*.Local.json
+.env
+.env.*

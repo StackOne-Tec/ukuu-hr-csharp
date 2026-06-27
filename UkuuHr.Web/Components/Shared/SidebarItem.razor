@@ -1,0 +1,57 @@
+@code {
+    [Parameter] public string Icon { get; set; } = "dashboard";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Url { get; set; } = "";
+    [Parameter] public bool Active { get; set; }
+    [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public string? Badge { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string IconClass => Icon switch
+    {
+        "dashboard" => "dashboard",
+        "people" => "groups",
+        "schedule" => "schedule",
+        "event_available" => "event_available",
+        "payments" => "payments",
+        "calendar_month" => "calendar_month",
+        "folder" => "folder",
+        "forum" => "forum",
+        "bar_chart" => "bar_chart",
+        "settings" => "settings",
+        "shield" => "shield",
+        "receipt_long" => "receipt_long",
+        _ => "dashboard"
+    };
+
+    private string MaterialIcon => Icon switch
+    {
+        "dashboard" => "dashboard",
+        "people" => "groups",
+        "schedule" => "schedule",
+        "event_available" => "event_available",
+        "payments" => "payments",
+        "calendar_month" => "calendar_month",
+        "folder" => "folder",
+        "forum" => "forum",
+        "bar_chart" => "bar_chart",
+        "settings" => "settings",
+        "shield" => "shield",
+        "receipt_long" => "receipt_long",
+        _ => "dashboard"
+    };
+}
+
+<div class="ukuu-sidebar-item @(Active ? "active" : "")" @onclick="OnClick" title="@(Collapsed ? Label : null)">
+    <span class="ukuu-sidebar-item-icon">
+        <span class="material-icons-round" style="font-size:20px;">@MaterialIcon</span>
+    </span>
+    @if (!Collapsed)
+    {
+        <span class="ukuu-sidebar-item-text">@Label</span>
+        @if (!string.IsNullOrEmpty(Badge))
+        {
+            <span class="ukuu-sidebar-item-badge">@Badge</span>
+        }
+    }
+</div>

@@ -1,0 +1,144 @@
+@page "/messages"
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+
+<div class="ukuu-fade-in">
+    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+            <h1>HR Messages</h1>
+            <p>Internal messaging across your organization — announcements, 1:1s, and team chats.</p>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">New Conversation</MudButton>
+    </div>
+
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:24px;height:calc(100vh - 220px);">
+
+        <!-- Conversation list -->
+        <div class="mud-card" style="display:flex;flex-direction:column;overflow:hidden;">
+            <div class="mud-card-header" style="padding:16px !important;">
+                <div style="position:relative;width:100%;">
+                    <input type="text" placeholder="Search conversations..." style="width:100%;height:36px;border:1px solid var(--ukuu-border-soft);border-radius:8px;background:var(--ukuu-surface-alt);padding:0 12px 0 36px;font-family:inherit;font-size:13px;outline:none;" />
+                    <span class="material-icons-round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ukuu-text-subtle);font-size:18px;">search</span>
+                </div>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:8px;">
+                @foreach (var conv in _conversations)
+                {
+                    <div @onclick="() => Select(conv)"
+                         style="padding:12px;border-radius:10px;cursor:pointer;margin-bottom:4px;background:@(conv.Id == _selected?.Id ? "var(--ukuu-surface-alt)" : "transparent");border-left:@(conv.Id == _selected?.Id ? "3px solid var(--ukuu-ink)" : "3px solid transparent");transition:background 0.15s ease;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                            <MudAvatar Color="Color.Primary" Size="Size.Small" Style="background:linear-gradient(135deg,#25163F,#6E5F92);">@GetInitials(conv.Subject)</MudAvatar>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:13px;font-weight:600;color:var(--ukuu-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@conv.Subject</div>
+                                <div style="font-size:11px;color:var(--ukuu-text-subtle);">@(conv.LastMessageTime?.ToString("HH:mm") ?? "—")</div>
+                            </div>
+                        </div>
+                        <div style="font-size:12px;color:var(--ukuu-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(conv.LastMessage ?? "No messages yet")</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Conversation thread -->
+        @if (_selected != null)
+        {
+            <div class="mud-card" style="display:flex;flex-direction:column;overflow:hidden;">
+                <div class="mud-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">@_selected.Subject</h3>
+                        <p style="font-size:11px;color:var(--ukuu-text-muted);margin:0;">@_messages.Count messages</p>
+                    </div>
+                    <div style="display:flex;gap:4px;">
+                        <MudIconButton Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+                        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" />
+                    </div>
+                </div>
+
+                <div style="flex:1;overflow-y:auto;padding:24px;background:var(--ukuu-surface-alt);display:flex;flex-direction:column;gap:12px;">
+                    @foreach (var msg in _messages)
+                    {
+                        var isMe = msg.SenderId == "admin-001";
+                        <div style="display:flex;flex-direction:column;align-items:@(isMe ? "flex-end" : "flex-start");max-width:70%;align-self:@(isMe ? "flex-end" : "flex-start");">
+                            <div style="background:@(isMe ? "linear-gradient(135deg,#25163F,#4A3C68)" : "var(--ukuu-surface)");color:@(isMe ? "#FCFBFF" : "var(--ukuu-text)");padding:10px 14px;border-radius:@(isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px");border:1px solid @(isMe ? "transparent" : "var(--ukuu-border-soft)");font-size:13px;line-height:1.5;">
+                                @msg.Content
+                            </div>
+                            <div style="font-size:10px;color:var(--ukuu-text-subtle);margin-top:4px;">@msg.SenderName · @msg.SentAt.ToString("HH:mm")</div>
+                        </div>
+                    }
+                </div>
+
+                <div style="padding:16px;border-top:1px solid var(--ukuu-border-soft);display:flex;gap:8px;">
+                    <input type="text" @bind="_newMessage" placeholder="Type a message..." style="flex:1;height:42px;border:1px solid var(--ukuu-border-soft);border-radius:10px;background:var(--ukuu-surface-alt);padding:0 16px;font-family:inherit;font-size:13px;outline:none;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Icon="@Icons.Material.Filled.Send" OnClick="@Send" Style="background:linear-gradient(135deg,#25163F,#4A3C68) !important;" />
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="mud-card" style="display:flex;align-items:center;justify-content:center;background:var(--ukuu-surface-alt);">
+                <div class="ukuu-empty">
+                    <div class="ukuu-empty-icon"><span class="material-icons-round">forum</span></div>
+                    <h3 style="font-size:16px;margin-bottom:4px;">Select a conversation</h3>
+                    <p style="font-size:13px;">Choose a conversation from the list to view messages.</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<HrConversation> _conversations = new();
+    private HrConversation? _selected;
+    private List<HrMessage> _messages = new();
+    private string _newMessage = string.Empty;
+    private int _orgId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        _conversations = await Db.HrConversations
+            .Where(c => c.OrganizationId == _orgId)
+            .OrderByDescending(c => c.LastMessageTime ?? c.CreatedAt)
+            .ToListAsync();
+        if (_conversations.Any()) await Select(_conversations.First());
+    }
+
+    private async Task Select(HrConversation conv)
+    {
+        _selected = conv;
+        _messages = await Db.HrMessages
+            .Where(m => m.ConversationId == conv.Id)
+            .OrderBy(m => m.SentAt)
+            .ToListAsync();
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(_newMessage) || _selected == null) return;
+        var msg = new HrMessage
+        {
+            ConversationId = _selected.Id,
+            SenderId = "admin-001",
+            SenderName = "Chungu Chama",
+            SenderRole = UserRole.SuperAdmin,
+            SenderInitials = "CC",
+            Content = _newMessage,
+            SentAt = DateTime.UtcNow
+        };
+        Db.HrMessages.Add(msg);
+        _selected.LastMessage = _newMessage;
+        _selected.LastMessageTime = DateTime.UtcNow;
+        _selected.LastSenderId = "admin-001";
+        await Db.SaveChangesAsync();
+        _newMessage = string.Empty;
+        await Select(_selected);
+    }
+
+    private string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length < 2 ? (name.Length > 2 ? name[..2].ToUpper() : name.ToUpper()) : $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+}

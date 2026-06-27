@@ -1,0 +1,160 @@
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpAccessor
+@implements IDisposable
+
+@code {
+    [Parameter] public RenderFragment? Body { get; set; }
+    private bool _collapsed = false;
+    private bool _mobileOpen = false;
+    private string _searchText = string.Empty;
+    private string _currentUrl = string.Empty;
+    private bool _userMenuOpen = false;
+    private string _userName = "Chungu Chama";
+    private string _userEmail = "admin@ukuuhr.demo";
+    private string _userRole = "Super Admin";
+
+    protected override void OnInitialized()
+    {
+        _currentUrl = Nav.ToBaseRelativePath(Nav.Uri);
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _currentUrl = Nav.ToBaseRelativePath(e.Location);
+        _mobileOpen = false;
+        StateHasChanged();
+    }
+
+    private bool IsActive(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return false;
+        var current = _currentUrl.Split('?')[0].Split('#')[0];
+        if (url == "dashboard" && (string.IsNullOrEmpty(current) || current == "")) return true;
+        return current.StartsWith(url, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ToggleSidebar() { _collapsed = !_collapsed; }
+    private void ToggleMobile() { _mobileOpen = !_mobileOpen; }
+    private void CloseMobile() { _mobileOpen = false; }
+
+    private async Task Logout()
+    {
+        Nav.NavigateTo("/logout", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}
+
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="ukuu-sidebar @(_collapsed ? "collapsed" : "") @(_mobileOpen ? "mobile-open" : "")">
+    <a href="/dashboard" class="ukuu-sidebar-brand" style="text-decoration:none;">
+        <div class="ukuu-sidebar-brand-logo">U</div>
+        @if (!_collapsed)
+        {
+            <div class="ukuu-sidebar-brand-text">
+                <div class="ukuu-sidebar-brand-name">Ukuu HR</div>
+                <div class="ukuu-sidebar-brand-tag">HRMS Platform</div>
+            </div>
+        }
+    </a>
+
+    <nav class="ukuu-sidebar-nav">
+        @if (!_collapsed)
+        {
+            <div class="ukuu-sidebar-section-label">Workspace</div>
+        }
+
+        <SidebarItem Icon="dashboard" Label="Dashboard" Url="dashboard" Active="@IsActive("dashboard")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/dashboard"))" />
+        <SidebarItem Icon="people" Label="Employees" Url="employees" Active="@IsActive("employees")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/employees"))" />
+        <SidebarItem Icon="schedule" Label="Attendance" Url="attendance" Active="@IsActive("attendance")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/attendance"))" />
+        <SidebarItem Icon="event_available" Label="Leave" Url="leave" Active="@IsActive("leave")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/leave"))" Badge="3" />
+        <SidebarItem Icon="payments" Label="Payroll" Url="payroll" Active="@IsActive("payroll")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/payroll"))" Badge="4" />
+        <SidebarItem Icon="calendar_month" Label="Scheduling" Url="scheduling" Active="@IsActive("scheduling")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/scheduling"))" />
+
+        @if (!_collapsed)
+        {
+            <div class="ukuu-sidebar-section-label">Operations</div>
+        }
+
+        <SidebarItem Icon="folder" Label="Documents" Url="documents" Active="@IsActive("documents")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/documents"))" />
+        <SidebarItem Icon="forum" Label="Messages" Url="messages" Active="@IsActive("messages")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/messages"))" />
+        <SidebarItem Icon="bar_chart" Label="Reports" Url="reports" Active="@IsActive("reports")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/reports"))" />
+
+        @if (!_collapsed)
+        {
+            <div class="ukuu-sidebar-section-label">Administration</div>
+        }
+
+        <SidebarItem Icon="settings" Label="Settings" Url="settings" Active="@IsActive("settings")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/settings"))" />
+        <SidebarItem Icon="shield" Label="Security & Audit" Url="security" Active="@IsActive("security")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/security"))" />
+        <SidebarItem Icon="receipt_long" Label="Billing" Url="billing" Active="@IsActive("billing")" Collapsed="@_collapsed" OnClick="@(() => Nav.NavigateTo("/billing"))" />
+    </nav>
+
+    <div class="ukuu-sidebar-footer">
+        <div class="ukuu-sidebar-user">
+            <div class="ukuu-sidebar-user-avatar">CC</div>
+            @if (!_collapsed)
+            {
+                <div style="overflow:hidden;flex:1;min-width:0;">
+                    <div class="ukuu-sidebar-user-name">@_userName</div>
+                    <div class="ukuu-sidebar-user-role">@_userRole</div>
+                </div>
+            }
+            @if (!_collapsed)
+            {
+                <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" Color="Color.Inherit" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.BottomLeft" Style="color:rgba(252,251,255,0.6);">
+                    <MudMenuItem Icon="@Icons.Material.Filled.Person" OnClick="@(() => Nav.NavigateTo("/settings"))">Profile Settings</MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="@Logout">Sign Out</MudMenuItem>
+                </MudMenu>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="ukuu-main @(_collapsed ? "collapsed" : "")">
+    <header class="ukuu-topbar no-print">
+        <button class="ukuu-topbar-icon-btn" @onclick="ToggleSidebar" style="border:none;background:transparent;">
+            <MudIcon Icon="@Icons.Material.Filled.Menu" Size="Size.Medium" />
+        </button>
+
+        <div class="ukuu-topbar-search">
+            <span class="ukuu-topbar-search-icon">
+                <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small" />
+            </span>
+            <input type="text" placeholder="Search employees, payroll, leave..." @bind="_searchText" />
+        </div>
+
+        <div style="flex:1"></div>
+
+        <button class="ukuu-topbar-icon-btn" title="Sync status">
+            <MudIcon Icon="@Icons.Material.Filled.CloudDone" Size="Size.Small" />
+        </button>
+
+        <button class="ukuu-topbar-icon-btn" title="Notifications">
+            <MudIcon Icon="@Icons.Material.Filled.Notifications" Size="Size.Small" />
+            <span class="ukuu-dot"></span>
+        </button>
+
+        <button class="ukuu-topbar-icon-btn" title="Help">
+            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" />
+        </button>
+
+        <MudAvatar Color="Color.Primary" Size="Size.Medium" Style="margin-left:8px;cursor:pointer;">CC</MudAvatar>
+    </header>
+
+    @if (_mobileOpen)
+    {
+        <div @onclick="CloseMobile" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;"></div>
+    }
+
+    <main class="ukuu-content">
+        @Body
+    </main>
+</div>

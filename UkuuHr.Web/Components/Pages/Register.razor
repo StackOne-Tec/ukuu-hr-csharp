@@ -1,0 +1,74 @@
+@page "/register"
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@layout UkuuHr.Components.Layout.PublicLayout
+@attribute [AllowAnonymous]
+
+<div class="ukuu-auth-bg" style="display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div class="ukuu-auth-card ukuu-fade-in" style="max-width:560px;">
+        <div style="text-align:center;margin-bottom:32px;">
+            <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#25163F 0%,#6E5F92 100%);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 32px rgba(37,22,63,0.3);">
+                <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:24px;color:#FCFBFF;">U</span>
+            </div>
+            <h1 style="font-size:22px;font-weight:800;color:var(--ukuu-text);margin-bottom:6px;">Request Access</h1>
+            <p style="color:var(--ukuu-text-muted);font-size:13px;margin:0;">Submit your details — our team will review and activate your workspace within 24 hours.</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <MudTextField T="string" Label="First Name" Variant="Variant.Outlined" Required />
+            <MudTextField T="string" Label="Last Name" Variant="Variant.Outlined" Required />
+        </div>
+        <div style="margin-top:12px;">
+            <MudTextField T="string" Label="Work Email" Variant="Variant.Outlined" Required Style="width:100%;" />
+        </div>
+        <div style="margin-top:12px;">
+            <MudTextField T="string" Label="Phone Number" Variant="Variant.Outlined" Style="width:100%;" />
+        </div>
+        <div style="margin-top:12px;">
+            <MudTextField T="string" Label="Organization Name" Variant="Variant.Outlined" Required Style="width:100%;" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+            <MudSelect T="string" Label="Country" Variant="Variant.Outlined" Value="@("Zambia")">
+                <MudSelectItem T="string" Value="@("Zambia")">Zambia</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Tanzania")">Tanzania</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Malawi")">Malawi</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Kenya")">Kenya</MudSelectItem>
+                <MudSelectItem T="string" Value="@("South Africa")">South Africa</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="string" Label="Industry" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("Technology")">Technology</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Finance")">Finance</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Healthcare")">Healthcare</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Education")">Education</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Manufacturing")">Manufacturing</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Other")">Other</MudSelectItem>
+            </MudSelect>
+        </div>
+
+        <div style="margin:24px 0 16px;display:flex;align-items:flex-start;gap:8px;">
+            <MudCheckBox @bind-Value="_agree" Color="Color.Primary" />
+            <span style="font-size:12px;color:var(--ukuu-text-muted);">
+                I agree to the <a href="#" style="color:var(--ukuu-ink);font-weight:600;">Terms of Service</a>
+                and <a href="#" style="color:var(--ukuu-ink);font-weight:600;">Privacy Policy</a>.
+            </span>
+        </div>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Disabled="@(!_agree)" OnClick="@Submit" Style="height:48px;font-weight:700;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">
+            Submit Request
+        </MudButton>
+
+        <div style="text-align:center;margin-top:24px;font-size:13px;color:var(--ukuu-text-muted);">
+            Already have an account? <a href="/login" style="color:var(--ukuu-ink);font-weight:700;text-decoration:none;">Sign in</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _agree = false;
+
+    private void Submit()
+    {
+        Snackbar.Add("Request submitted! Our team will contact you within 24 hours.", Severity.Success);
+        Nav.NavigateTo("/login");
+    }
+}

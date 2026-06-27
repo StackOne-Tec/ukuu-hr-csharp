@@ -1,0 +1,245 @@
+@page "/payroll/calculator"
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+
+<div class="ukuu-fade-in">
+    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+            <div style="margin-bottom:6px;">
+                <a href="/payroll" style="color:var(--ukuu-text-muted);text-decoration:none;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">← Back to Payroll</a>
+            </div>
+            <h1>Payroll Calculator</h1>
+            <p>Live gross-to-net calculation using ZRA 2025 PAYE bands and statutory rates.</p>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+        <!-- LEFT: Inputs -->
+        <div class="mud-card">
+            <div class="mud-card-header">
+                <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Inputs</h3>
+                <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Adjust the values below — calculation is live.</p>
+            </div>
+            <div class="mud-card-content" style="display:flex;flex-direction:column;gap:16px;">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Select Employee (Optional)</label>
+                    <MudSelect @bind-Value="_selectedEmpId" T="int" Variant="Variant.Outlined" FullWidth="true">
+                        <MudSelectItem T="int" Value="0">— Custom calculation —</MudSelectItem>
+                        @foreach (var emp in _employees)
+                        {
+                            <MudSelectItem T="int" Value="@emp.Id">@emp.FullName (@emp.JobTitle)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Basic Monthly Salary (ZMW)</label>
+                    <MudNumericField @bind-Value="_basicSalary" Variant="Variant.Outlined" FullWidth="true" Min="0" Adornment="Adornment.Start" AdornmentText="ZMW" />
+                </div>
+
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <label style="font-size:12px;font-weight:600;color:var(--ukuu-text-muted);text-transform:uppercase;letter-spacing:0.05em;">Allowances</label>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="@AddAllowance">Add</MudButton>
+                    </div>
+                    @foreach (var a in _allowances)
+                    {
+                        <div style="display:grid;grid-template-columns:1fr 100px 100px 90px 32px;gap:6px;margin-bottom:6px;align-items:end;">
+                            <MudTextField @bind-Value="a.Name" Placeholder="Name" Variant="Variant.Outlined" />
+                            <MudNumericField @bind-Value="a.Amount" Placeholder="Amount" Variant="Variant.Outlined" />
+                            <MudSelect @bind-Value="a.Type" Variant="Variant.Outlined">
+                                <MudSelectItem Value="@AllowanceTypeInput.Fixed">Fixed</MudSelectItem>
+                                <MudSelectItem Value="@AllowanceTypeInput.Percentage">Percent</MudSelectItem>
+                            </MudSelect>
+                            <MudCheckBox @bind-Value="a.Taxable" Label="Tax" Color="Color.Primary" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => _allowances.Remove(a))" />
+                        </div>
+                    }
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Overtime Hours</label>
+                        <MudNumericField @bind-Value="_overtimeHours" Variant="Variant.Outlined" FullWidth="true" Min="0" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">OT Rate/Hr</label>
+                        <MudNumericField @bind-Value="_overtimeRate" Variant="Variant.Outlined" FullWidth="true" Min="0" />
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Bonuses (one-time)</label>
+                    <MudNumericField @bind-Value="_bonuses" Variant="Variant.Outlined" FullWidth="true" Min="0" Adornment="Adornment.Start" AdornmentText="ZMW" />
+                </div>
+
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--ukuu-text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Other Deductions</label>
+                    <MudNumericField @bind-Value="_otherDeductions" Variant="Variant.Outlined" FullWidth="true" Min="0" Adornment="Adornment.Start" AdornmentText="ZMW" />
+                </div>
+
+                <MudAlert Severity="Severity.Info" Variant="Variant.Text" Style="margin-top:8px;">
+                    <strong>Country:</strong> Zambia · NAPSA @(_cfg.NapsaPercent)% (cap ZMW @_cfg.NapsaCeiling.ToString("N0")) · NHIMA @(_cfg.NhimaPercent)% · PAYE ZRA 2025
+                </MudAlert>
+            </div>
+        </div>
+
+        <!-- RIGHT: Result -->
+        <div style="display:flex;flex-direction:column;gap:24px;">
+            <!-- Net pay hero -->
+            <div class="mud-card" style="background:linear-gradient(135deg,#25163F 0%,#180D2E 100%);color:#FCFBFF;overflow:hidden;position:relative;">
+                <div style="position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:radial-gradient(circle,rgba(156,143,184,0.3) 0%,transparent 70%);border-radius:50%;"></div>
+                <div class="mud-card-content" style="position:relative;z-index:1;">
+                    <div style="font-size:12px;color:rgba(252,251,255,0.7);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Net Take-Home Pay</div>
+                    <div style="font-size:48px;font-weight:800;letter-spacing:-0.03em;line-height:1;">ZMW <span style="color:#9C8FB8;">@(_calc?.Net.ToString("N0") ?? "0")</span></div>
+                    <div style="display:flex;justify-content:space-between;margin-top:24px;padding-top:24px;border-top:1px solid rgba(252,251,255,0.1);">
+                        <div>
+                            <div style="font-size:11px;color:rgba(252,251,255,0.6);text-transform:uppercase;font-weight:600;">Gross</div>
+                            <div style="font-size:18px;font-weight:700;margin-top:2px;">@(_calc?.Gross.ToString("N0") ?? "0")</div>
+                        </div>
+                        <div>
+                            <div style="font-size:11px;color:rgba(252,251,255,0.6);text-transform:uppercase;font-weight:600;">Deductions</div>
+                            <div style="font-size:18px;font-weight:700;margin-top:2px;color:#FCA5A5;">@(_calc?.TotalDeductions.ToString("N0") ?? "0")</div>
+                        </div>
+                        <div>
+                            <div style="font-size:11px;color:rgba(252,251,255,0.6);text-transform:uppercase;font-weight:600;">Effective Tax</div>
+                            <div style="font-size:18px;font-weight:700;margin-top:2px;">@(_calc?.EffectivePayePercent.ToString("0.0") ?? "0")%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Breakdown -->
+            <div class="mud-card">
+                <div class="mud-card-header">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Pay Breakdown</h3>
+                    <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">Itemized gross-to-net</p>
+                </div>
+                <div class="mud-card-content" style="padding:8px 24px !important;">
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                        <span style="font-size:13px;color:var(--ukuu-text-muted);">Basic Salary</span>
+                        <span style="font-size:13px;font-weight:600;">@(_calc?.Basic.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                        <span style="font-size:13px;color:var(--ukuu-text-muted);">Taxable Allowances</span>
+                        <span style="font-size:13px;font-weight:600;">@(_calc?.TaxableAllowances.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                        <span style="font-size:13px;color:var(--ukuu-text-muted);">Non-Taxable Allowances</span>
+                        <span style="font-size:13px;font-weight:600;">@(_calc?.NonTaxableAllowances.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                        <span style="font-size:13px;color:var(--ukuu-text-muted);">Overtime Pay (@_overtimeHours hrs)</span>
+                        <span style="font-size:13px;font-weight:600;">@(_calc?.OvertimePay.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:2px solid var(--ukuu-text);font-weight:700;">
+                        <span style="font-size:14px;">Gross Salary</span>
+                        <span style="font-size:14px;color:var(--ukuu-ink);">@(_calc?.Gross.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                        <span style="font-size:13px;color:var(--ukuu-warning);">− NAPSA (@(_cfg.NapsaPercent)% capped)</span>
+                        <span style="font-size:13px;font-weight:600;color:var(--ukuu-warning);">−@(_calc?.Napsa.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                        <span style="font-size:13px;color:var(--ukuu-warning);">− NHIMA (@(_cfg.NhimaPercent)%)</span>
+                        <span style="font-size:13px;font-weight:600;color:var(--ukuu-warning);">−@(_calc?.Nhima.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                        <span style="font-size:13px;color:var(--ukuu-error);">− PAYE (progressive)</span>
+                        <span style="font-size:13px;font-weight:600;color:var(--ukuu-error);">−@(_calc?.Paye.ToString("N0") ?? "0")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px 0;font-weight:800;">
+                        <span style="font-size:15px;color:var(--ukuu-ink);">Net Pay</span>
+                        <span style="font-size:15px;color:var(--ukuu-success);">@(_calc?.Net.ToString("N0") ?? "0")</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAYE bands -->
+            @if (_calc?.PayeBreakdown?.Any() == true)
+            {
+                <div class="mud-card">
+                    <div class="mud-card-header">
+                        <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">PAYE Tax Bands</h3>
+                        <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">ZRA 2025 progressive brackets (computed on taxable income after NAPSA)</p>
+                    </div>
+                    <div class="mud-card-content" style="padding:0 !important;">
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:var(--ukuu-surface-alt);">
+                                    <th style="text-align:left;padding:10px 24px;font-size:11px;text-transform:uppercase;color:var(--ukuu-text-muted);font-weight:600;letter-spacing:0.05em;">Band</th>
+                                    <th style="text-align:right;padding:10px 16px;font-size:11px;text-transform:uppercase;color:var(--ukuu-text-muted);font-weight:600;letter-spacing:0.05em;">Rate</th>
+                                    <th style="text-align:right;padding:10px 16px;font-size:11px;text-transform:uppercase;color:var(--ukuu-text-muted);font-weight:600;letter-spacing:0.05em;">Taxable</th>
+                                    <th style="text-align:right;padding:10px 24px;font-size:11px;text-transform:uppercase;color:var(--ukuu-text-muted);font-weight:600;letter-spacing:0.05em;">Tax</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var band in _calc.PayeBreakdown)
+                                {
+                                    <tr style="border-bottom:1px solid var(--ukuu-divider);">
+                                        <td style="padding:12px 24px;font-size:13px;font-weight:500;">@band.Label</td>
+                                        <td style="padding:12px 16px;font-size:13px;text-align:right;">@(band.Rate)%</td>
+                                        <td style="padding:12px 16px;font-size:13px;text-align:right;color:var(--ukuu-text-muted);">@band.Taxable.ToString("N0")</td>
+                                        <td style="padding:12px 24px;font-size:13px;text-align:right;font-weight:700;color:var(--ukuu-error);">@band.Tax.ToString("N0")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Employee> _employees = new();
+    private int _selectedEmpId = 0;
+    private double _basicSalary = 15000;
+    private double _overtimeHours = 0;
+    private double _overtimeRate = 0;
+    private double _bonuses = 0;
+    private double _otherDeductions = 0;
+    private List<AllowanceInput> _allowances = new();
+    private PayrollCountryConfig _cfg = PayrollCountryConfig.Zambia();
+    private PayrollCalculation? _calc;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org != null) _employees = await Db.Employees.Where(e => e.OrganizationId == org.Id).OrderBy(e => e.FirstName).ToListAsync();
+        _allowances.Add(new AllowanceInput { Name = "Housing", Amount = 3000, Type = AllowanceTypeInput.Fixed, Taxable = true });
+        _allowances.Add(new AllowanceInput { Name = "Transport", Amount = 1500, Type = AllowanceTypeInput.Fixed, Taxable = true });
+        Recalculate();
+    }
+
+    protected override void OnParametersSet() => Recalculate();
+
+    private void AddAllowance() => _allowances.Add(new AllowanceInput { Name = "", Amount = 0, Type = AllowanceTypeInput.Fixed, Taxable = true });
+
+    private void Recalculate()
+    {
+        _calc = PayrollCalculator.Calculate(_basicSalary, _allowances, _overtimeHours, _overtimeRate, _bonuses, _otherDeductions, _cfg);
+    }
+
+    // When user selects an employee, populate inputs from their data
+    private async Task OnEmployeeChange()
+    {
+        if (_selectedEmpId > 0)
+        {
+            var emp = _employees.FirstOrDefault(e => e.Id == _selectedEmpId);
+            if (emp != null)
+            {
+                _basicSalary = emp.BasicSalary;
+                _allowances = emp.Allowances.Select(a => new AllowanceInput
+                {
+                    Name = a.Name, Amount = a.Amount,
+                    Type = a.Type == AllowanceType.Percentage ? AllowanceTypeInput.Percentage : AllowanceTypeInput.Fixed,
+                    Taxable = a.Taxable
+                }).ToList();
+                _overtimeRate = emp.EffectiveHourlyRate * 1.5;
+                Recalculate();
+            }
+        }
+    }
+}

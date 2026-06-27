@@ -1,0 +1,134 @@
+@page "/attendance"
+@using Microsoft.EntityFrameworkCore
+@inject AttendanceService AttendanceSvc
+@inject UkuuHrDbContext Db
+
+<div class="ukuu-fade-in">
+    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+            <h1>Time & Attendance</h1>
+            <p>Track daily attendance, clock-in/out, and review timesheets for @_today.ToString("dd MMMM yyyy").</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <MudDatePicker @bind-Value="_selectedDate" Variant="Variant.Outlined" Label="Select Date" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Upload">Import</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Fingerprint" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Clock In/Out</MudButton>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
+        <div class="ukuu-kpi-card" style="padding:16px;">
+            <div class="ukuu-kpi-label">Present</div>
+            <div class="ukuu-kpi-value" style="color:var(--ukuu-success);">@_present</div>
+        </div>
+        <div class="ukuu-kpi-card" style="padding:16px;">
+            <div class="ukuu-kpi-label">Late Arrivals</div>
+            <div class="ukuu-kpi-value" style="color:var(--ukuu-warning);">@_late</div>
+        </div>
+        <div class="ukuu-kpi-card" style="padding:16px;">
+            <div class="ukuu-kpi-label">On Leave</div>
+            <div class="ukuu-kpi-value" style="color:#7C3AED;">@_onLeave</div>
+        </div>
+        <div class="ukuu-kpi-card" style="padding:16px;">
+            <div class="ukuu-kpi-label">Absent</div>
+            <div class="ukuu-kpi-value" style="color:var(--ukuu-error);">@_absent</div>
+        </div>
+        <div class="ukuu-kpi-card" style="padding:16px;">
+            <div class="ukuu-kpi-label">Remote</div>
+            <div class="ukuu-kpi-value">@_remote</div>
+        </div>
+    </div>
+
+    <!-- Filter chips -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        @foreach (var f in new[] { "all", "present", "late", "absent", "onleave", "remote" })
+        {
+            <button @onclick="() => _filter = f"
+                    style="padding:8px 14px;border-radius:100px;border:1px solid @(f == _filter ? "var(--ukuu-ink)" : "var(--ukuu-border-soft)");background:@(f == _filter ? "var(--ukuu-ink)" : "var(--ukuu-surface)");color:@(f == _filter ? "#FCFBFF" : "var(--ukuu-text-muted)");font-weight:600;font-size:12px;cursor:pointer;text-transform:capitalize;">
+                @(f == "onleave" ? "On Leave" : f)
+            </button>
+        }
+    </div>
+
+    <!-- Attendance table -->
+    <div class="mud-card" style="overflow:hidden;">
+        <MudTable Items="@_filtered" Hover="true" Elevation="0">
+            <HeaderContent>
+                <MudTh>Employee</MudTh>
+                <MudTh>Department</MudTh>
+                <MudTh>Check In</MudTh>
+                <MudTh>Check Out</MudTh>
+                <MudTh>Hours</MudTh>
+                <MudTh>Status</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <MudAvatar Color="Color.Primary" Size="Size.Small" Style="background:linear-gradient(135deg,#25163F,#6E5F92);">@GetInitials(context.EmployeeName)</MudAvatar>
+                        <div style="font-weight:600;font-size:13px;">@context.EmployeeName</div>
+                    </div>
+                </MudTd>
+                <MudTd>@GetDept(context.EmployeeId)</MudTd>
+                <MudTd>@context.CheckInLabel</MudTd>
+                <MudTd>@context.CheckOutLabel</MudTd>
+                <MudTd Style="font-weight:600;">@(context.WorkedHours > 0 ? context.WorkedHours.ToString("0.0") + "h" : "—")</MudTd>
+                <MudTd>
+                    <span class="ukuu-status-pill @(context.Status == AttendanceStatus.Present ? "ukuu-status-active" : context.Status == AttendanceStatus.Late ? "ukuu-status-pending" : context.Status == AttendanceStatus.Absent ? "ukuu-status-inactive" : "ukuu-status-probation")">
+                        @context.Status
+                    </span>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <div class="ukuu-empty">
+                    <div class="ukuu-empty-icon"><span class="material-icons-round">event_busy</span></div>
+                    <p style="font-size:13px;">No attendance records for this date.</p>
+                </div>
+            </NoRecordsContent>
+        </MudTable>
+    </div>
+</div>
+
+@code {
+    private DateTime _today = DateTime.Today;
+    private DateTime _selectedDate = DateTime.Today;
+    private string _filter = "all";
+    private List<Attendance> _records = new();
+    private List<Employee> _employees = new();
+    private int _present, _late, _absent, _onLeave, _remote;
+    private int _orgId;
+
+    private IEnumerable<Attendance> _filtered => _filter switch
+    {
+        "present" => _records.Where(a => a.Status == AttendanceStatus.Present),
+        "late" => _records.Where(a => a.Status == AttendanceStatus.Late),
+        "absent" => _records.Where(a => a.Status == AttendanceStatus.Absent),
+        "onleave" => _records.Where(a => a.Status == AttendanceStatus.OnLeave),
+        "remote" => _records.Where(a => a.Status == AttendanceStatus.Remote),
+        _ => _records
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        _records = await AttendanceSvc.ForDateAsync(_orgId, _selectedDate);
+        _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+        _present = _records.Count(r => r.Status == AttendanceStatus.Present);
+        _late = _records.Count(r => r.Status == AttendanceStatus.Late);
+        _absent = _records.Count(r => r.Status == AttendanceStatus.Absent);
+        _onLeave = _records.Count(r => r.Status == AttendanceStatus.OnLeave);
+        _remote = _records.Count(r => r.Status == AttendanceStatus.Remote);
+    }
+
+    private string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length < 2 ? (name.Length > 2 ? name[..2].ToUpper() : name.ToUpper()) : $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+
+    private string GetDept(int empId) => _employees.FirstOrDefault(e => e.Id == empId)?.Department ?? "—";
+}

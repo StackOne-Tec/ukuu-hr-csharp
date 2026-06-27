@@ -1,0 +1,271 @@
+@page "/employees/{Id:int}"
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+
+<div class="ukuu-fade-in">
+    @if (_emp == null)
+    {
+        <div class="ukuu-empty">
+            <div class="ukuu-empty-icon"><span class="material-icons-round">person_off</span></div>
+            <h3 style="font-size:16px;margin-bottom:4px;">Employee not found</h3>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/employees"))">Back to Employees</MudButton>
+        </div>
+    }
+    else
+    {
+        <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
+            <div>
+                <div style="margin-bottom:6px;">
+                    <a href="/employees" style="color:var(--ukuu-text-muted);text-decoration:none;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">← Back to Employees</a>
+                </div>
+                <h1>@_emp.FullName</h1>
+                <p>@_emp.JobTitle · @_emp.Department · @_emp.EmployeeCode</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Download">Download Profile</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => Nav.NavigateTo($"/employees/{_emp.Id}/edit"))" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Edit Profile</MudButton>
+            </div>
+        </div>
+
+        <!-- Profile hero -->
+        <div class="mud-card" style="margin-bottom:24px;overflow:hidden;">
+            <div style="height:120px;background:linear-gradient(135deg,#25163F 0%,#4A3C68 50%,#6E5F92 100%);position:relative;">
+                <div style="position:absolute;inset:0;background-image:radial-gradient(circle at 20% 30%,rgba(156,143,184,0.4) 0%,transparent 50%);"></div>
+            </div>
+            <div style="padding:0 32px 24px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:-40px;">
+                    <div style="display:flex;align-items:flex-end;gap:16px;">
+                        <MudAvatar Color="Color.Primary" Style="width:80px;height:80px;border:4px solid var(--ukuu-surface);background:linear-gradient(135deg,#25163F,#6E5F92);font-size:28px;font-weight:800;">@_emp.Initials</MudAvatar>
+                        <div style="margin-bottom:8px;">
+                            <h2 style="font-size:24px;font-weight:800;margin-bottom:4px;">@_emp.FullName</h2>
+                            <div style="display:flex;gap:12px;align-items:center;">
+                                <span style="font-size:13px;color:var(--ukuu-text-muted);">@_emp.JobTitle</span>
+                                <span class="ukuu-status-pill @(_emp.Status == EmploymentStatus.Active ? "ukuu-status-active" : _emp.Status == EmploymentStatus.Probation ? "ukuu-status-probation" : "ukuu-status-inactive")">@_emp.StatusDisplay</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:24px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="material-icons-round" style="color:var(--ukuu-text-subtle);font-size:18px;">email</span>
+                        <div>
+                            <div style="font-size:11px;color:var(--ukuu-text-subtle);text-transform:uppercase;font-weight:600;">Email</div>
+                            <div style="font-size:13px;font-weight:500;">@(_emp.Email ?? "—")</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="material-icons-round" style="color:var(--ukuu-text-subtle);font-size:18px;">phone</span>
+                        <div>
+                            <div style="font-size:11px;color:var(--ukuu-text-subtle);text-transform:uppercase;font-weight:600;">Phone</div>
+                            <div style="font-size:13px;font-weight:500;">@(_emp.Phone ?? "—")</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="material-icons-round" style="color:var(--ukuu-text-subtle);font-size:18px;">event</span>
+                        <div>
+                            <div style="font-size:11px;color:var(--ukuu-text-subtle);text-transform:uppercase;font-weight:600;">Joined</div>
+                            <div style="font-size:13px;font-weight:500;">@(_emp.JoiningDate?.ToString("dd MMM yyyy") ?? "—")</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="material-icons-round" style="color:var(--ukuu-text-subtle);font-size:18px;">business</span>
+                        <div>
+                            <div style="font-size:11px;color:var(--ukuu-text-subtle);text-transform:uppercase;font-weight:600;">Department</div>
+                            <div style="font-size:13px;font-weight:500;">@(_emp.Department ?? "—")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:4px;border-bottom:1px solid var(--ukuu-border-soft);margin-bottom:24px;overflow-x:auto;">
+            <div class="ukuu-tab @(_tab == "overview" ? "active" : "")" @onclick="@(() => _tab = "overview")">Overview</div>
+            <div class="ukuu-tab @(_tab == "employment" ? "active" : "")" @onclick="@(() => _tab = "employment")">Employment</div>
+            <div class="ukuu-tab @(_tab == "banking" ? "active" : "")" @onclick="@(() => _tab = "banking")">Banking</div>
+            <div class="ukuu-tab @(_tab == "payroll" ? "active" : "")" @onclick="@(() => _tab = "payroll")">Payroll History</div>
+            <div class="ukuu-tab @(_tab == "documents" ? "active" : "")" @onclick="@(() => _tab = "documents")">Documents</div>
+        </div>
+
+        @if (_tab == "overview")
+        {
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+                <div class="mud-card">
+                    <div class="mud-card-header"><h3 style="font-size:16px;font-weight:700;">Personal Information</h3></div>
+                    <div class="mud-card-content" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <Field Label="Title" Value="@_emp.Title" />
+                        <Field Label="Gender" Value="@_emp.Gender" />
+                        <Field Label="Date of Birth" Value="@(_emp.DateOfBirth?.ToString("dd MMM yyyy"))" />
+                        <Field Label="Marital Status" Value="@_emp.MaritalStatus" />
+                        <Field Label="Nationality" Value="@_emp.Nationality" />
+                        <Field Label="National ID" Value="@_emp.NationalIdentityNumber" />
+                        <Field Label="Passport" Value="@_emp.PassportNumber" />
+                        <Field Label="Residency" Value="@_emp.ResidencyStatus" />
+                    </div>
+                </div>
+                <div class="mud-card">
+                    <div class="mud-card-header"><h3 style="font-size:16px;font-weight:700;">Contact & Emergency</h3></div>
+                    <div class="mud-card-content" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <Field Label="Email" Value="@_emp.Email" />
+                        <Field Label="Phone" Value="@_emp.Phone" />
+                        <Field Label="Street Address" Value="@_emp.StreetAddress" />
+                        <Field Label="City" Value="@_emp.City" />
+                        <Field Label="Postal Code" Value="@_emp.PostalCode" />
+                        <Field Label="Country" Value="@_emp.Country" />
+                        <Field Label="Emergency Contact" Value="@_emp.EmergencyContactName" />
+                        <Field Label="Emergency Phone" Value="@_emp.EmergencyContactPhone" />
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_tab == "employment")
+        {
+            <div class="mud-card">
+                <div class="mud-card-header"><h3 style="font-size:16px;font-weight:700;">Employment Details</h3></div>
+                <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+                    <Field Label="Employee Code" Value="@_emp.EmployeeCode" />
+                    <Field Label="Job Title" Value="@_emp.JobTitle" />
+                    <Field Label="Department" Value="@_emp.Department" />
+                    <Field Label="Status" Value="@_emp.StatusDisplay" />
+                    <Field Label="Contract Type" Value="@_emp.ContractType" />
+                    <Field Label="Joining Date" Value="@(_emp.JoiningDate?.ToString("dd MMM yyyy"))" />
+                    <Field Label="Contract End" Value="@(_emp.ContractEndDate?.ToString("dd MMM yyyy"))" />
+                    <Field Label="Reporting Manager" Value="@_emp.ReportingManagerName" />
+                    <Field Label="Place of Work" Value="@_emp.PlaceOfWork" />
+                    <Field Label="Work Hours/Week" Value="@_emp.WorkHoursPerWeek.ToString()" />
+                    <Field Label="Holiday Entitlement" Value="@(_emp.HolidayEntitlementDays?.ToString() + " days")" />
+                    <Field Label="Probation" Value="@(_emp.ProbationaryPeriodMonths?.ToString() + " months")" />
+                </div>
+            </div>
+        }
+        else if (_tab == "banking")
+        {
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+                <div class="mud-card">
+                    <div class="mud-card-header"><h3 style="font-size:16px;font-weight:700;">Compensation</h3></div>
+                    <div class="mud-card-content">
+                        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Basic Salary</span>
+                            <span style="font-size:14px;font-weight:700;">@_emp.DisplayCurrency @_emp.BasicSalary.ToString("N0")</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Total Allowances</span>
+                            <span style="font-size:14px;font-weight:700;">@_emp.DisplayCurrency @_emp.TotalAllowances.ToString("N0")</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Gross Salary</span>
+                            <span style="font-size:16px;font-weight:800;color:var(--ukuu-ink);">@_emp.DisplayCurrency @_emp.GrossSalary.ToString("N0")</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:12px 0;">
+                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Hourly Rate</span>
+                            <span style="font-size:14px;font-weight:700;">@_emp.DisplayCurrency @_emp.EffectiveHourlyRate.ToString("N2")</span>
+                        </div>
+                        @if (_emp.Allowances.Any())
+                        {
+                            <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--ukuu-divider);">
+                                <div style="font-size:11px;font-weight:700;color:var(--ukuu-text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Allowances</div>
+                                @foreach (var a in _emp.Allowances)
+                                {
+                                    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+                                        <span>@a.Name @(a.Taxable ? "" : "(non-taxable)")</span>
+                                        <span style="font-weight:600;">@(a.Type == AllowanceType.Percentage ? $"{a.Amount}% of basic" : $"{a.Amount:N0}")</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="mud-card">
+                    <div class="mud-card-header"><h3 style="font-size:16px;font-weight:700;">Bank Account</h3></div>
+                    <div class="mud-card-content" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <Field Label="Beneficiary" Value="@_emp.BeneficiaryName" />
+                        <Field Label="Bank Name" Value="@_emp.BankName" />
+                        <Field Label="Branch" Value="@_emp.Branch" />
+                        <Field Label="Account Number" Value="@_emp.AccountNumber" />
+                        <Field Label="IBAN" Value="@_emp.IbanNumber" />
+                        <Field Label="SWIFT/BIC" Value="@_emp.SwiftCode" />
+                        <Field Label="Routing Number" Value="@_emp.RoutingNumbers" />
+                        <Field Label="Mobile Money" Value="@_emp.MobileMoney" />
+                        <Field Label="TPIN" Value="@_emp.Tpin" />
+                        <Field Label="NAPSA Number" Value="@_emp.NapsaNumber" />
+                        <Field Label="NHIMA Number" Value="@_emp.HealthInsuranceNumber" />
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_tab == "payroll")
+        {
+            <div class="mud-card" style="overflow:hidden;">
+                <MudTable Items="@_payrollRuns" Hover="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Period</MudTh>
+                        <MudTh>Gross</MudTh>
+                        <MudTh>PAYE</MudTh>
+                        <MudTh>NAPSA</MudTh>
+                        <MudTh>Net Pay</MudTh>
+                        <MudTh>Status</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd Style="font-weight:600;">@context.PeriodLabel</MudTd>
+                        <MudTd>@context.Currency @context.Gross.ToString("N0")</MudTd>
+                        <MudTd Style="color:var(--ukuu-error);">@context.Paye.ToString("N0")</MudTd>
+                        <MudTd Style="color:var(--ukuu-warning);">@context.Napsa.ToString("N0")</MudTd>
+                        <MudTd Style="font-weight:700;color:var(--ukuu-success);">@context.Net.ToString("N0")</MudTd>
+                        <MudTd><span class="ukuu-status-pill @(context.ApprovalStatus == PayrollApprovalStatus.Approved ? "ukuu-status-approved" : "ukuu-status-pending")">@context.ApprovalStatus</span></MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <div class="ukuu-empty">
+                            <div class="ukuu-empty-icon"><span class="material-icons-round">receipt_long</span></div>
+                            <p style="font-size:13px;">No payroll runs yet for this employee.</p>
+                        </div>
+                    </NoRecordsContent>
+                </MudTable>
+            </div>
+        }
+        else if (_tab == "documents")
+        {
+            <div class="mud-card" style="overflow:hidden;">
+                <MudTable Items="@_documents" Hover="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>Document</MudTh>
+                        <MudTh>Category</MudTh>
+                        <MudTh>Size</MudTh>
+                        <MudTh>Uploaded</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd Style="font-weight:600;">@context.Name</MudTd>
+                        <MudTd>@context.Category</MudTd>
+                        <MudTd Style="font-family:var(--ukuu-font-mono);font-size:12px;">@context.FormattedSize</MudTd>
+                        <MudTd Style="font-size:12px;color:var(--ukuu-text-muted);">@context.UploadedAt.ToString("dd MMM yyyy")</MudTd>
+                        <MudTd><MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small" /></MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <div class="ukuu-empty"><p style="font-size:13px;">No documents uploaded.</p></div>
+                    </NoRecordsContent>
+                </MudTable>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private Employee? _emp;
+    private List<PayrollRun> _payrollRuns = new();
+    private List<EmployeeDocument> _documents = new();
+    private string _tab = "overview";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _emp = await Db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == org.Id && e.Id == Id);
+        if (_emp != null)
+        {
+            _payrollRuns = await Db.PayrollRuns.Where(p => p.EmployeeId == _emp.Id).OrderByDescending(p => p.Year).ThenByDescending(p => p.Month).ToListAsync();
+            _documents = await Db.EmployeeDocuments.Where(d => d.EmployeeId == _emp.Id).OrderByDescending(d => d.UploadedAt).ToListAsync();
+        }
+    }
+}

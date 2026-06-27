@@ -1,0 +1,60 @@
+/* UKUU HR — Base app stylesheet
+   Most styles live in ukuu.css; this file holds Blazor-required bits. */
+
+html, body { margin: 0; padding: 0; }
+
+#blazor-error-ui {
+    background: #FEE2E2;
+    color: #DC2626;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0,0,0,0.2);
+    display: none;
+    left: 0;
+    padding: 1rem 1.5rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss { cursor: pointer; margin-left: 1rem; }
+
+.loading-progress {
+    position: relative;
+    display: block;
+    width: 8rem;
+    height: 8rem;
+    margin: 20vh auto 1rem auto;
+}
+
+.loading-progress circle {
+    fill: none;
+    stroke: #25163F;
+    stroke-width: 0.1rem;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+}
+
+.loading-progress circle:last-child {
+    stroke: #9C8FB8;
+    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+    transition: stroke-dasharray 0.05s ease-in-out;
+}
+
+.loading-progress-text {
+    position: relative;
+    text-align: center;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    color: #4A3C68;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+}
+
+code {
+    background: #F3F1F6;
+    color: #25163F;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.875em;
+}
