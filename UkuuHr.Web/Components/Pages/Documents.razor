@@ -2,30 +2,37 @@
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
 
-<div class="ukuu-fade-in">
-    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
-        <div>
-            <h1>HR Documents</h1>
-            <p>Manage employee files, contracts, payslips, and HR policies.</p>
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">HR Documents · @_docs.Count files</div>
+            <h1 class="bk-admin-h1">HR Documents</h1>
+            <p class="bk-admin-sub">Manage employee files, contracts, payslips, and HR policies.</p>
         </div>
-        <div style="display:flex;gap:8px;">
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Download">Export</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.UploadFile" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Upload Document</MudButton>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export
+            </button>
+            <button class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">upload_file</span>
+                Upload Document
+            </button>
         </div>
     </div>
 
     <!-- Categories -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:24px;">
         @foreach (var cat in _categories)
         {
-            <div class="mud-card ukuu-card-hover" style="padding:20px;cursor:pointer;">
+            <div class="bk-admin-kpi-card" style="padding:20px;cursor:pointer;">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-                    <div style="width:40px;height:40px;border-radius:10px;background:@(cat.Color + "22");color:@cat.Color;display:flex;align-items:center;justify-content:center;">
+                    <div class="bk-admin-kpi-icon @cat.Color" style="width:40px;height:40px;">
                         <span class="material-icons-round">@cat.Icon</span>
                     </div>
                     <div style="flex:1;">
-                        <div style="font-size:13px;font-weight:700;color:var(--ukuu-text);">@cat.Name</div>
-                        <div style="font-size:11px;color:var(--ukuu-text-subtle);">@cat.Count documents</div>
+                        <div style="font-size:13px;font-weight:700;color:var(--bk-ink);">@cat.Name</div>
+                        <div style="font-size:11px;color:var(--bk-ink-3);">@cat.Count documents</div>
                     </div>
                 </div>
             </div>
@@ -33,74 +40,92 @@
     </div>
 
     <!-- Documents table -->
-    <div class="mud-card" style="overflow:hidden;">
-        <div class="mud-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <div class="bk-admin-card" style="overflow:hidden;margin-bottom:24px;">
+        <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">All Documents</h3>
-                <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">Recently uploaded files</p>
+                <h3>All Documents</h3>
+                <p>Recently uploaded files</p>
             </div>
             <div style="position:relative;">
-                <input type="text" @bind="_search" placeholder="Search documents..." style="height:36px;border:1px solid var(--ukuu-border-soft);border-radius:8px;background:var(--ukuu-surface-alt);padding:0 12px 0 36px;font-family:inherit;font-size:13px;outline:none;width:280px;" />
-                <span class="material-icons-round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ukuu-text-subtle);font-size:18px;">search</span>
+                <input type="text" @bind="_search" placeholder="Search documents..." style="height:36px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 12px 0 36px;font-family:inherit;font-size:13px;outline:none;width:280px;" />
+                <span class="material-icons-round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:18px;">search</span>
             </div>
         </div>
-        <MudTable Items="@_filteredDocs" Hover="true" Elevation="0">
-            <HeaderContent>
-                <MudTh>Document</MudTh>
-                <MudTh>Employee</MudTh>
-                <MudTh>Category</MudTh>
-                <MudTh>Size</MudTh>
-                <MudTh>Uploaded By</MudTh>
-                <MudTh>Date</MudTh>
-                <MudTh></MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="width:32px;height:32px;border-radius:8px;background:var(--ukuu-error-bg);color:var(--ukuu-error);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">PDF</div>
-                        <div>
-                            <div style="font-weight:600;font-size:13px;">@context.Name</div>
-                            <div style="font-size:11px;color:var(--ukuu-text-subtle);">@context.Type</div>
-                        </div>
-                    </div>
-                </MudTd>
-                <MudTd>@GetEmployee(context.EmployeeId)</MudTd>
-                <MudTd><span class="ukuu-status-pill ukuu-status-active" style="background:#EDE0FE;color:#7C3AED;">@context.Category</span></MudTd>
-                <MudTd Style="font-family:var(--ukuu-font-mono);font-size:12px;">@context.FormattedSize</MudTd>
-                <MudTd Style="font-size:12px;">@(context.UploadedByName ?? "—")</MudTd>
-                <MudTd Style="font-size:12px;color:var(--ukuu-text-muted);">@context.UploadedAt.ToString("dd MMM yyyy")</MudTd>
-                <MudTd>
-                    <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" />
-                </MudTd>
-            </RowTemplate>
-            <NoRecordsContent>
-                <div class="ukuu-empty">
-                    <div class="ukuu-empty-icon"><span class="material-icons-round">folder_off</span></div>
-                    <p style="font-size:13px;">No documents uploaded yet.</p>
+        <table class="bk-admin-table">
+            <thead>
+                <tr>
+                    <th>Document</th>
+                    <th>Employee</th>
+                    <th>Category</th>
+                    <th>Size</th>
+                    <th>Uploaded By</th>
+                    <th>Date</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in _filteredDocs)
+                {
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="width:32px;height:32px;border-radius:8px;background:rgba(232,93,117,0.12);color:var(--bk-accent-4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">@(d.Type == DocumentType.Pdf ? "PDF" : d.Type == DocumentType.Image ? "IMG" : d.Type == DocumentType.Excel ? "XLS" : d.Type == DocumentType.Word ? "DOC" : "FILE")</div>
+                                <div>
+                                    <div style="font-weight:600;font-size:13px;">@d.Name</div>
+                                    <div style="font-size:11px;color:var(--bk-ink-3);">@d.Type</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>@GetEmployee(d.EmployeeId)</td>
+                        <td><span class="bk-admin-pill pending" style="background:rgba(108,99,255,0.12);color:var(--bk-accent-2);">@d.Category</span></td>
+                        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">@d.FormattedSize</td>
+                        <td style="font-size:12px;">@(d.UploadedByName ?? "—")</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@d.UploadedAt.ToString("dd MMM yyyy")</td>
+                        <td style="text-align:right;">
+                            <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;display:inline-flex;" title="Download">
+                                <span class="material-icons-round" style="font-size:16px;">download</span>
+                            </button>
+                            <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;display:inline-flex;margin-left:4px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);" title="Delete">
+                                <span class="material-icons-round" style="font-size:16px;">delete</span>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!_filteredDocs.Any())
+        {
+            <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">folder_off</span>
                 </div>
-            </NoRecordsContent>
-        </MudTable>
+                <p style="font-size:13px;">No documents uploaded yet.</p>
+            </div>
+        }
     </div>
 
     <!-- Policies -->
-    <div class="mud-card" style="margin-top:24px;overflow:hidden;">
-        <div class="mud-card-header">
-            <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Organization Policies</h3>
-            <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">HR-wide policy documents available to all employees</p>
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <div class="bk-admin-card-header">
+            <div>
+                <h3>Organization Policies</h3>
+                <p>HR-wide policy documents available to all employees</p>
+            </div>
         </div>
-        <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
+        <div class="bk-admin-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
             @foreach (var policy in _policies)
             {
-                <div style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--ukuu-border-soft);border-radius:10px;">
-                    <div style="width:36px;height:36px;border-radius:8px;background:var(--ukuu-ink);color:white;display:flex;align-items:center;justify-content:center;">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--bk-line);border-radius:10px;">
+                    <div class="bk-admin-avatar" style="width:36px;height:36px;font-size:14px;">
                         <span class="material-icons-round" style="font-size:18px;">description</span>
                     </div>
                     <div style="flex:1;min-width:0;">
-                        <div style="font-weight:600;font-size:13px;color:var(--ukuu-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@policy.Title</div>
-                        <div style="font-size:11px;color:var(--ukuu-text-subtle);">@(policy.Description?.Length > 60 ? policy.Description[..60] + "..." : policy.Description)</div>
+                        <div style="font-weight:600;font-size:13px;color:var(--bk-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@policy.Title</div>
+                        <div style="font-size:11px;color:var(--bk-ink-3);">@(policy.Description?.Length > 60 ? policy.Description[..60] + "..." : policy.Description)</div>
                     </div>
-                    <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small" />
+                    <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;" title="Download">
+                        <span class="material-icons-round" style="font-size:16px;">download</span>
+                    </button>
                 </div>
             }
         </div>
@@ -129,12 +154,12 @@
         _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
         _categories = new()
         {
-            ("Contracts", "description", "#25163F", _docs.Count(d => d.Category == DocumentCategory.Contract)),
-            ("Payslips", "receipt_long", "#16A34A", _docs.Count(d => d.Category == DocumentCategory.Payslip)),
-            ("Identity", "badge", "#2563EB", _docs.Count(d => d.Category == DocumentCategory.Identity)),
-            ("Compliance", "verified_user", "#F59E0B", _docs.Count(d => d.Category == DocumentCategory.Compliance)),
-            ("Policies", "gavel", "#7C3AED", _docs.Count(d => d.Category == DocumentCategory.Policy)),
-            ("Other", "folder", "#6B7280", _docs.Count(d => d.Category == DocumentCategory.Other))
+            ("Contracts", "description", "ink", _docs.Count(d => d.Category == DocumentCategory.Contract)),
+            ("Payslips", "receipt_long", "green", _docs.Count(d => d.Category == DocumentCategory.Payslip)),
+            ("Identity", "badge", "blue", _docs.Count(d => d.Category == DocumentCategory.Identity)),
+            ("Compliance", "verified_user", "gold", _docs.Count(d => d.Category == DocumentCategory.Compliance)),
+            ("Policies", "gavel", "purple", _docs.Count(d => d.Category == DocumentCategory.Policy)),
+            ("Other", "folder", "pink", _docs.Count(d => d.Category == DocumentCategory.Other))
         };
     }
 

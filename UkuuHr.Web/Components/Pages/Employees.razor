@@ -3,96 +3,122 @@
 @inject EmployeeService EmployeeSvc
 @inject UkuuHrDbContext Db
 
-<div class="ukuu-fade-in">
-    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
-        <div>
-            <h1>Employee Directory</h1>
-            <p>Manage your workforce — @_employees.Count active employees across @_departments.Count departments.</p>
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Workforce · @_employees.Count total employees</div>
+            <h1 class="bk-admin-h1">Employee Directory</h1>
+            <p class="bk-admin-sub">Manage your workforce — @_filtered.Count() active employees across @_departments.Count departments.</p>
         </div>
-        <div style="display:flex;gap:8px;">
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Upload">Import CSV</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Download">Export</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="@(() => Nav.NavigateTo("/employees/add"))" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Add Employee</MudButton>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">upload</span>
+                Import CSV
+            </button>
+            <button class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export
+            </button>
+            <a href="/employees/add" class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">person_add</span>
+                Add Employee
+            </a>
         </div>
     </div>
 
     <!-- Filter bar -->
-    <div class="mud-card" style="margin-bottom:24px;">
-        <div class="mud-card-content" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:16px 24px !important;">
+    <div class="bk-admin-card" style="margin-bottom:24px;">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:16px 24px;">
             <div style="flex:1;min-width:260px;position:relative;">
-                <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ukuu-text-subtle);font-size:20px;">search</span>
-                <input type="text" @bind="_search" @bind:event="oninput" @onclick="LoadAsync" placeholder="Search by name, email, code or job title..." style="width:100%;height:40px;border:1px solid var(--ukuu-border-soft);border-radius:8px;background:var(--ukuu-surface-alt);padding:0 16px 0 40px;font-family:inherit;font-size:13px;outline:none;" />
+                <span class="material-icons-round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:20px;">search</span>
+                <input type="text" @bind="_search" @bind:event="oninput" placeholder="Search by name, email, code or job title..." style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px 0 40px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
             </div>
-            <MudSelect @bind-Value="_filterDept" Variant="Variant.Outlined" Label="Department" Style="min-width:180px;" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Business">
-                <MudSelectItem Value="@("All")">All Departments</MudSelectItem>
+            <select @bind="_filterDept" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:160px;">
+                <option value="All">All Departments</option>
                 @foreach (var d in _departments)
                 {
-                    <MudSelectItem Value="@d">@d</MudSelectItem>
+                    <option value="@d">@d</option>
                 }
-            </MudSelect>
-            <MudSelect @bind-Value="_filterStatus" Variant="Variant.Outlined" Label="Status" Style="min-width:140px;" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.FilterList">
-                <MudSelectItem Value="@("All")">All Status</MudSelectItem>
-                <MudSelectItem Value="@("Active")">Active</MudSelectItem>
-                <MudSelectItem Value="@("Probation")">Probation</MudSelectItem>
-                <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
-            </MudSelect>
+            </select>
+            <select @bind="_filterStatus" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:140px;">
+                <option value="All">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Probation">Probation</option>
+                <option value="Inactive">Inactive</option>
+            </select>
         </div>
     </div>
 
     @if (_loading)
     {
-        <div style="display:flex;justify-content:center;padding:60px;"><div class="ukuu-loader"></div></div>
+        <div style="display:flex;justify-content:center;padding:60px;">
+            <div class="ukuu-loader"></div>
+        </div>
     }
     else
     {
-        <div class="mud-card" style="overflow:hidden;">
-            <MudTable Items="@_filtered" Hover="true" Elevation="0" Style="border-radius:0;">
-                <HeaderContent>
-                    <MudTh>Employee</MudTh>
-                    <MudTh>Department</MudTh>
-                    <MudTh>Job Title</MudTh>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Salary</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <MudAvatar Color="Color.Primary" Size="Size.Medium" Style="background:linear-gradient(135deg,#25163F,#6E5F92);">@context.Initials</MudAvatar>
-                            <div>
-                                <div style="font-weight:600;color:var(--ukuu-text);font-size:13px;">@context.FullName</div>
-                                <div style="font-size:11px;color:var(--ukuu-text-subtle);">@context.Email · @context.EmployeeCode</div>
-                            </div>
-                        </div>
-                    </MudTd>
-                    <MudTd Style="font-weight:500;">@context.Department</MudTd>
-                    <MudTd>@context.JobTitle</MudTd>
-                    <MudTd>
-                        <span style="font-size:12px;color:var(--ukuu-text-muted);">@context.ContractType</span>
-                    </MudTd>
-                    <MudTd>
-                        <div style="font-weight:600;color:var(--ukuu-ink);">@context.DisplayCurrency @context.BasicSalary.ToString("N0")</div>
-                        <div style="font-size:11px;color:var(--ukuu-text-subtle);">+@context.TotalAllowances.ToString("N0") allowances</div>
-                    </MudTd>
-                    <MudTd>
-                        <span class="ukuu-status-pill @(context.Status == EmploymentStatus.Active ? "ukuu-status-active" : context.Status == EmploymentStatus.Probation ? "ukuu-status-probation" : "ukuu-status-inactive")">
-                            @context.StatusDisplay
-                        </span>
-                    </MudTd>
-                    <MudTd Style="text-align:right;">
-                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Default" Size="Size.Small" OnClick="@(() => Nav.NavigateTo($"/employees/{context.Id}"))" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => Nav.NavigateTo($"/employees/{context.Id}/edit"))" />
-                    </MudTd>
-                </RowTemplate>
-                <NoRecordsContent>
-                    <div class="ukuu-empty">
-                        <div class="ukuu-empty-icon"><span class="material-icons-round">person_off</span></div>
-                        <h3 style="font-size:16px;margin-bottom:4px;">No employees found</h3>
-                        <p style="font-size:13px;">Try adjusting your search or filters, or add a new employee.</p>
+        <div class="bk-admin-card" style="overflow:hidden;">
+            <table class="bk-admin-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Job Title</th>
+                        <th>Type</th>
+                        <th>Salary</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var emp in _filtered)
+                    {
+                        <tr>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <div class="bk-admin-avatar @GetAvatarColor(emp.Id)">@emp.Initials</div>
+                                    <div>
+                                        <div style="font-weight:600;color:var(--bk-ink);font-size:13px;">@emp.FullName</div>
+                                        <div style="font-size:11px;color:var(--bk-ink-3);">@emp.Email · @emp.EmployeeCode</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="font-weight:500;">@emp.Department</td>
+                            <td>@emp.JobTitle</td>
+                            <td>
+                                <span style="font-size:12px;color:var(--bk-ink-3);">@emp.ContractType</span>
+                            </td>
+                            <td>
+                                <div style="font-weight:700;color:var(--bk-ink);">@emp.DisplayCurrency @emp.BasicSalary.ToString("N0")</div>
+                                <div style="font-size:11px;color:var(--bk-ink-3);">+@emp.TotalAllowances.ToString("N0") allowances</div>
+                            </td>
+                            <td>
+                                <span class="bk-admin-pill @(emp.Status == EmploymentStatus.Active ? "active" : emp.Status == EmploymentStatus.Probation ? "probation" : "inactive")">
+                                    @emp.StatusDisplay
+                                </span>
+                            </td>
+                            <td style="text-align:right;">
+                                <a href="/employees/@emp.Id" class="bk-admin-topbar-icon-btn" style="display:inline-flex;width:32px;height:32px;border-radius:8px;" title="View">
+                                    <span class="material-icons-round" style="font-size:16px;">visibility</span>
+                                </a>
+                                <a href="/employees/@emp.Id/edit" class="bk-admin-topbar-icon-btn" style="display:inline-flex;width:32px;height:32px;border-radius:8px;margin-left:4px;" title="Edit">
+                                    <span class="material-icons-round" style="font-size:16px;">edit</span>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (!_filtered.Any())
+            {
+                <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                    <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                        <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">person_off</span>
                     </div>
-                </NoRecordsContent>
-            </MudTable>
+                    <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No employees found</h3>
+                    <p style="font-size:13px;">Try adjusting your search or filters, or add a new employee.</p>
+                </div>
+            }
         </div>
     }
 </div>
@@ -127,4 +153,12 @@
         }
         _loading = false;
     }
+
+    private string GetAvatarColor(int id) => (id % 4) switch
+    {
+        0 => "gold",
+        1 => "green",
+        2 => "purple",
+        _ => "pink"
+    };
 }

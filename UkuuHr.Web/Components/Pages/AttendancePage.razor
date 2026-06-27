@@ -3,94 +3,114 @@
 @inject AttendanceService AttendanceSvc
 @inject UkuuHrDbContext Db
 
-<div class="ukuu-fade-in">
-    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
-        <div>
-            <h1>Time & Attendance</h1>
-            <p>Track daily attendance, clock-in/out, and review timesheets for @_today.ToString("dd MMMM yyyy").</p>
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Time & Attendance · @_selectedDate.ToString("dd MMMM yyyy")</div>
+            <h1 class="bk-admin-h1">Time & Attendance</h1>
+            <p class="bk-admin-sub">Track daily attendance, clock-in/out, and review timesheets for @_selectedDate.ToString("dd MMMM yyyy").</p>
         </div>
-        <div style="display:flex;gap:8px;">
-            <MudDatePicker @bind-Value="_selectedDate" Variant="Variant.Outlined" Label="Select Date" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Upload">Import</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Fingerprint" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Clock In/Out</MudButton>
+        <div class="bk-admin-actions">
+            <input type="date" @bind="_selectedDate" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
+            <button class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">upload</span>
+                Import
+            </button>
+            <button class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">fingerprint</span>
+                Clock In/Out
+            </button>
         </div>
     </div>
 
     <!-- Stats -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
-        <div class="ukuu-kpi-card" style="padding:16px;">
-            <div class="ukuu-kpi-label">Present</div>
-            <div class="ukuu-kpi-value" style="color:var(--ukuu-success);">@_present</div>
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+        <div class="bk-admin-kpi-card" style="padding:16px 20px;">
+            <div class="bk-admin-kpi-icon green" style="width:36px;height:36px;"><span class="material-icons-round" style="font-size:18px;">check_circle</span></div>
+            <div class="bk-admin-kpi-value" style="font-size:24px;margin-top:8px;">@_present</div>
+            <div class="bk-admin-kpi-label">Present</div>
         </div>
-        <div class="ukuu-kpi-card" style="padding:16px;">
-            <div class="ukuu-kpi-label">Late Arrivals</div>
-            <div class="ukuu-kpi-value" style="color:var(--ukuu-warning);">@_late</div>
+        <div class="bk-admin-kpi-card" style="padding:16px 20px;">
+            <div class="bk-admin-kpi-icon gold" style="width:36px;height:36px;"><span class="material-icons-round" style="font-size:18px;">schedule</span></div>
+            <div class="bk-admin-kpi-value" style="font-size:24px;margin-top:8px;">@_late</div>
+            <div class="bk-admin-kpi-label">Late Arrivals</div>
         </div>
-        <div class="ukuu-kpi-card" style="padding:16px;">
-            <div class="ukuu-kpi-label">On Leave</div>
-            <div class="ukuu-kpi-value" style="color:#7C3AED;">@_onLeave</div>
+        <div class="bk-admin-kpi-card" style="padding:16px 20px;">
+            <div class="bk-admin-kpi-icon purple" style="width:36px;height:36px;"><span class="material-icons-round" style="font-size:18px;">event_available</span></div>
+            <div class="bk-admin-kpi-value" style="font-size:24px;margin-top:8px;">@_onLeave</div>
+            <div class="bk-admin-kpi-label">On Leave</div>
         </div>
-        <div class="ukuu-kpi-card" style="padding:16px;">
-            <div class="ukuu-kpi-label">Absent</div>
-            <div class="ukuu-kpi-value" style="color:var(--ukuu-error);">@_absent</div>
+        <div class="bk-admin-kpi-card" style="padding:16px 20px;">
+            <div class="bk-admin-kpi-icon pink" style="width:36px;height:36px;"><span class="material-icons-round" style="font-size:18px;">cancel</span></div>
+            <div class="bk-admin-kpi-value" style="font-size:24px;margin-top:8px;">@_absent</div>
+            <div class="bk-admin-kpi-label">Absent</div>
         </div>
-        <div class="ukuu-kpi-card" style="padding:16px;">
-            <div class="ukuu-kpi-label">Remote</div>
-            <div class="ukuu-kpi-value">@_remote</div>
+        <div class="bk-admin-kpi-card" style="padding:16px 20px;">
+            <div class="bk-admin-kpi-icon blue" style="width:36px;height:36px;"><span class="material-icons-round" style="font-size:18px;">home_work</span></div>
+            <div class="bk-admin-kpi-value" style="font-size:24px;margin-top:8px;">@_remote</div>
+            <div class="bk-admin-kpi-label">Remote</div>
         </div>
     </div>
 
     <!-- Filter chips -->
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        @foreach (var f in new[] { "all", "present", "late", "absent", "onleave", "remote" })
+        @foreach (var f in new[] { ("all", "All"), ("present", "Present"), ("late", "Late"), ("absent", "Absent"), ("onleave", "On Leave"), ("remote", "Remote") })
         {
-            <button @onclick="() => _filter = f"
-                    style="padding:8px 14px;border-radius:100px;border:1px solid @(f == _filter ? "var(--ukuu-ink)" : "var(--ukuu-border-soft)");background:@(f == _filter ? "var(--ukuu-ink)" : "var(--ukuu-surface)");color:@(f == _filter ? "#FCFBFF" : "var(--ukuu-text-muted)");font-weight:600;font-size:12px;cursor:pointer;text-transform:capitalize;">
-                @(f == "onleave" ? "On Leave" : f)
+            <button @onclick="() => _filter = f.Item1" style="padding:8px 14px;border-radius:999px;border:1px solid @(f.Item1 == _filter ? "var(--bk-ink)" : "var(--bk-line)");background:@(f.Item1 == _filter ? "var(--bk-ink)" : "var(--bk-bg-strong)");color:@(f.Item1 == _filter ? "white" : "var(--bk-ink-2)");font-weight:600;font-size:12px;cursor:pointer;text-transform:capitalize;font-family:inherit;">
+                @f.Item2
             </button>
         }
     </div>
 
     <!-- Attendance table -->
-    <div class="mud-card" style="overflow:hidden;">
-        <MudTable Items="@_filtered" Hover="true" Elevation="0">
-            <HeaderContent>
-                <MudTh>Employee</MudTh>
-                <MudTh>Department</MudTh>
-                <MudTh>Check In</MudTh>
-                <MudTh>Check Out</MudTh>
-                <MudTh>Hours</MudTh>
-                <MudTh>Status</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <MudAvatar Color="Color.Primary" Size="Size.Small" Style="background:linear-gradient(135deg,#25163F,#6E5F92);">@GetInitials(context.EmployeeName)</MudAvatar>
-                        <div style="font-weight:600;font-size:13px;">@context.EmployeeName</div>
-                    </div>
-                </MudTd>
-                <MudTd>@GetDept(context.EmployeeId)</MudTd>
-                <MudTd>@context.CheckInLabel</MudTd>
-                <MudTd>@context.CheckOutLabel</MudTd>
-                <MudTd Style="font-weight:600;">@(context.WorkedHours > 0 ? context.WorkedHours.ToString("0.0") + "h" : "—")</MudTd>
-                <MudTd>
-                    <span class="ukuu-status-pill @(context.Status == AttendanceStatus.Present ? "ukuu-status-active" : context.Status == AttendanceStatus.Late ? "ukuu-status-pending" : context.Status == AttendanceStatus.Absent ? "ukuu-status-inactive" : "ukuu-status-probation")">
-                        @context.Status
-                    </span>
-                </MudTd>
-            </RowTemplate>
-            <NoRecordsContent>
-                <div class="ukuu-empty">
-                    <div class="ukuu-empty-icon"><span class="material-icons-round">event_busy</span></div>
-                    <p style="font-size:13px;">No attendance records for this date.</p>
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <table class="bk-admin-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Hours</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in _filtered)
+                {
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@GetInitials(a.EmployeeName)</div>
+                                <div style="font-weight:600;font-size:13px;">@a.EmployeeName</div>
+                            </div>
+                        </td>
+                        <td>@GetDept(a.EmployeeId)</td>
+                        <td>@a.CheckInLabel</td>
+                        <td>@a.CheckOutLabel</td>
+                        <td style="font-weight:600;">@(a.WorkedHours > 0 ? a.WorkedHours.ToString("0.0") + "h" : "—")</td>
+                        <td>
+                            <span class="bk-admin-pill @(a.Status == AttendanceStatus.Present ? "active" : a.Status == AttendanceStatus.Late ? "probation" : a.Status == AttendanceStatus.Absent ? "inactive" : "pending")">
+                                @a.Status
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!_filtered.Any())
+        {
+            <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">event_busy</span>
                 </div>
-            </NoRecordsContent>
-        </MudTable>
+                <p style="font-size:13px;">No attendance records for this date.</p>
+            </div>
+        }
     </div>
 </div>
 
 @code {
-    private DateTime _today = DateTime.Today;
     private DateTime _selectedDate = DateTime.Today;
     private string _filter = "all";
     private List<Attendance> _records = new();

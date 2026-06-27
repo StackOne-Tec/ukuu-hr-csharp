@@ -13,6 +13,13 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="css/ukuu.css" rel="stylesheet" />
+    <script>
+        // Apply saved theme before page renders to avoid flash
+        (function() {
+            var t = localStorage.getItem('ukuu-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
 </head>
 <body>
     <Routes />
@@ -23,5 +30,18 @@
     </div>
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script>
+        // Theme toggle function — callable from Blazor via JS interop
+        window.ukuuToggleTheme = function() {
+            var current = document.documentElement.getAttribute('data-theme') || 'light';
+            var next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('ukuu-theme', next);
+            return next;
+        };
+        window.ukuuGetTheme = function() {
+            return document.documentElement.getAttribute('data-theme') || 'light';
+        };
+    </script>
 </body>
 </html>

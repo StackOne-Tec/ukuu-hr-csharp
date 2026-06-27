@@ -2,20 +2,21 @@
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
 
-<div class="ukuu-fade-in">
-    <div class="ukuu-section-header">
-        <h1>Settings</h1>
-        <p>Configure your organization, payroll, leave types, and security preferences.</p>
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Settings · Configure your workspace</div>
+            <h1 class="bk-admin-h1">Settings</h1>
+            <p class="bk-admin-sub">Configure your organization, payroll, leave types, and security preferences.</p>
+        </div>
     </div>
 
     <div style="display:grid;grid-template-columns:240px 1fr;gap:24px;">
-
         <!-- Settings sidebar -->
         <div style="display:flex;flex-direction:column;gap:2px;">
             @foreach (var s in _sections)
             {
-                <div @onclick="() => _activeSection = s.Key"
-                     style="padding:10px 14px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:@(_activeSection == s.Key ? "var(--ukuu-ink)" : "var(--ukuu-text-muted)");background:@(_activeSection == s.Key ? "var(--ukuu-surface-alt)" : "transparent");border-left:@(_activeSection == s.Key ? "3px solid var(--ukuu-ink)" : "3px solid transparent");transition:all 0.15s ease;">
+                <div @onclick="() => _activeSection = s.Key" style="padding:10px 14px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:@(_activeSection == s.Key ? "var(--bk-ink)" : "var(--bk-ink-3)");background:@(_activeSection == s.Key ? "var(--bk-muted)" : "transparent");border-left:@(_activeSection == s.Key ? "3px solid var(--bk-accent)" : "3px solid transparent");transition:all 0.15s ease;">
                     <span class="material-icons-round" style="font-size:18px;">@s.Icon</span>
                     <span>@s.Label</span>
                 </div>
@@ -26,164 +27,202 @@
         <div>
             @if (_activeSection == "profile")
             {
-                <div class="mud-card">
-                    <div class="mud-card-header">
-                        <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Your Profile</h3>
-                        <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Update your personal information and avatar.</p>
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header">
+                        <h3>Your Profile</h3>
+                        <p>Update your personal information and avatar.</p>
                     </div>
-                    <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                        <MudTextField T="string" Label="First Name" Variant="Variant.Outlined" Value="@("Chungu")" />
-                        <MudTextField T="string" Label="Last Name" Variant="Variant.Outlined" Value="@("Chama")" />
-                        <MudTextField T="string" Label="Email" Variant="Variant.Outlined" Value="@("admin@ukuuhr.demo")" />
-                        <MudTextField T="string" Label="Phone" Variant="Variant.Outlined" Value="@("+260 97 123 4567")" />
-                        <MudTextField T="string" Label="Job Title" Variant="Variant.Outlined" Value="@("Chief Executive Officer")" />
-                        <MudSelect T="string" Label="Timezone" Variant="Variant.Outlined" Value="@("Africa/Lusaka")">
-                            <MudSelectItem T="string" Value="@("Africa/Lusaka")">Africa/Lusaka (UTC+2)</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("Africa/Harare")">Africa/Harare (UTC+2)</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("Africa/Dar_es_Salaam")">Africa/Dar_es_Salaam (UTC+3)</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("Africa/Blantyre")">Africa/Blantyre (UTC+2)</MudSelectItem>
-                        </MudSelect>
-                    </div>
-                    <div class="mud-card-content" style="padding-top:0;">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Style="background:linear-gradient(135deg,#25163F,#4A3C68) !important;">Save Changes</MudButton>
+                    <div class="bk-admin-card-content">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+                            <div class="bk-field">
+                                <label class="bk-label">First Name</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">person</span>
+                                    <input type="text" class="bk-input" value="Chungu" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Last Name</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">person</span>
+                                    <input type="text" class="bk-input" value="Chama" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Email</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">mail</span>
+                                    <input type="email" class="bk-input" value="admin@ukuuhr.demo" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Phone</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">phone</span>
+                                    <input type="tel" class="bk-input" value="+260 97 123 4567" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Job Title</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">work</span>
+                                    <input type="text" class="bk-input" value="Chief Executive Officer" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Timezone</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">schedule</span>
+                                    <select class="bk-input">
+                                        <option>Africa/Lusaka (UTC+2)</option>
+                                        <option>Africa/Harare (UTC+2)</option>
+                                        <option>Africa/Dar_es_Salaam (UTC+3)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top:16px;">
+                            <button class="bk-btn bk-btn-primary">Save Changes</button>
+                        </div>
                     </div>
                 </div>
             }
             else if (_activeSection == "organization")
             {
-                <div class="mud-card">
-                    <div class="mud-card-header">
-                        <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Organization</h3>
-                        <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Company details that appear on payslips and reports.</p>
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header">
+                        <h3>Organization</h3>
+                        <p>Company details that appear on payslips and reports.</p>
                     </div>
-                    <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                        <MudTextField T="string" Label="Organization Name" Variant="Variant.Outlined" Value="@(_org?.Name ?? "")" />
-                        <MudTextField T="string" Label="Industry" Variant="Variant.Outlined" Value="@(_org?.Industry ?? "")" />
-                        <MudSelect T="string" Label="Country" Variant="Variant.Outlined" Value="@(_org?.Country ?? "Zambia")">
-                            <MudSelectItem T="string" Value="@("Zambia")">Zambia</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("Tanzania")">Tanzania</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("Malawi")">Malawi</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("Kenya")">Kenya</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("South Africa")">South Africa</MudSelectItem>
-                        </MudSelect>
-                        <MudSelect T="string" Label="Currency" Variant="Variant.Outlined" Value="@(_org?.Currency ?? "ZMW")">
-                            <MudSelectItem T="string" Value="@("ZMW")">ZMW — Zambian Kwacha</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("USD")">USD — US Dollar</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("TZS")">TZS — Tanzanian Shilling</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("MWK")">MWK — Malawian Kwacha</MudSelectItem>
-                        </MudSelect>
+                    <div class="bk-admin-card-content">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+                            <div class="bk-field">
+                                <label class="bk-label">Organization Name</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">business</span>
+                                    <input type="text" class="bk-input" value="@(_org?.Name ?? "")" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Industry</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">factory</span>
+                                    <input type="text" class="bk-input" value="@(_org?.Industry ?? "")" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Country</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">public</span>
+                                    <select class="bk-input">
+                                        <option selected="@(_org?.Country == "Zambia")">Zambia</option>
+                                        <option selected="@(_org?.Country == "Tanzania")">Tanzania</option>
+                                        <option selected="@(_org?.Country == "Malawi")">Malawi</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Currency</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">payments</span>
+                                    <select class="bk-input">
+                                        <option selected="@(_org?.Currency == "ZMW")">ZMW — Zambian Kwacha</option>
+                                        <option selected="@(_org?.Currency == "USD")">USD — US Dollar</option>
+                                        <option selected="@(_org?.Currency == "TZS")">TZS — Tanzanian Shilling</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             }
             else if (_activeSection == "payroll")
             {
-                <div class="mud-card">
-                    <div class="mud-card-header">
-                        <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Payroll Configuration — Zambia (ZRA 2025)</h3>
-                        <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Statutory rates and PAYE brackets.</p>
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header">
+                        <h3>Payroll Configuration — Zambia (ZRA 2025)</h3>
+                        <p>Statutory rates and PAYE brackets.</p>
                     </div>
-                    <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                        <MudNumericField Label="NAPSA Employee %" Variant="Variant.Outlined" Value="5.0" Adornment="Adornment.End" AdornmentText="%" />
-                        <MudNumericField Label="NAPSA Ceiling" Variant="Variant.Outlined" Value="9870.0" Adornment="Adornment.Start" AdornmentText="ZMW" />
-                        <MudNumericField Label="NHIMA %" Variant="Variant.Outlined" Value="1.0" Adornment="Adornment.End" AdornmentText="%" />
-                        <MudNumericField Label="Working Days/Month" Variant="Variant.Outlined" Value="26" />
-                        <MudNumericField Label="Working Hours/Day" Variant="Variant.Outlined" Value="8" />
-                    </div>
-
-                    <div class="mud-card-header" style="margin-top:8px;">
-                        <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">PAYE Tax Bands</h3>
-                    </div>
-                    <div class="mud-card-content" style="padding:0 24px 16px !important;">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead>
-                                <tr style="background:var(--ukuu-surface-alt);">
-                                    <th style="text-align:left;padding:10px;font-weight:600;font-size:11px;text-transform:uppercase;color:var(--ukuu-text-muted);">Band</th>
-                                    <th style="text-align:left;padding:10px;font-weight:600;font-size:11px;text-transform:uppercase;color:var(--ukuu-text-muted);">Range (ZMW)</th>
-                                    <th style="text-align:right;padding:10px;font-weight:600;font-size:11px;text-transform:uppercase;color:var(--ukuu-text-muted);">Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style="border-bottom:1px solid var(--ukuu-divider);">
-                                    <td style="padding:12px 10px;">Band 1</td>
-                                    <td style="padding:12px 10px;">First 4,800</td>
-                                    <td style="padding:12px 10px;text-align:right;font-weight:700;color:var(--ukuu-success);">0%</td>
-                                </tr>
-                                <tr style="border-bottom:1px solid var(--ukuu-divider);">
-                                    <td style="padding:12px 10px;">Band 2</td>
-                                    <td style="padding:12px 10px;">4,801 – 6,900</td>
-                                    <td style="padding:12px 10px;text-align:right;font-weight:700;color:var(--ukuu-warning);">20%</td>
-                                </tr>
-                                <tr style="border-bottom:1px solid var(--ukuu-divider);">
-                                    <td style="padding:12px 10px;">Band 3</td>
-                                    <td style="padding:12px 10px;">6,901 – 8,900</td>
-                                    <td style="padding:12px 10px;text-align:right;font-weight:700;color:var(--ukuu-warning);">30%</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:12px 10px;">Band 4</td>
-                                    <td style="padding:12px 10px;">Beyond 8,900</td>
-                                    <td style="padding:12px 10px;text-align:right;font-weight:700;color:var(--ukuu-error);">37.5%</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="bk-admin-card-content">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px;">
+                            <div class="bk-field">
+                                <label class="bk-label">NAPSA Employee %</label>
+                                <div class="bk-input-wrap">
+                                    <input type="number" class="bk-input" value="5.0" style="padding-left:16px;" />
+                                    <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:13px;">%</span>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">NAPSA Ceiling</label>
+                                <div class="bk-input-wrap">
+                                    <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:13px;font-weight:600;">ZMW</span>
+                                    <input type="number" class="bk-input" value="9870" style="padding-left:60px;" />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">NHIMA %</label>
+                                <div class="bk-input-wrap">
+                                    <input type="number" class="bk-input" value="1.0" style="padding-left:16px;" />
+                                    <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:13px;">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bk-admin-card" style="background:var(--bk-muted);margin-top:16px;">
+                            <div style="padding:16px 20px;border-bottom:1px solid var(--bk-line);"><h3 style="font-size:14px;margin:0;">PAYE Tax Bands</h3></div>
+                            <table class="bk-admin-table">
+                                <thead><tr><th>Band</th><th>Range (ZMW)</th><th style="text-align:right;">Rate</th></tr></thead>
+                                <tbody>
+                                    <tr><td>Band 1</td><td>First 4,800</td><td style="text-align:right;font-weight:700;color:var(--bk-accent-3);">0%</td></tr>
+                                    <tr><td>Band 2</td><td>4,801 – 6,900</td><td style="text-align:right;font-weight:700;color:var(--bk-accent);">20%</td></tr>
+                                    <tr><td>Band 3</td><td>6,901 – 8,900</td><td style="text-align:right;font-weight:700;color:var(--bk-accent);">30%</td></tr>
+                                    <tr><td>Band 4</td><td>Beyond 8,900</td><td style="text-align:right;font-weight:700;color:var(--bk-accent-4);">37.5%</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             }
             else if (_activeSection == "leave")
             {
-                <div class="mud-card">
-                    <div class="mud-card-header" style="display:flex;justify-content:space-between;align-items:center;">
-                        <div>
-                            <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Leave Types</h3>
-                            <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Configure leave categories and entitlements.</p>
-                        </div>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add">Add Leave Type</MudButton>
+                <div class="bk-admin-card" style="overflow:hidden;">
+                    <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div><h3>Leave Types</h3><p>Configure leave categories and entitlements.</p></div>
+                        <button class="bk-btn bk-btn-secondary"><span class="material-icons-round" style="font-size:16px;">add</span>Add Leave Type</button>
                     </div>
-                    <MudTable Items="@_leaveTypes" Hover="true" Elevation="0">
-                        <HeaderContent>
-                            <MudTh>Leave Type</MudTh>
-                            <MudTh>Default Days</MudTh>
-                            <MudTh>Paid</MudTh>
-                            <MudTh>Carry Forward</MudTh>
-                            <MudTh>Approval Required</MudTh>
-                            <MudTh></MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd>
-                                <div style="display:flex;align-items:center;gap:8px;">
-                                    <span style="width:12px;height:12px;border-radius:3px;background:@context.Color;"></span>
-                                    <span style="font-weight:600;">@context.Name</span>
-                                </div>
-                            </MudTd>
-                            <MudTd>@context.DefaultDays</MudTd>
-                            <MudTd>
-                                <span class="ukuu-status-pill @(context.IsPaid ? "ukuu-status-active" : "ukuu-status-inactive")">
-                                    @(context.IsPaid ? "Paid" : "Unpaid")
-                                </span>
-                            </MudTd>
-                            <MudTd>@(context.CarryForward ? "Yes" : "No")</MudTd>
-                            <MudTd>@(context.RequiresApproval ? "Required" : "Auto-approve")</MudTd>
-                            <MudTd><MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" /></MudTd>
-                        </RowTemplate>
-                    </MudTable>
+                    <table class="bk-admin-table">
+                        <thead><tr><th>Leave Type</th><th>Default Days</th><th>Paid</th><th>Carry Forward</th><th>Approval Required</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var lt in _leaveTypes)
+                            {
+                                <tr>
+                                    <td><div style="display:flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:3px;background:@lt.Color;"></span><span style="font-weight:600;">@lt.Name</span></div></td>
+                                    <td>@lt.DefaultDays</td>
+                                    <td><span class="bk-admin-pill @(lt.IsPaid ? "active" : "inactive")">@(lt.IsPaid ? "Paid" : "Unpaid")</span></td>
+                                    <td>@(lt.CarryForward ? "Yes" : "No")</td>
+                                    <td>@(lt.RequiresApproval ? "Required" : "Auto-approve")</td>
+                                    <td><button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;"><span class="material-icons-round" style="font-size:16px;">edit</span></button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             }
             else if (_activeSection == "notifications")
             {
-                <div class="mud-card">
-                    <div class="mud-card-header">
-                        <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Notifications</h3>
-                        <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Choose how you want to be notified.</p>
-                    </div>
-                    <div class="mud-card-content" style="display:flex;flex-direction:column;gap:16px;">
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header"><h3>Notifications</h3><p>Choose how you want to be notified.</p></div>
+                    <div class="bk-admin-card-content" style="display:flex;flex-direction:column;gap:0;">
                         @for (int i = 0; i < _notifications.Count; i++)
                         {
                             var n = _notifications[i];
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--bk-line);">
                                 <div>
-                                    <div style="font-weight:600;font-size:13px;color:var(--ukuu-text);">@n.Title</div>
-                                    <div style="font-size:12px;color:var(--ukuu-text-muted);">@n.Description</div>
+                                    <div style="font-weight:600;font-size:13px;color:var(--bk-ink);">@n.Title</div>
+                                    <div style="font-size:12px;color:var(--bk-ink-3);">@n.Description</div>
                                 </div>
-                                <MudSwitch @bind-Value="_notifications[i].Enabled" Color="Color.Primary" />
+                                <label class="bk-check-row" style="margin:0;">
+                                    <input type="checkbox" @bind="_notifications[i].Enabled" class="bk-check" />
+                                </label>
                             </div>
                         }
                     </div>
@@ -191,41 +230,31 @@
             }
             else if (_activeSection == "users")
             {
-                <div class="mud-card">
-                    <div class="mud-card-header" style="display:flex;justify-content:space-between;align-items:center;">
-                        <div>
-                            <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">User Management</h3>
-                            <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Manage admin and employee access to the HR system.</p>
-                        </div>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.PersonAdd" Style="background:linear-gradient(135deg,#25163F,#4A3C68) !important;">Invite User</MudButton>
+                <div class="bk-admin-card" style="overflow:hidden;">
+                    <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <div><h3>User Management</h3><p>Manage admin and employee access to the HR system.</p></div>
+                        <button class="bk-btn bk-btn-primary"><span class="material-icons-round" style="font-size:16px;">person_add</span>Invite User</button>
                     </div>
-                    <MudTable Items="@_userAccounts" Hover="true" Elevation="0">
-                        <HeaderContent>
-                            <MudTh>User</MudTh>
-                            <MudTh>Email</MudTh>
-                            <MudTh>Role</MudTh>
-                            <MudTh>Status</MudTh>
-                            <MudTh></MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd>
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <MudAvatar Color="Color.Primary" Size="Size.Small" Style="background:linear-gradient(135deg,#25163F,#6E5F92);">@context.Initials</MudAvatar>
-                                    <div style="font-weight:600;font-size:13px;">@context.FullName</div>
-                                </div>
-                            </MudTd>
-                            <MudTd Style="font-size:12px;">@context.Email</MudTd>
-                            <MudTd>
-                                <span class="ukuu-status-pill ukuu-status-active" style="background:@context.Role.BadgeColor()33;color:@context.Role.BadgeColor();">@context.Role.DisplayName()</span>
-                            </MudTd>
-                            <MudTd>
-                                <span class="ukuu-status-pill @(context.Status == AccountStatus.Active ? "ukuu-status-active" : "ukuu-status-pending")">
-                                    @context.Status
-                                </span>
-                            </MudTd>
-                            <MudTd><MudIconButton Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" /></MudTd>
-                        </RowTemplate>
-                    </MudTable>
+                    <table class="bk-admin-table">
+                        <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var u in _userAccounts)
+                            {
+                                <tr>
+                                    <td>
+                                        <div style="display:flex;align-items:center;gap:10px;">
+                                            <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@u.Initials</div>
+                                            <div style="font-weight:600;font-size:13px;">@u.FullName</div>
+                                        </div>
+                                    </td>
+                                    <td style="font-size:12px;">@u.Email</td>
+                                    <td><span class="bk-admin-pill approved" style="background:@u.Role.BadgeColor()33;color:@u.Role.BadgeColor();">@u.Role.DisplayName()</span></td>
+                                    <td><span class="bk-admin-pill @(u.Status == AccountStatus.Active ? "active" : "pending")">@u.Status</span></td>
+                                    <td><button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;"><span class="material-icons-round" style="font-size:16px;">more_vert</span></button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             }
         </div>
@@ -273,22 +302,9 @@
 
         if (!_userAccounts.Any())
         {
-            _userAccounts.Add(new UserAccount
-            {
-                FirstName = "Chungu", LastName = "Chama", Email = "admin@ukuuhr.demo",
-                Role = UserRole.SuperAdmin, Status = AccountStatus.Active,
-                UserType = "owner", OrganizationId = org.Id
-            });
-            _userAccounts.Add(new UserAccount
-            {
-                FirstName = "Thandiwe", LastName = "Banda", Email = "thandiwe.banda@ukuuhr.demo",
-                Role = UserRole.HrAdmin, Status = AccountStatus.Active, OrganizationId = org.Id
-            });
-            _userAccounts.Add(new UserAccount
-            {
-                FirstName = "Grace", LastName = "Mwape", Email = "grace.mwape@ukuuhr.demo",
-                Role = UserRole.FinancePayrollAdmin, Status = AccountStatus.Active, OrganizationId = org.Id
-            });
+            _userAccounts.Add(new UserAccount { FirstName = "Chungu", LastName = "Chama", Email = "admin@ukuuhr.demo", Role = UserRole.SuperAdmin, Status = AccountStatus.Active, UserType = "owner", OrganizationId = org.Id });
+            _userAccounts.Add(new UserAccount { FirstName = "Thandiwe", LastName = "Banda", Email = "thandiwe.banda@ukuuhr.demo", Role = UserRole.HrAdmin, Status = AccountStatus.Active, OrganizationId = org.Id });
+            _userAccounts.Add(new UserAccount { FirstName = "Grace", LastName = "Mwape", Email = "grace.mwape@ukuuhr.demo", Role = UserRole.FinancePayrollAdmin, Status = AccountStatus.Active, OrganizationId = org.Id });
         }
     }
 }

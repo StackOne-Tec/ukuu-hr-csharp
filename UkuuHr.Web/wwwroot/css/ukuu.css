@@ -3155,3 +3155,360 @@ h1, h2, h3, h4, h5, h6 {
     .bk-admin-main { margin-left: 0 !important; }
     .bk-admin-content { padding: 20px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   BUILDERKING DARK MODE
+   Activated when <html data-theme="dark"> is set
+   ═══════════════════════════════════════════════════════════════════ */
+
+html[data-theme="dark"] {
+    --bk-bg: #0a0a0a;
+    --bk-bg-strong: #161616;
+    --bk-ink: #fbfaf6;
+    --bk-ink-2: #b8b5ad;
+    --bk-ink-3: #8a8780;
+    --bk-line: rgba(255, 255, 255, 0.10);
+    --bk-line-strong: rgba(255, 255, 255, 0.30);
+    --bk-muted: #1f1f1f;
+    --bk-muted-2: #262626;
+    --bk-accent: #f4b942;
+    --bk-accent-2: #8b80ff;
+    --bk-accent-3: #2dd4a7;
+    --bk-accent-4: #ff7a91;
+    --bk-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] .bk-body,
+html[data-theme="dark"] .bk-admin-body {
+    background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 72px),
+        linear-gradient(180deg, #0a0a0a 0%, #131313 54%, #0a0a0a 100%);
+    color: var(--bk-ink);
+}
+
+/* Dark mode: sidebar stays dark but slightly lighter */
+html[data-theme="dark"] .bk-admin-sidebar {
+    background:
+        radial-gradient(ellipse 60% 40% at 20% 0%, rgba(244, 185, 66, 0.08) 0%, transparent 60%),
+        linear-gradient(180deg, #000000 0%, #0d0d0d 100%);
+}
+
+/* Dark mode: topbar */
+html[data-theme="dark"] .bk-admin-topbar {
+    background: rgba(10, 10, 10, 0.78);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .bk-admin-topbar-search input,
+html[data-theme="dark"] .bk-admin-topbar-toggle,
+html[data-theme="dark"] .bk-admin-topbar-icon-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: var(--bk-ink-2);
+}
+
+html[data-theme="dark"] .bk-admin-topbar-search input:focus {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--bk-accent);
+    box-shadow: 0 0 0 3px rgba(244, 185, 66, 0.10);
+}
+
+html[data-theme="dark"] .bk-admin-topbar-icon-btn:hover,
+html[data-theme="dark"] .bk-admin-topbar-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.20);
+    color: var(--bk-ink);
+}
+
+html[data-theme="dark"] .bk-admin-topbar-avatar {
+    background: linear-gradient(135deg, var(--bk-accent), #b8810a);
+}
+
+/* Dark mode: cards */
+html[data-theme="dark"] .bk-admin-card,
+html[data-theme="dark"] .bk-admin-kpi-card {
+    background: var(--bk-bg-strong);
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+html[data-theme="dark"] .bk-admin-card:hover,
+html[data-theme="dark"] .bk-admin-kpi-card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] .bk-admin-card-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark mode: table */
+html[data-theme="dark"] .bk-admin-table thead th {
+    background: var(--bk-muted);
+    color: var(--bk-ink-3);
+}
+
+html[data-theme="dark"] .bk-admin-table tbody td {
+    color: var(--bk-ink);
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .bk-admin-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Dark mode: stat boxes */
+html[data-theme="dark"] .bk-admin-stat-box {
+    background: var(--bk-muted);
+}
+
+html[data-theme="dark"] .bk-admin-stat-box.dark {
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+}
+
+/* Dark mode: progress bar */
+html[data-theme="dark"] .bk-admin-progress {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .bk-admin-progress-fill {
+    background: linear-gradient(90deg, var(--bk-accent) 0%, #b8810a 100%);
+}
+
+/* Dark mode: KPI icon boxes */
+html[data-theme="dark"] .bk-admin-kpi-icon.blue { background: rgba(139, 128, 255, 0.15); color: var(--bk-accent-2); }
+html[data-theme="dark"] .bk-admin-kpi-icon.green { background: rgba(45, 212, 167, 0.15); color: var(--bk-accent-3); }
+html[data-theme="dark"] .bk-admin-kpi-icon.gold { background: rgba(244, 185, 66, 0.15); color: var(--bk-accent); }
+html[data-theme="dark"] .bk-admin-kpi-icon.pink { background: rgba(255, 122, 145, 0.15); color: var(--bk-accent-4); }
+html[data-theme="dark"] .bk-admin-kpi-icon.ink { background: rgba(255, 255, 255, 0.06); color: var(--bk-ink); }
+
+/* Dark mode: pills */
+html[data-theme="dark"] .bk-admin-pill.active { background: rgba(45, 212, 167, 0.15); color: var(--bk-accent-3); }
+html[data-theme="dark"] .bk-admin-pill.probation,
+html[data-theme="dark"] .bk-admin-pill.pending { background: rgba(244, 185, 66, 0.15); color: var(--bk-accent); }
+html[data-theme="dark"] .bk-admin-pill.inactive,
+html[data-theme="dark"] .bk-admin-pill.rejected { background: rgba(255, 122, 145, 0.15); color: var(--bk-accent-4); }
+html[data-theme="dark"] .bk-admin-pill.approved { background: rgba(45, 212, 167, 0.15); color: var(--bk-accent-3); }
+
+/* Dark mode: buttons */
+html[data-theme="dark"] .bk-btn-secondary {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: var(--bk-ink);
+}
+
+html[data-theme="dark"] .bk-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="dark"] .bk-btn-primary {
+    background: linear-gradient(180deg, var(--bk-accent), #b8810a);
+    color: #0a0a0a;
+    box-shadow: 0 12px 34px rgba(244, 185, 66, 0.25);
+}
+
+/* Dark mode: inputs */
+html[data-theme="dark"] .bk-input {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: var(--bk-ink);
+}
+
+html[data-theme="dark"] .bk-input::placeholder { color: var(--bk-ink-3); }
+
+html[data-theme="dark"] .bk-input:focus {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--bk-accent);
+    box-shadow: 0 0 0 3px rgba(244, 185, 66, 0.10);
+}
+
+/* Dark mode: MudBlazor overrides */
+html[data-theme="dark"] .mud-card {
+    background: var(--bk-bg-strong) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    color: var(--bk-ink) !important;
+}
+
+html[data-theme="dark"] .mud-table-head {
+    background: var(--bk-muted) !important;
+}
+
+html[data-theme="dark"] .mud-table-head .mud-table-cell {
+    color: var(--bk-ink-3) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme="dark"] .mud-table-body .mud-table-cell {
+    color: var(--bk-ink) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+html[data-theme="dark"] .mud-table-row:hover {
+    background: rgba(255, 255, 255, 0.03) !important;
+}
+
+html[data-theme="dark"] .mud-input {
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--bk-ink) !important;
+}
+
+html[data-theme="dark"] .mud-input-root {
+    color: var(--bk-ink) !important;
+}
+
+html[data-theme="dark"] .mud-input-label {
+    color: var(--bk-ink-3) !important;
+}
+
+html[data-theme="dark"] .mud-chip {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: var(--bk-ink-2) !important;
+}
+
+html[data-theme="dark"] .mud-button-text {
+    color: var(--bk-ink-2) !important;
+}
+
+html[data-theme="dark"] .mud-button-outlined {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: var(--bk-ink) !important;
+}
+
+html[data-theme="dark"] .mud-popover {
+    background: var(--bk-bg-strong) !important;
+    color: var(--bk-ink) !important;
+}
+
+html[data-theme="dark"] .mud-list-item:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+html[data-theme="dark"] .mud-select-input {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Dark mode: landing page */
+html[data-theme="dark"] .bk-landing-hero {
+    background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #000000 100%);
+}
+
+html[data-theme="dark"] .bk-header {
+    background: rgba(10, 10, 10, 0.78);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ───── Theme toggle button in sidebar ───── */
+.bk-theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.15s ease;
+    margin-bottom: 8px;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+}
+
+.bk-theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #FCFBFF;
+}
+
+.bk-theme-toggle-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bk-theme-toggle-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.bk-theme-toggle-switch {
+    width: 36px;
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    position: relative;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+}
+
+.bk-theme-toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    transition: transform 0.2s ease;
+}
+
+.bk-theme-toggle.dark .bk-theme-toggle-switch {
+    background: var(--bk-accent);
+}
+
+.bk-theme-toggle.dark .bk-theme-toggle-switch::after {
+    transform: translateX(16px);
+}
+
+/* ───── Logout button in sidebar ───── */
+.bk-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--bk-accent-4);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+}
+
+.bk-logout-btn:hover {
+    background: rgba(232, 93, 117, 0.10);
+    color: var(--bk-accent-4);
+}
+
+.bk-logout-btn-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Dark mode: theme toggle + logout in sidebar */
+html[data-theme="dark"] .bk-theme-toggle {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+html[data-theme="dark"] .bk-theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #FCFBFF;
+}

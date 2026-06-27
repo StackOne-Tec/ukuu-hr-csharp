@@ -2,64 +2,103 @@
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
 
-<div class="ukuu-fade-in">
-    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
-        <div>
-            <h1>Shift Scheduling</h1>
-            <p>Assign shifts by department and configure rotation patterns.</p>
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Shift Scheduling · @_shifts.Count active shifts</div>
+            <h1 class="bk-admin-h1">Shift Scheduling</h1>
+            <p class="bk-admin-sub">Assign shifts by department and configure rotation patterns.</p>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Assign Shift</MudButton>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">add</span>
+                Assign Shift
+            </button>
+        </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;">
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">wb_sunny</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Shift == ShiftType.Morning)</div>
+            <div class="bk-admin-kpi-label">Morning Shifts</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">brightness_4</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Shift == ShiftType.Night)</div>
+            <div class="bk-admin-kpi-label">Night Shifts</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">brightness_5</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Shift == ShiftType.Mid)</div>
+            <div class="bk-admin-kpi-label">Mid Shifts</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">autorenew</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Schedule == ShiftSchedule.Rotating)</div>
+            <div class="bk-admin-kpi-label">Rotating Schedules</div>
+        </div>
+    </div>
+
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));">
         @foreach (var shift in _shifts)
         {
-            <div class="mud-card ukuu-card-hover">
-                <div class="mud-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">@shift.Department</h3>
-                        <span class="ukuu-status-pill ukuu-status-active" style="background:@(shift.Shift == ShiftType.Morning ? "var(--ukuu-warning-bg)" : shift.Shift == ShiftType.Night ? "#1A0F30" : "var(--ukuu-info-bg)");color:@(shift.Shift == ShiftType.Morning ? "var(--ukuu-warning)" : shift.Shift == ShiftType.Night ? "#FCFBFF" : "var(--ukuu-info)");">
-                            @shift.ShiftDisplay Shift
-                        </span>
+                        <h3>@shift.Department</h3>
+                        <p>@shift.ScheduleDisplay · @shift.TimeWindow</p>
                     </div>
-                    <MudIconButton Icon="@Icons.Material.Filled.MoreVert" />
+                    <span class="bk-admin-pill @(shift.Shift == ShiftType.Morning ? "pending" : shift.Shift == ShiftType.Night ? "rejected" : "approved")" style="background:@(shift.Shift == ShiftType.Morning ? "rgba(216,156,17,0.12)" : shift.Shift == ShiftType.Night ? "rgba(108,99,255,0.12)" : "rgba(20,163,127,0.12)");color:@(shift.Shift == ShiftType.Morning ? "var(--bk-accent)" : shift.Shift == ShiftType.Night ? "var(--bk-accent-2)" : "var(--bk-accent-3)");">
+                            @shift.ShiftDisplay
+                        </span>
                 </div>
-                <div class="mud-card-content">
-                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--ukuu-divider);">
-                        <span style="font-size:12px;color:var(--ukuu-text-muted);">Schedule</span>
+                <div class="bk-admin-card-content">
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bk-line);">
+                        <span style="font-size:12px;color:var(--bk-ink-3);">Schedule</span>
                         <span style="font-size:13px;font-weight:600;">@shift.ScheduleDisplay</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--ukuu-divider);">
-                        <span style="font-size:12px;color:var(--ukuu-text-muted);">Time Window</span>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bk-line);">
+                        <span style="font-size:12px;color:var(--bk-ink-3);">Time Window</span>
                         <span style="font-size:13px;font-weight:600;">@shift.TimeWindow</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--ukuu-divider);">
-                        <span style="font-size:12px;color:var(--ukuu-text-muted);">Days</span>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bk-line);">
+                        <span style="font-size:12px;color:var(--bk-ink-3);">Days</span>
                         <span style="font-size:13px;font-weight:600;">@(GetDaysDisplay(shift.DaysOfWeekMask))</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:8px 0;">
-                        <span style="font-size:12px;color:var(--ukuu-text-muted);">Assigned Employee</span>
-                        <span style="font-size:13px;font-weight:600;color:var(--ukuu-ink);">@(GetEmployee(shift.EmployeeId) ?? "Department-wide")</span>
+                        <span style="font-size:12px;color:var(--bk-ink-3);">Assigned Employee</span>
+                        <span style="font-size:13px;font-weight:600;color:var(--bk-accent);">@(GetEmployee(shift.EmployeeId) ?? "Department-wide")</span>
                     </div>
                 </div>
             </div>
         }
     </div>
 
-    <!-- Weekly schedule visual -->
-    <div class="mud-card" style="margin-top:24px;overflow:hidden;">
-        <div class="mud-card-header">
-            <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Weekly Coverage</h3>
-            <p style="font-size:12px;color:var(--ukuu-text-muted);margin:0;">Department × day-of-week shift matrix</p>
+    <!-- Weekly coverage matrix -->
+    <div class="bk-admin-card" style="margin-top:24px;overflow:hidden;">
+        <div class="bk-admin-card-header">
+            <div>
+                <h3>Weekly Coverage</h3>
+                <p>Department × day-of-week shift matrix</p>
+            </div>
         </div>
-        <div class="mud-card-content" style="overflow-x:auto;padding:0 !important;">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table">
                 <thead>
-                    <tr style="background:var(--ukuu-surface-alt);">
-                        <th style="text-align:left;padding:12px 20px;font-weight:600;text-transform:uppercase;font-size:11px;color:var(--ukuu-text-muted);">Department</th>
+                    <tr>
+                        <th>Department</th>
                         @foreach (var day in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
                         {
-                            <th style="padding:12px;font-weight:600;text-transform:uppercase;font-size:11px;color:var(--ukuu-text-muted);">@day</th>
+                            <th style="text-align:center;">@day</th>
                         }
                     </tr>
                 </thead>
@@ -69,24 +108,24 @@
                     }
                     @foreach (var dept in depts)
                     {
-                        <tr style="border-bottom:1px solid var(--ukuu-divider);">
-                            <td style="padding:14px 20px;font-weight:600;">@dept</td>
+                        <tr>
+                            <td style="font-weight:600;">@dept</td>
                             @for (int d = 0; d < 7; d++)
                             {
                                 var shifts = _shifts.Where(s => s.Department == dept && (s.DaysOfWeekMask & (1 << d)) != 0).ToList();
-                                <td style="padding:8px;text-align:center;">
+                                <td style="text-align:center;padding:8px;">
                                     @if (shifts.Any())
                                     {
-                                        <div style="display:flex;flex-direction:column;gap:2px;">
+                                        <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
                                             @foreach (var s in shifts)
                                             {
-                                                <span style="display:inline-block;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;background:@(s.Shift == ShiftType.Morning ? "var(--ukuu-warning-bg)" : s.Shift == ShiftType.Night ? "#1A0F30" : "var(--ukuu-info-bg)");color:@(s.Shift == ShiftType.Morning ? "var(--ukuu-warning)" : s.Shift == ShiftType.Night ? "#FCFBFF" : "var(--ukuu-info)");">@s.ShiftDisplay[..1]</span>
+                                                <span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:@(s.Shift == ShiftType.Morning ? "rgba(216,156,17,0.12)" : s.Shift == ShiftType.Night ? "rgba(108,99,255,0.12)" : "rgba(20,163,127,0.12)");color:@(s.Shift == ShiftType.Morning ? "var(--bk-accent)" : s.Shift == ShiftType.Night ? "var(--bk-accent-2)" : "var(--bk-accent-3)");">@s.ShiftDisplay[..1]</span>
                                             }
                                         </div>
                                     }
                                     else
                                     {
-                                        <span style="color:var(--ukuu-text-subtle);font-size:10px;">—</span>
+                                        <span style="color:var(--bk-ink-3);font-size:10px;">—</span>
                                     }
                                 </td>
                             }

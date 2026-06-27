@@ -1,5 +1,6 @@
 @inject NavigationManager Nav
 @inject IHttpContextAccessor HttpAccessor
+@inject IJSRuntime JS
 @implements IDisposable
 
 @code {
@@ -9,11 +10,26 @@
     private string _currentUrl = string.Empty;
     private string _userName = "Chungu Chama";
     private string _userRole = "Super Admin";
+    private bool _isDark = false;
 
     protected override void OnInitialized()
     {
         _currentUrl = Nav.ToBaseRelativePath(Nav.Uri);
         Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var theme = await JS.InvokeAsync<string>("ukuuGetTheme");
+                _isDark = theme == "dark";
+                StateHasChanged();
+            }
+            catch { }
+        }
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
@@ -34,6 +50,16 @@
     private void ToggleSidebar() { _collapsed = !_collapsed; }
     private void ToggleMobile() { _mobileOpen = !_mobileOpen; }
     private void CloseMobile() { _mobileOpen = false; }
+
+    private async Task ToggleTheme()
+    {
+        try
+        {
+            var newTheme = await JS.InvokeAsync<string>("ukuuToggleTheme");
+            _isDark = newTheme == "dark";
+        }
+        catch { }
+    }
 
     private async Task Logout()
     {
@@ -134,7 +160,26 @@
         </nav>
 
         <div class="bk-admin-sidebar-footer">
-            <a href="/settings" class="bk-admin-sidebar-user">
+            @if (!_collapsed)
+            {
+                <button class="bk-theme-toggle @(_isDark ? "dark" : "")" @onclick="ToggleTheme">
+                    <span class="bk-theme-toggle-icon">
+                        <span class="material-icons-round" style="font-size:20px;">@(_isDark ? "dark_mode" : "light_mode")</span>
+                    </span>
+                    <span class="bk-theme-toggle-text">@(_isDark ? "Dark Mode" : "Light Mode")</span>
+                    <span class="bk-theme-toggle-switch"></span>
+                </button>
+            }
+            else
+            {
+                <button class="bk-theme-toggle" @onclick="ToggleTheme" style="justify-content:center;padding:10px;">
+                    <span class="bk-theme-toggle-icon">
+                        <span class="material-icons-round" style="font-size:20px;">@(_isDark ? "dark_mode" : "light_mode")</span>
+                    </span>
+                </button>
+            }
+
+            <a href="/settings" class="bk-admin-sidebar-user" style="margin-bottom:4px;">
                 <div class="bk-admin-sidebar-user-avatar">CC</div>
                 @if (!_collapsed)
                 {
@@ -144,6 +189,24 @@
                     </div>
                 }
             </a>
+
+            @if (!_collapsed)
+            {
+                <button class="bk-logout-btn" @onclick="Logout">
+                    <span class="bk-logout-btn-icon">
+                        <span class="material-icons-round" style="font-size:20px;">logout</span>
+                    </span>
+                    <span>Sign Out</span>
+                </button>
+            }
+            else
+            {
+                <button class="bk-logout-btn" @onclick="Logout" style="justify-content:center;padding:10px;" title="Sign Out">
+                    <span class="bk-logout-btn-icon">
+                        <span class="material-icons-round" style="font-size:20px;">logout</span>
+                    </span>
+                </button>
+            }
         </div>
     </div>
 

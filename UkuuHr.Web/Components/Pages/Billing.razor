@@ -2,106 +2,124 @@
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
 
-<div class="ukuu-fade-in">
-    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
-        <div>
-            <h1>Billing & License</h1>
-            <p>Manage your subscription, view invoices, and activate license codes.</p>
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Billing & License · @_daysLeft days remaining</div>
+            <h1 class="bk-admin-h1">Billing & License</h1>
+            <p class="bk-admin-sub">Manage your subscription, view invoices, and activate license codes.</p>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.VpnKey" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Activate License</MudButton>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">vpn_key</span>
+                Activate License
+            </button>
+        </div>
     </div>
 
     <!-- Subscription card -->
-    <div class="mud-card" style="margin-bottom:24px;background:linear-gradient(135deg,#25163F 0%,#180D2E 100%);color:#FCFBFF;position:relative;overflow:hidden;">
-        <div style="position:absolute;top:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(156,143,184,0.3) 0%,transparent 70%);border-radius:50%;"></div>
-        <div class="mud-card-content" style="position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center;">
+    <div class="bk-admin-card" style="margin-bottom:24px;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a1a 100%);color:white;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(216,156,17,0.15) 0%,transparent 70%);border-radius:50%;"></div>
+        <div class="bk-admin-card-content" style="position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center;">
             <div>
-                <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:100px;background:rgba(22,163,74,0.2);color:#86EFAC;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">
-                    <span style="width:6px;height:6px;border-radius:50%;background:#4ADE80;"></span>
+                <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(20,163,127,0.2);color:#2dd4a7;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#2dd4a7;"></span>
                     Active Subscription
                 </div>
-                <h2 style="font-size:28px;font-weight:800;color:#FCFBFF;margin-bottom:4px;">Annual Plan</h2>
-                <p style="color:rgba(252,251,255,0.6);font-size:13px;margin:0 0 16px;">Ukuu HR Professional — full feature access for unlimited employees</p>
+                <h2 style="font-size:28px;font-weight:800;color:#FCFBFF;margin-bottom:4px;font-family:Geist,sans-serif;">Annual Plan</h2>
+                <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 16px 0;">Ukuu HR Professional — full feature access for unlimited employees</p>
                 <div style="display:flex;gap:24px;">
                     <div>
-                        <div style="font-size:11px;color:rgba(252,251,255,0.5);text-transform:uppercase;font-weight:600;">Activated</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;font-weight:600;">Activated</div>
                         <div style="font-size:14px;font-weight:600;margin-top:2px;">@(_license?.ActivatedAt?.ToString("dd MMM yyyy") ?? "—")</div>
                     </div>
                     <div>
-                        <div style="font-size:11px;color:rgba(252,251,255,0.5);text-transform:uppercase;font-weight:600;">Expires</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;font-weight:600;">Expires</div>
                         <div style="font-size:14px;font-weight:600;margin-top:2px;">@(_license?.ExpiresAt.ToString("dd MMM yyyy") ?? "—")</div>
                     </div>
                     <div>
-                        <div style="font-size:11px;color:rgba(252,251,255,0.5);text-transform:uppercase;font-weight:600;">Days Left</div>
-                        <div style="font-size:14px;font-weight:700;color:#9C8FB8;margin-top:2px;">@_daysLeft days</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;font-weight:600;">Days Left</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--bk-accent);margin-top:2px;">@_daysLeft days</div>
                     </div>
                 </div>
             </div>
             <div style="text-align:right;">
-                <div style="font-size:11px;color:rgba(252,251,255,0.5);text-transform:uppercase;font-weight:600;letter-spacing:0.08em;">License Code</div>
-                <div style="font-family:var(--ukuu-font-mono);font-size:22px;font-weight:700;color:#FCFBFF;margin-top:4px;letter-spacing:0.02em;">@_license?.Code</div>
-                <div style="font-size:11px;color:rgba(252,251,255,0.4);margin-top:8px;">Activated by @(_license?.ActivatedByEmail ?? "—")</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;font-weight:600;letter-spacing:0.08em;">License Code</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#FCFBFF;margin-top:4px;letter-spacing:0.02em;">@_license?.Code</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:8px;">Activated by @(_license?.ActivatedByEmail ?? "—")</div>
             </div>
         </div>
     </div>
 
     <!-- Usage stats -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:24px;">
-        <div class="ukuu-kpi-card">
-            <div class="ukuu-kpi-label">Active Employees</div>
-            <div class="ukuu-kpi-value">@_empCount</div>
-            <div style="margin-top:8px;height:6px;background:var(--ukuu-surface-alt);border-radius:100px;overflow:hidden;">
-                <div style="width:@(_empCount * 100.0 / _empLimit)%;height:100%;background:linear-gradient(90deg,#25163F,#6E5F92);"></div>
+    <div class="bk-admin-kpi-grid">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">groups</span></div>
             </div>
-            <div style="font-size:11px;color:var(--ukuu-text-subtle);margin-top:4px;">of @_empLimit included</div>
-        </div>
-        <div class="ukuu-kpi-card">
-            <div class="ukuu-kpi-label">Storage Used</div>
-            <div class="ukuu-kpi-value">@(_storageMb.ToString("0.0")) MB</div>
-            <div style="margin-top:8px;height:6px;background:var(--ukuu-surface-alt);border-radius:100px;overflow:hidden;">
-                <div style="width:@(_storageMb * 100.0 / 1024)%;height:100%;background:linear-gradient(90deg,#25163F,#6E5F92);"></div>
+            <div class="bk-admin-kpi-value">@_empCount</div>
+            <div class="bk-admin-kpi-label">Active Employees</div>
+            <div style="margin-top:8px;height:6px;background:var(--bk-muted);border-radius:999px;overflow:hidden;">
+                <div style="width:@(_empCount * 100.0 / _empLimit)%;height:100%;background:linear-gradient(90deg,var(--bk-ink),var(--bk-accent));"></div>
             </div>
-            <div style="font-size:11px;color:var(--ukuu-text-subtle);margin-top:4px;">of 1 GB included</div>
+            <div style="font-size:11px;color:var(--bk-ink-3);margin-top:4px;">of @_empLimit included</div>
         </div>
-        <div class="ukuu-kpi-card">
-            <div class="ukuu-kpi-label">Payroll Runs (Month)</div>
-            <div class="ukuu-kpi-value">@_payrollRuns</div>
-            <div style="font-size:11px;color:var(--ukuu-text-subtle);margin-top:8px;">Unlimited on annual plan</div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">storage</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@(_storageMb.ToString("0.0")) MB</div>
+            <div class="bk-admin-kpi-label">Storage Used</div>
+            <div style="margin-top:8px;height:6px;background:var(--bk-muted);border-radius:999px;overflow:hidden;">
+                <div style="width:@(_storageMb * 100.0 / 1024)%;height:100%;background:linear-gradient(90deg,var(--bk-accent),#b8810a);"></div>
+            </div>
+            <div style="font-size:11px;color:var(--bk-ink-3);margin-top:4px;">of 1 GB included</div>
         </div>
-        <div class="ukuu-kpi-card">
-            <div class="ukuu-kpi-label">Support Tickets</div>
-            <div class="ukuu-kpi-value">0</div>
-            <div style="font-size:11px;color:var(--ukuu-text-subtle);margin-top:8px;">Priority support included</div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">receipt_long</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_payrollRuns</div>
+            <div class="bk-admin-kpi-label">Payroll Runs (Month)</div>
+            <div style="font-size:11px;color:var(--bk-ink-3);margin-top:8px;">Unlimited on annual plan</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">support_agent</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">0</div>
+            <div class="bk-admin-kpi-label">Support Tickets</div>
+            <div style="font-size:11px;color:var(--bk-ink-3);margin-top:8px;">Priority support included</div>
         </div>
     </div>
 
     <!-- Plan comparison -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:24px;">
         @foreach (var plan in _plans)
         {
-            <div class="mud-card" style="@(plan.IsCurrent ? "border-color:var(--ukuu-ink);border-width:2px;" : "")">
-                <div class="mud-card-content">
+            <div class="bk-admin-card" style="@(plan.IsCurrent ? "border-color:var(--bk-accent);border-width:2px;" : "")">
+                <div class="bk-admin-card-content">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
                         <h3 style="font-size:18px;font-weight:700;">@plan.Name</h3>
                         @if (plan.IsCurrent)
                         {
-                            <span class="ukuu-status-pill ukuu-status-active">Current</span>
+                            <span class="bk-admin-pill active">Current</span>
                         }
                     </div>
-                    <div style="font-size:32px;font-weight:800;color:var(--ukuu-ink);margin-bottom:4px;">$@plan.Price<span style="font-size:14px;font-weight:500;color:var(--ukuu-text-muted);">/@plan.Interval</span></div>
-                    <p style="font-size:12px;color:var(--ukuu-text-muted);margin-bottom:16px;">@plan.Description</p>
+                    <div style="font-size:32px;font-weight:800;color:var(--bk-ink);margin-bottom:4px;font-family:Geist,sans-serif;">$@plan.Price<span style="font-size:14px;font-weight:500;color:var(--bk-ink-3);">/@plan.Interval</span></div>
+                    <p style="font-size:12px;color:var(--bk-ink-3);margin-bottom:16px;">@plan.Description</p>
                     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
                         @foreach (var feature in plan.Features)
                         {
-                            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ukuu-text);">
-                                <span class="material-icons-round" style="color:var(--ukuu-success);font-size:16px;">check</span>
+                            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--bk-ink);">
+                                <span class="material-icons-round" style="color:var(--bk-accent-3);font-size:16px;">check</span>
                                 @feature
                             </div>
                         }
                     </div>
-                    <MudButton Variant="@(plan.IsCurrent ? Variant.Outlined : Variant.Filled)" Color="Color.Primary" FullWidth="true" Disabled="@plan.IsCurrent">
+                    <button class="bk-btn @(plan.IsCurrent ? "bk-btn-secondary" : "bk-btn-primary")" disabled="@plan.IsCurrent" style="width:100%;">
                         @(plan.IsCurrent ? "Current Plan" : "Upgrade")
-                    </MudButton>
+                    </button>
                 </div>
             </div>
         }
