@@ -10,23 +10,24 @@ using UkuuHr.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ───────────── Database (PostgreSQL only) ─────────────
-// Render provides DATABASE_URL as "postgres://user:pass@host:port/db" — convert to Npgsql format.
-// Local dev: set DATABASE_URL or ConnectionStrings:DefaultConnection in appsettings.Development.json
+// Priority: explicit Npgsql connection string env var > DATABASE_URL (Render) > appsettings.json
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var explicitConnStr = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING")
     ?? Environment.GetEnvironmentVariable("ConnectionString")
-    ?? Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
-    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+    ?? Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING");
 
 Console.WriteLine($"[DB-DEBUG] DATABASE_URL present: {!string.IsNullOrWhiteSpace(databaseUrl)}");
 Console.WriteLine($"[DB-DEBUG] DATABASE_URL prefix: {(databaseUrl ?? "<null>")}");
 Console.WriteLine($"[DB-DEBUG] explicitConnStr present: {!string.IsNullOrWhiteSpace(explicitConnStr)}");
 
-var connectionString = !string.IsNullOrWhiteSpace(explicitConnStr)
-    ? explicitConnStr
-    : !string.IsNullOrWhiteSpace(databaseUrl)
-        ? ConvertRenderDatabaseUrlToNpgsql(databaseUrl)
-        : "Host=localhost;Port=5432;Database=ukuuhr;Username=postgres;Password=postgres";
+string connectionString;
+if (!string.IsNullOrWhiteSpace(explicitConnStr))
+    connectionString = explicitConnStr;
+else if (!string.IsNullOrWhiteSpace(databaseUrl))
+    connectionString = ConvertRenderDatabaseUrlToNpgsql(databaseUrl);
+else
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Host=localhost;Port=5432;Database=ukuuhr;Username=postgres;Password=postgres";
 
 Console.WriteLine($"[DB-DEBUG] final connection string host: {ExtractHost(connectionString)}");
 
