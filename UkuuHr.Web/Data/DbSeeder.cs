@@ -524,5 +524,148 @@ public static class DbSeeder
             Notes = "Demo annual subscription."
         });
         await db.SaveChangesAsync();
+
+        // ───── Hikvision devices ─────
+        var device1 = new HikvisionDevice
+        {
+            OrganizationId = org.Id,
+            Name = "Main Entrance — HQ",
+            IpAddress = "192.168.1.100",
+            Port = 80,
+            Username = "admin",
+            Password = "hikvision123",
+            DeviceSerial = "DS-K1T80420231215AA001",
+            Location = "Ground Floor — Main Entrance",
+            IsActive = true,
+            LastSyncAt = DateTime.UtcNow.AddHours(-2),
+            LastSuccessfulSyncAt = DateTime.UtcNow.AddHours(-2),
+            TotalEventsSynced = 1240,
+            CreatedAt = DateTime.UtcNow.AddDays(-90)
+        };
+        var device2 = new HikvisionDevice
+        {
+            OrganizationId = org.Id,
+            Name = "Engineering — Side Gate",
+            IpAddress = "192.168.1.101",
+            Port = 80,
+            Username = "admin",
+            Password = "hikvision456",
+            DeviceSerial = "DS-K1T80420231215AA002",
+            Location = "Engineering Block — Side Gate",
+            IsActive = true,
+            LastSyncAt = DateTime.UtcNow.AddHours(-1),
+            LastSuccessfulSyncAt = DateTime.UtcNow.AddHours(-1),
+            TotalEventsSynced = 680,
+            CreatedAt = DateTime.UtcNow.AddDays(-60)
+        };
+        db.HikvisionDevices.AddRange(device1, device2);
+        await db.SaveChangesAsync();
+
+        // ───── Hikvision clock events (last 7 days) ─────
+        var hikRnd = new Random(99);
+        var startDate = DateTime.UtcNow.AddDays(-7);
+        for (int dayOffset = 0; dayOffset < 7; dayOffset++)
+        {
+            var date = startDate.AddDays(dayOffset);
+            if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+
+            foreach (var emp in employees.Where(e => e.Status != EmploymentStatus.Inactive))
+            {
+                if (hikRnd.NextDouble() > 0.85) continue;
+
+                var checkInHour = 8;
+                var checkInMin = hikRnd.Next(0, 60);
+                if (hikRnd.NextDouble() < 0.15) { checkInHour = 9; checkInMin = hikRnd.Next(0, 15); }
+
+                var checkOutHour = 17;
+                var checkOutMin = hikRnd.Next(0, 30);
+                if (hikRnd.NextDouble() < 0.25) { checkOutHour = 18; checkOutMin = hikRnd.Next(0, 45); }
+
+                var deviceId = hikRnd.NextDouble() > 0.5 ? device1.Id : device2.Id;
+
+                db.HikvisionClockEvents.Add(new HikvisionClockEvent
+                {
+                    OrganizationId = org.Id,
+                    DeviceId = deviceId,
+                    EmployeeCode = emp.EmployeeCode ?? emp.Id.ToString(),
+                    EmployeeId = emp.Id,
+                    EventTime = new DateTime(date.Year, date.Month, date.Day, checkInHour, checkInMin, 0),
+                    EventType = ClockEventType.CheckIn,
+                    VerifyMode = "Card",
+                    InOutMode = "Entrance",
+                    SyncedAt = DateTime.UtcNow.AddHours(-2),
+                    IsProcessed = true,
+                    ProcessedAt = DateTime.UtcNow.AddHours(-2)
+                });
+
+                db.HikvisionClockEvents.Add(new HikvisionClockEvent
+                {
+                    OrganizationId = org.Id,
+                    DeviceId = deviceId,
+                    EmployeeCode = emp.EmployeeCode ?? emp.Id.ToString(),
+                    EmployeeId = emp.Id,
+                    EventTime = new DateTime(date.Year, date.Month, date.Day, checkOutHour, checkOutMin, 0),
+                    EventType = ClockEventType.CheckOut,
+                    VerifyMode = "Card",
+                    InOutMode = "Exit",
+                    SyncedAt = DateTime.UtcNow.AddHours(-2),
+                    IsProcessed = true,
+                    ProcessedAt = DateTime.UtcNow.AddHours(-2)
+                });
+            }
+        }
+        await db.SaveChangesAsync();
+
+        // ───── Overtime records (auto-calculated from attendance) ─────
+        // Generate overtime for employees who worked late in the past 30 days
+        foreach (var emp in employees.Where(e => e.Status != EmploymentStatus.Inactive).Take(5))
+        {
+            for (int dayOffset = 0; dayOffset < 30; dayOffset += 3)
+            {
+                var date = DateTime.Today.AddDays(-dayOffset);
+                if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+
+                // 40% chance of overtime on a given day
+                if (hikRnd.NextDouble() > 0.4) continue;
+
+                var otHours = Math.Round(hikRnd.NextDouble() * 2.5 + 0.5, 2); // 0.5 - 3.0 hours
+                var checkOutHour = 17 + (int)otHours;
+                var startTime = new DateTime(date.Year, date.Month, date.Day, 17, 0, 0);
+                var endTime = startTime.AddHours(otHours);
+
+                var isHoliday = db.LeaveHolidays.Any(h => h.Date.Date == date.Date);
+                var isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+
+                OvertimeRateType rateType = OvertimeRateType.Standard;
+                double multiplier = 1.5;
+                if (isHoliday) { rateType = OvertimeRateType.PublicHoliday; multiplier = 2.5; }
+                else if (isWeekend) { rateType = OvertimeRateType.RestDay; multiplier = 2.0; }
+                else if (otHours > 2) { rateType = OvertimeRateType.DoubleTime; multiplier = 2.0; }
+
+                var status = dayOffset < 7 ? OvertimeStatus.Pending : (hikRnd.NextDouble() > 0.3 ? OvertimeStatus.Approved : OvertimeStatus.Pending);
+
+                db.OvertimeRecords.Add(new OvertimeRecord
+                {
+                    OrganizationId = org.Id,
+                    EmployeeId = emp.Id,
+                    EmployeeName = emp.FullName,
+                    Date = date,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    Hours = otHours,
+                    RateType = rateType,
+                    RateMultiplier = multiplier,
+                    HourlyRate = emp.EffectiveHourlyRate,
+                    Source = dayOffset % 6 == 0 ? OvertimeSource.Hikvision : OvertimeSource.AutoCalculated,
+                    Status = status,
+                    Reason = $"Auto-calculated from attendance ({otHours:F1}h overtime)",
+                    ApprovedByEmail = status == OvertimeStatus.Approved ? "admin@ukuuhr.demo" : null,
+                    ApprovedAt = status == OvertimeStatus.Approved ? DateTime.UtcNow.AddDays(-dayOffset / 2) : null,
+                    ApproverNotes = status == OvertimeStatus.Approved ? "Approved by admin." : null,
+                    CreatedAt = DateTime.UtcNow.AddDays(-dayOffset)
+                });
+            }
+        }
+        await db.SaveChangesAsync();
     }
 }

@@ -17,6 +17,7 @@ public class UkuuHrDbContext : DbContext
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
     public DbSet<LeaveHoliday> LeaveHolidays => Set<LeaveHoliday>();
+    public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
     public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
     public DbSet<DepartmentShiftAssignment> DepartmentShifts => Set<DepartmentShiftAssignment>();
     public DbSet<EmployeeDocument> EmployeeDocuments => Set<EmployeeDocument>();
@@ -27,6 +28,9 @@ public class UkuuHrDbContext : DbContext
     public DbSet<PendingRegistration> PendingRegistrations => Set<PendingRegistration>();
     public DbSet<LicenseCode> LicenseCodes => Set<LicenseCode>();
     public DbSet<ExpenseRequest> ExpenseRequests => Set<ExpenseRequest>();
+    public DbSet<HikvisionDevice> HikvisionDevices => Set<HikvisionDevice>();
+    public DbSet<HikvisionClockEvent> HikvisionClockEvents => Set<HikvisionClockEvent>();
+    public DbSet<OvertimeRecord> OvertimeRecords => Set<OvertimeRecord>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -181,6 +185,48 @@ public class UkuuHrDbContext : DbContext
         {
             e.HasIndex(x => new { x.OrganizationId, x.Status });
             e.Property(x => x.Status).HasConversion<string>();
+        });
+
+        // Hikvision devices
+        b.Entity<HikvisionDevice>(e =>
+        {
+            e.HasIndex(d => new { d.OrganizationId, d.IpAddress });
+            e.Property(d => d.IsActive).HasDefaultValue(true);
+        });
+
+        // Hikvision clock events
+        b.Entity<HikvisionClockEvent>(e =>
+        {
+            e.HasIndex(c => new { c.OrganizationId, c.EventTime });
+            e.HasIndex(c => new { c.DeviceId, c.EventTime });
+            e.HasIndex(c => c.IsProcessed);
+            e.Property(c => c.EventType).HasConversion<string>();
+            e.Ignore(c => c.EventTimeDisplay);
+            e.Ignore(c => c.EventTypeDisplay);
+        });
+
+        // Overtime records
+        b.Entity<OvertimeRecord>(e =>
+        {
+            e.HasIndex(o => new { o.OrganizationId, o.Date });
+            e.HasIndex(o => new { o.OrganizationId, o.Status });
+            e.HasIndex(o => o.EmployeeId);
+            e.Property(o => o.RateType).HasConversion<string>();
+            e.Property(o => o.Source).HasConversion<string>();
+            e.Property(o => o.Status).HasConversion<string>();
+            e.Ignore(o => o.Pay);
+            e.Ignore(o => o.RateTypeDisplay);
+            e.Ignore(o => o.StatusDisplay);
+            e.Ignore(o => o.DateDisplay);
+            e.Ignore(o => o.TimeWindow);
+        });
+
+        // Leave balances
+        b.Entity<LeaveBalance>(e =>
+        {
+            e.HasIndex(lb => new { lb.OrganizationId, lb.EmployeeId, lb.Year });
+            e.HasIndex(lb => new { lb.EmployeeId, lb.LeaveTypeId, lb.Year }).IsUnique();
+            e.Ignore(lb => lb.RemainingDays);
         });
     }
 }

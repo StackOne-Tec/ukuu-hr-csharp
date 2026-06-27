@@ -1,0 +1,248 @@
+@page "/overtime"
+@using Microsoft.EntityFrameworkCore
+@inject OvertimeService OvertimeSvc
+@inject UkuuHrDbContext Db
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Overtime Management · @_summary.PendingCount pending</div>
+            <h1 class="bk-admin-h1">Overtime Management</h1>
+            <p class="bk-admin-sub">Track, calculate, and approve overtime. Auto-calculated from attendance + Hikvision clock events.</p>
+        </div>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-secondary" @onclick="AutoCalculate">
+                <span class="material-icons-round" style="font-size:16px;">calculate</span>
+                Auto-Calculate
+            </button>
+            <button class="bk-btn bk-btn-primary" @onclick="ShowAddDialog">
+                <span class="material-icons-round" style="font-size:16px;">add</span>
+                Add Overtime
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="bk-admin-kpi-grid">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">schedule</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_summary.TotalHours.ToString("0.0")h</div>
+            <div class="bk-admin-kpi-label">Total OT Hours (@DateTime.Now.ToString("MMM yyyy"))</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">payments</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">ZMW @_summary.TotalPay.ToString("N0")</div>
+            <div class="bk-admin-kpi-label">Approved OT Pay</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon pink"><span class="material-icons-round">pending_actions</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_summary.PendingCount</div>
+            <div class="bk-admin-kpi-label">Pending Approval</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">groups</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_summary.EmployeeCount</div>
+            <div class="bk-admin-kpi-label">Employees with OT</div>
+        </div>
+    </div>
+
+    <!-- Rate types info -->
+    <div class="bk-admin-card" style="margin-bottom:24px;">
+        <div class="bk-admin-card-header">
+            <div>
+                <h3>Overtime Rate Structure</h3>
+                <p>Automatic rate selection based on day type</p>
+            </div>
+        </div>
+        <div class="bk-admin-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+            <div class="bk-admin-stat-box">
+                <div class="bk-admin-stat-box-label">Standard Weekday</div>
+                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent);">1.5×</div>
+            </div>
+            <div class="bk-admin-stat-box">
+                <div class="bk-admin-stat-box-label">Rest Day (Weekend)</div>
+                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-2);">2.0×</div>
+            </div>
+            <div class="bk-admin-stat-box">
+                <div class="bk-admin-stat-box-label">Public Holiday</div>
+                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-4);">2.5×</div>
+            </div>
+            <div class="bk-admin-stat-box">
+                <div class="bk-admin-stat-box-label">Double Time (>2h OT)</div>
+                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-3);">2.0×</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:24px;overflow-x:auto;">
+        <div @onclick="@(() => _tab = "pending")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">pending_actions</span>
+            Pending (@_summary.PendingCount)
+        </div>
+        <div @onclick="@(() => _tab = "approved")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "approved" ? "var(--bk-ink)" : "transparent");color:@(_tab == "approved" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">check_circle</span>
+            Approved (@_summary.ApprovedCount)
+        </div>
+        <div @onclick="@(() => _tab = "all")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "all" ? "var(--bk-ink)" : "transparent");color:@(_tab == "all" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">list_alt</span>
+            All Records (@_all.Count)
+        </div>
+    </div>
+
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <table class="bk-admin-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Date</th>
+                    <th>Time Window</th>
+                    <th>Hours</th>
+                    <th>Rate Type</th>
+                    <th>Hourly Rate</th>
+                    <th>OT Pay</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    @if (_tab == "pending") { <th>Actions</th> }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ot in _filtered)
+                {
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@GetInitials(ot.EmployeeName)</div>
+                                <div style="font-weight:600;font-size:13px;">@ot.EmployeeName</div>
+                            </div>
+                        </td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.DateDisplay</td>
+                        <td style="font-size:12px;font-family:'JetBrains Mono',monospace;">@ot.TimeWindow</td>
+                        <td style="font-weight:700;color:var(--bk-accent);">@ot.Hours.ToString("0.0")h</td>
+                        <td>
+                            <span class="bk-admin-pill @(
+                                ot.RateType == OvertimeRateType.PublicHoliday ? "rejected" :
+                                ot.RateType == OvertimeRateType.RestDay ? "pending" :
+                                ot.RateType == OvertimeRateType.DoubleTime ? "approved" : "active"
+                            )" style="@(
+                                ot.RateType == OvertimeRateType.PublicHoliday ? "background:rgba(232,93,117,0.12);color:var(--bk-accent-4);" :
+                                ot.RateType == OvertimeRateType.RestDay ? "background:rgba(216,156,17,0.12);color:var(--bk-accent);" :
+                                ot.RateType == OvertimeRateType.DoubleTime ? "background:rgba(20,163,127,0.12);color:var(--bk-accent-3);" :
+                                "background:rgba(108,99,255,0.12);color:var(--bk-accent-2);"
+                            )">
+                                @ot.RateTypeDisplay
+                            </span>
+                        </td>
+                        <td style="font-size:12px;">ZMW @ot.HourlyRate.ToString("N2")</td>
+                        <td style="font-weight:700;color:var(--bk-accent-3);">ZMW @ot.Pay.ToString("N0")</td>
+                        <td>
+                            <span style="font-size:11px;color:var(--bk-ink-3);">
+                                @(ot.Source == OvertimeSource.AutoCalculated ? "Auto" : ot.Source == OvertimeSource.Hikvision ? "Hikvision" : "Manual")
+                            </span>
+                        </td>
+                        <td>
+                            <span class="bk-admin-pill @(ot.Status == OvertimeStatus.Approved || ot.Status == OvertimeStatus.AutoApproved ? "approved" : ot.Status == OvertimeStatus.Rejected ? "rejected" : "pending")">
+                                @ot.StatusDisplay
+                            </span>
+                        </td>
+                        @if (_tab == "pending")
+                        {
+                            <td>
+                                <div style="display:flex;gap:4px;">
+                                    <button class="bk-btn bk-btn-primary" style="font-size:11px;padding:6px 12px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;" @onclick="@(() => Approve(ot.Id))">
+                                        <span class="material-icons-round" style="font-size:14px;">check</span>
+                                        Approve
+                                    </button>
+                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;min-height:32px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);" @onclick="@(() => Reject(ot.Id))">
+                                        <span class="material-icons-round" style="font-size:14px;">close</span>
+                                    </button>
+                                </div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!_filtered.Any())
+        {
+            <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">schedule</span>
+                </div>
+                <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No overtime records</h3>
+                <p style="font-size:13px;">Click "Auto-Calculate" to generate overtime from attendance records, or add manually.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _tab = "pending";
+    private List<OvertimeRecord> _all = new();
+    private OvertimeSummary _summary = new();
+    private int _orgId;
+
+    private IEnumerable<OvertimeRecord> _filtered => _tab switch
+    {
+        "pending" => _all.Where(o => o.Status == OvertimeStatus.Pending),
+        "approved" => _all.Where(o => o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved),
+        _ => _all
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _all = await OvertimeSvc.GetAllAsync(_orgId);
+        var now = DateTime.Now;
+        _summary = await OvertimeSvc.GetSummaryAsync(_orgId, now.Month, now.Year);
+    }
+
+    private async Task AutoCalculate()
+    {
+        var from = DateTime.Today.AddDays(-30);
+        var to = DateTime.Today;
+        var count = await OvertimeSvc.AutoCalculateForDateRangeAsync(_orgId, from, to);
+        Snackbar.Add($"Auto-calculated {count} overtime records from attendance.", Severity.Success);
+        await LoadData();
+    }
+
+    private async Task Approve(int id)
+    {
+        await OvertimeSvc.ApproveAsync(_orgId, id, "admin@ukuuhr.demo", "Approved.");
+        Snackbar.Add("Overtime approved.", Severity.Success);
+        await LoadData();
+    }
+
+    private async Task Reject(int id)
+    {
+        await OvertimeSvc.RejectAsync(_orgId, id, "admin@ukuuhr.demo", "Rejected by admin.");
+        Snackbar.Add("Overtime rejected.", Severity.Warning);
+        await LoadData();
+    }
+
+    private void ShowAddDialog()
+    {
+        Snackbar.Add("Manual overtime entry — use the Add Employee wizard pattern to create.", Severity.Info);
+    }
+
+    private string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length < 2 ? (name.Length > 2 ? name[..2].ToUpper() : name.ToUpper()) : $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+}

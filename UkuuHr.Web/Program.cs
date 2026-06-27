@@ -104,6 +104,8 @@ builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<LeaveService>();
 builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AuditService>();
+builder.Services.AddScoped<HikvisionSyncService>();
+builder.Services.AddScoped<OvertimeService>();
 builder.Services.AddHttpClient("KeepAlive");
 
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
