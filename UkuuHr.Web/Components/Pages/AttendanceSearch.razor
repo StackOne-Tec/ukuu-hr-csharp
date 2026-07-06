@@ -1,6 +1,7 @@
 @page "/attendance/search"
 @attribute [Authorize]
 @using Microsoft.EntityFrameworkCore
+@inject NavigationManager Nav
 @inject AttendanceSearchService SearchSvc
 @inject ReportExportService ReportSvc
 @inject UkuuHrDbContext Db
@@ -335,46 +336,42 @@
         if (_filter.Page < _totalPages) { _filter.Page++; await Search(); }
     }
 
-    private async Task ExportCsv()
+    private void ExportCsv()
     {
         try
         {
-            // Build a report from the current filter (without pagination).
-            var reportFilter = new AttendanceSearchFilter
-            {
-                EmployeeId = _filter.EmployeeId,
-                Department = _filter.Department,
-                Branch = _filter.Branch,
-                ShiftId = _filter.ShiftId,
-                Status = _filter.Status,
-                FromDate = _filter.FromDate,
-                ToDate = _filter.ToDate,
-                Search = _filter.Search,
-                Page = 1,
-                PageSize = int.MaxValue
-            };
-            var records = await SearchSvc.SearchAsync(_orgId, reportFilter);
-            var report = await ReportSvc.GenerateAsync(_orgId, ReportPeriod.Custom, _filter.FromDate, _filter.ToDate);
-            var bytes = ReportSvc.ExportCsv(report);
-            // Write to download folder for the user.
-            var fileName = $"attendance-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
-            var path = Path.Combine("/home/z/my-project/download", fileName);
-            await File.WriteAllBytesAsync(path, bytes);
-            Snackbar.Add($"CSV exported: {fileName} ({records.Count} rows).", Severity.Success);
+            var from = _filter.FromDate?.ToString("yyyy-MM-dd") ?? "";
+            var to = _filter.ToDate?.ToString("yyyy-MM-dd") ?? "";
+            var url = $"/api/reports/attendance/csv/search?orgId={_orgId}"
+                + $"&employeeId={_filter.EmployeeId}"
+                + $"&department={Uri.EscapeDataString(_filter.Department ?? "")}"
+                + $"&branch={Uri.EscapeDataString(_filter.Branch ?? "")}"
+                + $"&shiftId={_filter.ShiftId}"
+                + $"&status={_filter.Status}"
+                + $"&search={Uri.EscapeDataString(_filter.Search ?? "")}"
+                + $"&from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}";
+            Nav.NavigateTo(url, forceLoad: true);
+            Snackbar.Add("CSV export downloading...", Severity.Success);
         }
         catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
     }
 
-    private async Task ExportXlsx()
+    private void ExportXlsx()
     {
         try
         {
-            var report = await ReportSvc.GenerateAsync(_orgId, ReportPeriod.Custom, _filter.FromDate, _filter.ToDate);
-            var bytes = ReportSvc.ExportXlsx(report);
-            var fileName = $"attendance-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx";
-            var path = Path.Combine("/home/z/my-project/download", fileName);
-            await File.WriteAllBytesAsync(path, bytes);
-            Snackbar.Add($"Excel exported: {fileName} ({report.Rows.Count} rows).", Severity.Success);
+            var from = _filter.FromDate?.ToString("yyyy-MM-dd") ?? "";
+            var to = _filter.ToDate?.ToString("yyyy-MM-dd") ?? "";
+            var url = $"/api/reports/attendance/xlsx/search?orgId={_orgId}"
+                + $"&employeeId={_filter.EmployeeId}"
+                + $"&department={Uri.EscapeDataString(_filter.Department ?? "")}"
+                + $"&branch={Uri.EscapeDataString(_filter.Branch ?? "")}"
+                + $"&shiftId={_filter.ShiftId}"
+                + $"&status={_filter.Status}"
+                + $"&search={Uri.EscapeDataString(_filter.Search ?? "")}"
+                + $"&from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}";
+            Nav.NavigateTo(url, forceLoad: true);
+            Snackbar.Add("Excel export downloading...", Severity.Success);
         }
         catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
     }

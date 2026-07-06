@@ -1,0 +1,189 @@
+@page "/settings/organization"
+@attribute [Authorize(Policy = "UserManagement")]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@using System.Text.Json
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Settings · Organization Profile</div>
+            <h1 class="bk-admin-h1">Organization</h1>
+            <p class="bk-admin-sub">
+                Company details that appear on payslips, reports, and correspondence.
+                Changes are applied immediately across the workspace.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/settings" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                All Settings
+            </a>
+        </div>
+    </div>
+
+    @if (_org == null)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">business</span>
+            <h3 style="margin-top:16px;">Loading organization…</h3>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@_org" OnValidSubmit="SaveOrg">
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>Company Details</h3>
+                    <p>Basic information about your organization.</p>
+                </div>
+                <div class="bk-admin-card-content">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;">
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Organization Name *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">business</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_org.Name" placeholder="e.g. UKUU HR Solutions Ltd" />
+                            </div>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Industry</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">factory</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_org.Industry" placeholder="e.g. Human Resources, Technology" />
+                            </div>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Country</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">public</span>
+                                <InputSelect class="bk-input" style="padding-left:36px;" @bind-Value="_org.Country">
+                                    <option value="Zambia">Zambia</option>
+                                    <option value="Tanzania">Tanzania</option>
+                                    <option value="Malawi">Malawi</option>
+                                    <option value="Kenya">Kenya</option>
+                                    <option value="South Africa">South Africa</option>
+                                    <option value="Nigeria">Nigeria</option>
+                                    <option value="Ghana">Ghana</option>
+                                    <option value="Uganda">Uganda</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Currency</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">payments</span>
+                                <InputSelect class="bk-input" style="padding-left:36px;" @bind-Value="_org.Currency">
+                                    <option value="ZMW">ZMW — Zambian Kwacha</option>
+                                    <option value="USD">USD — US Dollar</option>
+                                    <option value="TZS">TZS — Tanzanian Shilling</option>
+                                    <option value="MWK">MWK — Malawian Kwacha</option>
+                                    <option value="KES">KES — Kenyan Shilling</option>
+                                    <option value="ZAR">ZAR — South African Rand</option>
+                                    <option value="NGN">NGN — Nigerian Naira</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Timezone</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">schedule</span>
+                                <InputSelect class="bk-input" style="padding-left:36px;" @bind-Value="_timezone">
+                                    <option value="Africa/Lusaka">Africa/Lusaka (UTC+2)</option>
+                                    <option value="Africa/Harare">Africa/Harare (UTC+2)</option>
+                                    <option value="Africa/Dar_es_Salaam">Africa/Dar_es_Salaam (UTC+3)</option>
+                                    <option value="Africa/Nairobi">Africa/Nairobi (UTC+3)</option>
+                                    <option value="Africa/Johannesburg">Africa/Johannesburg (UTC+2)</option>
+                                    <option value="Africa/Lagos">Africa/Lagos (UTC+1)</option>
+                                    <option value="Africa/Accra">Africa/Accra (UTC+0)</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* ───── Stats card ───── *@
+            <div class="bk-admin-kpi-grid" style="margin-top:20px;">
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon green"><span class="material-icons-round">groups</span></div>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_employeeCount</div>
+                    <div class="bk-admin-kpi-label">Employees</div>
+                </div>
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">manage_accounts</span></div>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_userCount</div>
+                    <div class="bk-admin-kpi-label">User Accounts</div>
+                </div>
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">event_available</span></div>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_leaveTypeCount</div>
+                    <div class="bk-admin-kpi-label">Leave Types</div>
+                </div>
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">calendar_month</span></div>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_shiftCount</div>
+                    <div class="bk-admin-kpi-label">Shifts</div>
+                </div>
+            </div>
+
+            @* ───── Save ───── *@
+            <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                <div style="font-size:12px;color:var(--bk-ink-3);flex:1;align-self:center;">
+                    <span class="material-icons-round" style="font-size:14px;vertical-align:middle;">info</span>
+                    Organization created @_org.CreatedAt.ToString("dd MMM yyyy")
+                </div>
+                <button type="submit" class="bk-btn bk-btn-primary">
+                    <span class="material-icons-round" style="font-size:16px;">save</span>
+                    Save Organization
+                </button>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private Organization? _org;
+    private string _timezone = "Africa/Lusaka";
+    private int _employeeCount;
+    private int _userCount;
+    private int _leaveTypeCount;
+    private int _shiftCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _org = await Db.Organizations.FirstOrDefaultAsync();
+        if (_org != null)
+        {
+            _employeeCount = await Db.Employees.CountAsync(e => e.OrganizationId == _org.Id);
+            _userCount = await Db.UserAccounts.CountAsync(u => u.OrganizationId == _org.Id);
+            _leaveTypeCount = await Db.LeaveTypes.CountAsync(l => l.OrganizationId == _org.Id);
+            _shiftCount = await Db.Shifts.CountAsync(s => s.OrganizationId == _org.Id && s.IsActive);
+        }
+    }
+
+    private async Task SaveOrg()
+    {
+        try
+        {
+            if (_org == null) return;
+            _org.UpdatedAt = DateTime.UtcNow;
+            Db.Organizations.Update(_org);
+            await Db.SaveChangesAsync();
+            Snackbar.Add("Organization saved successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save: {ex.Message}", Severity.Error);
+        }
+    }
+}

@@ -141,6 +141,8 @@ public class LeaveService
     private readonly UkuuHrDbContext _db;
     public LeaveService(UkuuHrDbContext db) => _db = db;
 
+    // ───────────── Queries ─────────────
+
     public Task<List<LeaveRequest>> AllAsync(int orgId, LeaveRequestStatus? status = null)
     {
         var q = _db.LeaveRequests.Where(l => l.OrganizationId == orgId);
@@ -148,6 +150,69 @@ public class LeaveService
         return q.OrderByDescending(l => l.CreatedAt).ToListAsync();
     }
 
+    /// <summary>Get leave requests for a specific employee (self-service).</summary>
+    public Task<List<LeaveRequest>> ForEmployeeAsync(int orgId, int employeeId)
+    {
+        return _db.LeaveRequests
+            .Where(l => l.OrganizationId == orgId && l.EmployeeId == employeeId)
+            .OrderByDescending(l => l.CreatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>Get a single leave request.</summary>
+    public Task<LeaveRequest?> GetAsync(int orgId, int id) =>
+        _db.LeaveRequests.FirstOrDefaultAsync(l => l.OrganizationId == orgId && l.Id == id);
+
+    public Task<List<LeaveType>> GetLeaveTypesAsync(int orgId) =>
+        _db.LeaveTypes.Where(l => l.OrganizationId == orgId).OrderBy(l => l.Name).ToListAsync();
+
+    // ───────────── Leave Balances ─────────────
+
+    /// <summary>Get or initialize leave balances for an employee for the current year.</summary>
+    public async Task<List<LeaveBalance>> GetOrCreateBalancesAsync(int orgId, int employeeId, int? year = null)
+    {
+        var yr = year ?? DateTime.UtcNow.Year;
+        var leaveTypes = await _db.LeaveTypes.Where(lt => lt.OrganizationId == orgId).ToListAsync();
+        var existingBalances = await _db.LeaveBalances
+            .Include(lb => lb.LeaveType)
+            .Where(lb => lb.OrganizationId == orgId && lb.EmployeeId == employeeId && lb.Year == yr)
+            .ToListAsync();
+
+        // Track whether we added any new balances
+        var addedNew = false;
+
+        // Create any missing balances
+        foreach (var lt in leaveTypes)
+        {
+            if (!existingBalances.Any(b => b.LeaveTypeId == lt.Id))
+            {
+                var balance = new LeaveBalance
+                {
+                    OrganizationId = orgId,
+                    EmployeeId = employeeId,
+                    LeaveTypeId = lt.Id,
+                    Year = yr,
+                    EntitlementDays = lt.DefaultDays,
+                    UsedDays = 0,
+                    CarriedForwardDays = 0,
+                    AdjustedDays = 0,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.LeaveBalances.Add(balance);
+                existingBalances.Add(balance);
+                addedNew = true;
+            }
+        }
+
+        if (addedNew)
+            await _db.SaveChangesAsync();
+
+        return existingBalances.OrderBy(b => b.LeaveTypeId).ToList();
+    }
+
+    // ───────────── Mutations ─────────────
+
+    /// <summary>Create a new leave request (employee self-service).</summary>
     public async Task<LeaveRequest> CreateAsync(LeaveRequest req)
     {
         req.CreatedAt = DateTime.UtcNow;
@@ -157,20 +222,180 @@ public class LeaveService
         return req;
     }
 
+    /// <summary>
+    /// Review (approve/reject) a leave request. On approval:
+    /// 1. Updates the request status
+    /// 2. Deducts from the employee's leave balance
+    /// 3. Creates Attendance records with OnLeave status for the leave period
+    /// </summary>
     public async Task<bool> ReviewAsync(int orgId, int id, bool approve, string reviewerEmail, string? notes = null)
     {
         var lr = await _db.LeaveRequests.FirstOrDefaultAsync(l => l.OrganizationId == orgId && l.Id == id);
         if (lr == null) return false;
+
         lr.Status = approve ? LeaveRequestStatus.Approved : LeaveRequestStatus.Rejected;
         lr.ReviewedAt = DateTime.UtcNow;
         lr.ReviewedByEmail = reviewerEmail;
         if (approve) lr.ApproverNotes = notes; else lr.RejectionReason = notes;
+
+        if (approve)
+        {
+            // 1. Validate sufficient balance before approving
+            await ValidateSufficientBalanceAsync(orgId, lr);
+
+            // 2. Deduct from leave balance
+            await DeductBalanceAsync(orgId, lr);
+
+            // 3. Create Attendance records with OnLeave status for the leave period
+            await CreateLeaveAttendanceRecordsAsync(orgId, lr);
+        }
+
         await _db.SaveChangesAsync();
         return true;
     }
 
-    public Task<List<LeaveType>> GetLeaveTypesAsync(int orgId) =>
-        _db.LeaveTypes.Where(l => l.OrganizationId == orgId).OrderBy(l => l.Name).ToListAsync();
+    /// <summary>Cancel a leave request (employee self-service, only if still pending).</summary>
+    public async Task<bool> CancelAsync(int orgId, int id, string? userId = null)
+    {
+        var lr = await _db.LeaveRequests.FirstOrDefaultAsync(l => l.OrganizationId == orgId && l.Id == id);
+        if (lr == null || lr.Status != LeaveRequestStatus.Pending) return false;
+
+        lr.Status = LeaveRequestStatus.Cancelled;
+        lr.ReviewedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    // ───────────── Internal Helpers ─────────────
+
+    /// <summary>Get holiday dates in the leave period for holiday-aware calculation.</summary>
+    private async Task<HashSet<DateTime>> GetLeaveHolidayDatesAsync(int orgId, LeaveRequest lr)
+    {
+        return (await _db.LeaveHolidays
+            .Where(h => h.OrganizationId == orgId && h.Date >= lr.StartDate && h.Date <= lr.EndDate)
+            .Select(h => h.Date.Date)
+            .ToListAsync()).ToHashSet();
+    }
+
+    /// <summary>Validate that the employee has sufficient balance for the requested leave days.
+    /// FR-008: Holidays within the leave period are excluded from the day count.</summary>
+    private async Task ValidateSufficientBalanceAsync(int orgId, LeaveRequest lr)
+    {
+        var year = lr.StartDate.Year;
+        var holidayDates = await GetLeaveHolidayDatesAsync(orgId, lr);
+        var netDays = LeaveRequest.CalculateBusinessDays(lr.StartDate, lr.EndDate, holidayDates);
+
+        var balance = await _db.LeaveBalances
+            .FirstOrDefaultAsync(b => b.OrganizationId == orgId
+                                   && b.EmployeeId == lr.EmployeeId
+                                   && b.LeaveTypeId == lr.LeaveTypeId
+                                   && b.Year == year);
+
+        if (balance != null && balance.RemainingDays < netDays)
+        {
+            throw new InvalidOperationException(
+                $"Insufficient leave balance for '{lr.LeaveTypeName}'. " +
+                $"Requested {netDays} day(s) (after excluding {holidayDates.Count} holidays) " +
+                $"but only {balance.RemainingDays:0.#} remaining.");
+        }
+    }
+
+    /// <summary>Deduct the leave balance when a request is approved.
+    /// FR-008: Holidays within the leave period are excluded from the deduction.</summary>
+    private async Task DeductBalanceAsync(int orgId, LeaveRequest lr)
+    {
+        var year = lr.StartDate.Year;
+        var holidayDates = await GetLeaveHolidayDatesAsync(orgId, lr);
+        var netDays = LeaveRequest.CalculateBusinessDays(lr.StartDate, lr.EndDate, holidayDates);
+
+        var balance = await _db.LeaveBalances
+            .FirstOrDefaultAsync(b => b.OrganizationId == orgId
+                                   && b.EmployeeId == lr.EmployeeId
+                                   && b.LeaveTypeId == lr.LeaveTypeId
+                                   && b.Year == year);
+
+        if (balance == null)
+        {
+            // Auto-create balance if it doesn't exist
+            var leaveType = await _db.LeaveTypes.FindAsync(lr.LeaveTypeId);
+            balance = new LeaveBalance
+            {
+                OrganizationId = orgId,
+                EmployeeId = lr.EmployeeId,
+                LeaveTypeId = lr.LeaveTypeId,
+                Year = year,
+                EntitlementDays = leaveType?.DefaultDays ?? 0,
+                UsedDays = 0,
+                CarriedForwardDays = 0,
+                AdjustedDays = 0,
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.LeaveBalances.Add(balance);
+        }
+
+        // FR-008: Deduct only net business days (excluding holidays)
+        balance.UsedDays += netDays;
+
+        // Store the holiday count for reference
+        lr.HolidayDays = holidayDates.Count(h => h >= lr.StartDate.Date && h <= lr.EndDate.Date);
+    }
+
+    /// <summary>Create attendance records with OnLeave status for the approved leave period.
+    /// Skips weekends, holidays (FR-008), and existing attendance records.</summary>
+    private async Task CreateLeaveAttendanceRecordsAsync(int orgId, LeaveRequest lr)
+    {
+        var employee = await _db.Employees.FindAsync(lr.EmployeeId);
+        if (employee == null) return;
+
+        // FR-008: Fetch holidays so they are excluded from leave attendance
+        var holidayDates = (await _db.LeaveHolidays
+            .Where(h => h.OrganizationId == orgId && h.Date >= lr.StartDate && h.Date <= lr.EndDate)
+            .Select(h => h.Date.Date)
+            .ToListAsync()).ToHashSet();
+
+        var existingDates = await _db.Attendances
+            .Where(a => a.OrganizationId == orgId && a.EmployeeId == lr.EmployeeId
+                     && a.Date >= lr.StartDate && a.Date <= lr.EndDate)
+            .Select(a => a.DateKey)
+            .ToHashSetAsync();
+
+        var recordsToAdd = new List<Attendance>();
+        for (var d = lr.StartDate.Date; d <= lr.EndDate.Date; d = d.AddDays(1))
+        {
+            // Skip weekends
+            if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                continue;
+
+            // FR-008: Skip public holidays
+            if (holidayDates.Contains(d))
+                continue;
+
+            var dateKey = d.ToString("yyyy-MM-dd");
+
+            // Skip if attendance record already exists (e.g., they clocked in before leave was approved)
+            if (existingDates.Contains(dateKey))
+                continue;
+
+            recordsToAdd.Add(new Attendance
+            {
+                OrganizationId = orgId,
+                EmployeeId = lr.EmployeeId,
+                EmployeeName = employee.FullName,
+                DateKey = dateKey,
+                Date = d,
+                Status = AttendanceStatus.OnLeave,
+                Source = AttendanceSource.System,
+                Notes = $"Approved leave: {lr.LeaveTypeName}",
+                BreakMinutes = 0,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        if (recordsToAdd.Count > 0)
+        {
+            _db.Attendances.AddRange(recordsToAdd);
+        }
+    }
 }
 
 public class PayrollService
@@ -205,6 +430,34 @@ public class PayrollService
         p.ApproverNotes = notes;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>Bulk-approve all pending payroll runs for an org (single DB round-trip via ExecuteUpdate).</summary>
+    public async Task<int> BulkApproveAllAsync(int orgId, string approverEmail, string? notes = null)
+    {
+        var now = DateTime.UtcNow;
+        return await _db.PayrollRuns
+            .Where(p => p.OrganizationId == orgId && p.ApprovalStatus == PayrollApprovalStatus.Pending)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.ApprovalStatus, PayrollApprovalStatus.Approved)
+                .SetProperty(p => p.Status, PayrollStatus.Approved)
+                .SetProperty(p => p.ApprovedByEmail, approverEmail)
+                .SetProperty(p => p.ApprovedAt, now)
+                .SetProperty(p => p.ApproverNotes, notes ?? "Batch approved."));
+    }
+
+    /// <summary>Bulk-approve all pending payroll runs in a specific batch (single DB round-trip).</summary>
+    public async Task<int> BulkApproveBatchAsync(int orgId, string batchId, string approverEmail, string? notes = null)
+    {
+        var now = DateTime.UtcNow;
+        return await _db.PayrollRuns
+            .Where(p => p.OrganizationId == orgId && p.BatchId == batchId && p.ApprovalStatus == PayrollApprovalStatus.Pending)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.ApprovalStatus, PayrollApprovalStatus.Approved)
+                .SetProperty(p => p.Status, PayrollStatus.Approved)
+                .SetProperty(p => p.ApprovedByEmail, approverEmail)
+                .SetProperty(p => p.ApprovedAt, now)
+                .SetProperty(p => p.ApproverNotes, notes ?? $"Batch {batchId} approved."));
     }
 
     public async Task<bool> RejectAsync(int orgId, int id, string rejectorEmail, string reason)

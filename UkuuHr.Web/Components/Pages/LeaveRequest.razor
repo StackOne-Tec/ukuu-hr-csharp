@@ -1,0 +1,360 @@
+@page "/leave/request"
+@attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@inject LeaveService LeaveSvc
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IHttpContextAccessor HttpAccessor
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Leave · @_today.ToString("dd MMMM yyyy")</div>
+            <h1 class="bk-admin-h1">Request Leave</h1>
+            <p class="bk-admin-sub">Submit a new leave application. Your manager will review and approve it.</p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/leave" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                Back to Leave
+            </a>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:24px;">
+        <!-- Leave form -->
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>Leave Application</h3>
+                <p>Fill in the details below to submit your leave request.</p>
+            </div>
+            <div class="bk-admin-card-content">
+                @if (!_hasEmployees)
+                {
+                    <div style="padding:24px;text-align:center;color:var(--bk-ink-3);">
+                        <span class="material-icons-round" style="font-size:48px;opacity:0.5;">person_off</span>
+                        <h3 style="margin-top:12px;font-size:16px;color:var(--bk-ink);">No employee profile found</h3>
+                        <p style="font-size:13px;">You need to be linked to an employee record to submit leave. Contact your HR administrator.</p>
+                    </div>
+                }
+                else
+                {
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;">
+                        <!-- Leave Type -->
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Leave Type</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">event_available</span>
+                                <select class="bk-input" @bind="_selectedLeaveTypeId" @bind:event="onchange">
+                                    <option value="0">Select leave type...</option>
+                                    @foreach (var lt in _leaveTypes)
+                                    {
+                                        var balance = _balances.FirstOrDefault(b => b.LeaveTypeId == lt.Id);
+                                        var remaining = balance?.RemainingDays ?? lt.DefaultDays;
+                                        <option value="@lt.Id">
+                                            @lt.Name (@(lt.IsPaid ? "Paid" : "Unpaid") — @remaining day(s) remaining)
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                            @if (_selectedLeaveTypeId > 0)
+                            {
+                                var lt = _leaveTypes.FirstOrDefault(t => t.Id == _selectedLeaveTypeId);
+                                var bal = _balances.FirstOrDefault(b => b.LeaveTypeId == _selectedLeaveTypeId);
+                                if (lt != null)
+                                {
+                                    <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--bk-ink-3);">
+                                        <span>Entitlement: <strong>@(bal?.EntitlementDays ?? lt.DefaultDays) days</strong></span>
+                                        <span>Used: <strong>@(bal?.UsedDays ?? 0) days</strong></span>
+                                        <span>Remaining: <strong style="color:var(--bk-accent-3);">@(bal?.RemainingDays ?? lt.DefaultDays) days</strong></span>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        <!-- Start Date -->
+                        <div class="bk-field">
+                            <label class="bk-label">Start Date</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">today</span>
+                                <input type="date" class="bk-input" @bind="_startDate" @bind:event="onchange"
+                                       min="@_today.ToString("yyyy-MM-dd")" style="padding-left:44px;" />
+                            </div>
+                        </div>
+
+                        <!-- End Date -->
+                        <div class="bk-field">
+                            <label class="bk-label">End Date</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">event</span>
+                                <input type="date" class="bk-input" @bind="_endDate" @bind:event="onchange"
+                                       min="@_today.ToString("yyyy-MM-dd")" style="padding-left:44px;" />
+                            </div>
+                        </div>
+
+                        <!-- Exclude holidays info -->
+                        @if (_startDate.HasValue && _endDate.HasValue && _endDate >= _startDate)
+                        {
+                            var businessDays = LeaveRequest.CalculateBusinessDays(_startDate.Value, _endDate.Value);
+                            var holidaysInRange = _holidays.Count(h => h.Date >= _startDate.Value && h.Date <= _endDate.Value);
+                            <div class="bk-field" style="grid-column:1/-1;">
+                                <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--bk-ink-3);padding:8px 12px;background:var(--bk-muted);border-radius:8px;">
+                                    <span>📅 Total days: <strong>@((_endDate - _startDate).Value.Days + 1)</strong></span>
+                                    <span>💼 Business days: <strong style="color:var(--bk-accent-3);">@businessDays</strong></span>
+                                    @if (holidaysInRange > 0)
+                                    {
+                                        <span>🎉 Public holidays excluded: <strong style="color:var(--bk-accent);">@holidaysInRange</strong></span>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Balance warning -->
+                        @if (!string.IsNullOrEmpty(BalanceWarning()))
+                        {
+                            <div class="bk-field" style="grid-column:1/-1;">
+                                <div style="padding:12px 16px;background:var(--bk-accent-4-bg, rgba(232,93,117,0.1));border:1px solid var(--bk-accent-4);border-radius:8px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--bk-accent-4);">
+                                    <span class="material-icons-round" style="font-size:20px;">warning</span>
+                                    <span>@BalanceWarning()</span>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Reason -->
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Reason for Leave</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon" style="top:16px;transform:none;">description</span>
+                                <textarea class="bk-input" @bind="_reason" placeholder="Please provide a brief reason for your leave request..."
+                                          style="height:100px;padding:14px 16px 14px 44px;resize:vertical;font-family:inherit;line-height:1.5;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);">
+                        <div style="font-size:12px;color:var(--bk-ink-3);">
+                            @if (_selectedLeaveTypeId > 0 && _startDate.HasValue && _endDate.HasValue)
+                            {
+                                var lt = _leaveTypes.FirstOrDefault(t => t.Id == _selectedLeaveTypeId);
+                                var needsApproval = lt?.RequiresApproval ?? true;
+                                <span>This request will @(needsApproval ? "require manager approval" : "be auto-approved").</span>
+                            }
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <a href="/leave" class="bk-btn bk-btn-secondary">Cancel</a>
+                            <button class="bk-btn bk-btn-primary" @onclick="SubmitLeave" disabled="@(!CanSubmit())">
+                                <span class="material-icons-round" style="font-size:16px;">send</span>
+                                Submit Request
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Sidebar: Your leave balances -->
+        <div>
+            <div class="bk-admin-card" style="margin-bottom:20px;">
+                <div class="bk-admin-card-header">
+                    <h3>Your Leave Balances — @_today.Year</h3>
+                    <p>Current entitlement and usage</p>
+                </div>
+                <div class="bk-admin-card-content" style="display:flex;flex-direction:column;gap:14px;">
+                    @foreach (var b in _balances.OrderBy(b => b.LeaveTypeId))
+                    {
+                        var lt = _leaveTypes.FirstOrDefault(t => t.Id == b.LeaveTypeId);
+                        var pct = b.EntitlementDays > 0 ? (b.UsedDays / b.EntitlementDays) * 100.0 : 0;
+                        <div>
+                            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                                <span style="font-weight:600;color:var(--bk-ink);display:flex;align-items:center;gap:6px;">
+                                    <span style="width:10px;height:10px;border-radius:3px;background:@(lt?.Color ?? \"#25163F\");"></span>
+                                    @b.LeaveType.Name
+                                </span>
+                                <span style="color:var(--bk-ink-3);">
+                                    <strong style="color:@(b.RemainingDays > 0 ? "var(--bk-accent-3)" : "var(--bk-accent-4)");">@b.RemainingDays.ToString("0.#")</strong>
+                                    / @b.EntitlementDays days
+                                </span>
+                            </div>
+                            <div class="bk-admin-progress">
+                                <div class="bk-admin-progress-fill" style="width:@Math.Min(pct, 100)%;background:linear-gradient(90deg, @(lt?.Color ?? \"#25163F\") 0%, @(lt?.Color ?? \"#4A3C68\") 100%);"></div>
+                            </div>
+                            <div style="display:flex;gap:12px;margin-top:4px;font-size:10px;color:var(--bk-ink-3);">
+                                <span>@b.UsedDays.ToString("0.#") used</span>
+                                @if (b.CarriedForwardDays > 0) { <span>+@b.CarriedForwardDays carried forward</span> }
+                                @if (b.AdjustedDays != 0) { <span>@(b.AdjustedDays > 0 ? "+" : "")@b.AdjustedDays adjusted</span> }
+                            </div>
+                        </div>
+                    }
+                    @if (!_balances.Any())
+                    {
+                        <div style="text-align:center;padding:16px;color:var(--bk-ink-3);font-size:13px;">
+                            No leave types configured yet.
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Recent requests -->
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>My Recent Requests</h3>
+                    <p>Last 5 leave applications</p>
+                </div>
+                <div style="display:flex;flex-direction:column;">
+                    @foreach (var lr in _myLeaves.Take(5))
+                    {
+                        <div style="padding:12px 16px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                            <div>
+                                <div style="font-size:12px;font-weight:600;color:var(--bk-ink);">@lr.LeaveTypeName</div>
+                                <div style="font-size:11px;color:var(--bk-ink-3);">@lr.StartDate.ToString("dd MMM") – @lr.EndDate.ToString("dd MMM") · @lr.RequestedDays days</div>
+                            </div>
+                            <span class="bk-admin-pill @(lr.Status == LeaveRequestStatus.Approved ? "approved" : lr.Status == LeaveRequestStatus.Rejected ? "rejected" : "pending")" style="font-size:10px;">
+                                @lr.Status
+                            </span>
+                        </div>
+                    }
+                    @if (!_myLeaves.Any())
+                    {
+                        <div style="padding:24px;text-align:center;color:var(--bk-ink-3);font-size:13px;">
+                            No leave requests yet.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<LeaveType> _leaveTypes = new();
+    private List<LeaveBalance> _balances = new();
+    private List<LeaveRequest> _myLeaves = new();
+    private List<LeaveHoliday> _holidays = new();
+    private List<Employee> _myEmployees = new();
+    private int _selectedLeaveTypeId;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private string _reason = string.Empty;
+    private int _orgId;
+    private int _employeeId;
+    private bool _hasEmployees;
+    private readonly DateTime _today = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+
+        // Resolve the current user to find their employee record
+        var email = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        var userId = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            _myEmployees = await Db.Employees
+                .Where(e => e.OrganizationId == _orgId && e.Email != null && e.Email.ToLower() == email.ToLower())
+                .ToListAsync();
+        }
+
+        // Fallback: if user is admin, pick the first employee
+        if (_myEmployees.Count == 0 && !string.IsNullOrWhiteSpace(userId))
+        {
+            _myEmployees = await Db.Employees
+                .Where(e => e.OrganizationId == _orgId)
+                .Take(1)
+                .ToListAsync();
+        }
+
+        _hasEmployees = _myEmployees.Count > 0;
+        _employeeId = _myEmployees.FirstOrDefault()?.Id ?? 0;
+
+        _leaveTypes = await LeaveSvc.GetLeaveTypesAsync(_orgId);
+        _holidays = await Db.LeaveHolidays
+            .Where(h => h.OrganizationId == _orgId && h.Date >= _today)
+            .OrderBy(h => h.Date)
+            .ToListAsync();
+
+        if (_employeeId > 0)
+        {
+            _balances = await LeaveSvc.GetOrCreateBalancesAsync(_orgId, _employeeId);
+            _myLeaves = await LeaveSvc.ForEmployeeAsync(_orgId, _employeeId);
+        }
+    }
+
+    private bool CanSubmit()
+    {
+        if (_selectedLeaveTypeId <= 0
+            || !_startDate.HasValue
+            || !_endDate.HasValue
+            || _endDate < _startDate
+            || string.IsNullOrWhiteSpace(_reason)
+            || _employeeId <= 0)
+            return false;
+
+        // Check sufficient balance
+        var balance = _balances.FirstOrDefault(b => b.LeaveTypeId == _selectedLeaveTypeId);
+        if (balance != null)
+        {
+            var requestedDays = LeaveRequest.CalculateBusinessDays(_startDate.Value, _endDate.Value);
+            if (balance.RemainingDays < requestedDays)
+                return false;
+        }
+
+        return true;
+    }
+
+    private string BalanceWarning()
+    {
+        if (_selectedLeaveTypeId <= 0 || !_startDate.HasValue || !_endDate.HasValue || _endDate < _startDate)
+            return string.Empty;
+
+        var balance = _balances.FirstOrDefault(b => b.LeaveTypeId == _selectedLeaveTypeId);
+        if (balance == null) return string.Empty;
+
+        var requestedDays = LeaveRequest.CalculateBusinessDays(_startDate.Value, _endDate.Value);
+        if (balance.RemainingDays < requestedDays)
+        {
+            return $"Insufficient balance! You need {requestedDays} day(s) but only have {balance.RemainingDays:0.#} remaining for this leave type.";
+        }
+        return string.Empty;
+    }
+
+    private async Task SubmitLeave()
+    {
+        if (!CanSubmit()) return;
+
+        try
+        {
+            var email = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            var userId = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var emp = _myEmployees.FirstOrDefault();
+            var name = emp?.FullName ?? HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Employee";
+
+            var lr = new LeaveRequest
+            {
+                OrganizationId = _orgId,
+                EmployeeId = _employeeId,
+                EmployeeName = name,
+                LeaveTypeId = _selectedLeaveTypeId,
+                LeaveTypeName = _leaveTypes.FirstOrDefault(t => t.Id == _selectedLeaveTypeId)?.Name ?? "",
+                StartDate = _startDate.Value,
+                EndDate = _endDate.Value,
+                Reason = _reason,
+                Status = LeaveRequestStatus.Pending,
+                RequestedByUserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await LeaveSvc.CreateAsync(lr);
+            Snackbar.Add("Leave request submitted successfully! Awaiting manager approval.", Severity.Success);
+            Nav.NavigateTo("/leave");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to submit leave: {ex.Message}", Severity.Error);
+        }
+    }
+}

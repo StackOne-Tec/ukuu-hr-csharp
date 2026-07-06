@@ -212,6 +212,9 @@ builder.Services.AddScoped<ReportExportService>();
 // ───── Phase 13.5: Encryption at rest ─────
 builder.Services.AddScoped<AesEncryptionService>();
 
+// ───── FR-013: Notifications module ─────
+builder.Services.AddScoped<NotificationService>();
+
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();
 
@@ -511,11 +514,89 @@ app.MapGet("/api/modules", async (UkuuHrDbContext db) =>
         new("leave", "Leave Management", true, "/api/leave"),
         new("payroll", "Payroll Integration", true, "/api/payroll/attendance-summary"),
         new("reporting", "Reporting", true, "/api/reports"),
-        new("notifications", "Notifications", false, null),
+        new("notifications", "Notifications", true, "/api/notifications"),
         new("devices", "Device Integration", true, "/api/devices")
     };
     return Results.Ok(new { organization = org?.Name, modules });
 }).WithName("ModulesList");
+
+// FR-013: Notifications API endpoints
+app.MapGet("/api/notifications", async (
+    UkuuHrDbContext db,
+    int? orgId,
+    string? userId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var q = db.NotificationRecords.Where(n => n.OrganizationId == oid);
+    if (!string.IsNullOrWhiteSpace(userId))
+        q = q.Where(n => n.RecipientUserId == null || n.RecipientUserId == userId);
+    else
+        q = q.Where(n => n.RecipientUserId == null);
+
+    var total = await q.CountAsync();
+    var unread = await q.CountAsync(n => !n.IsRead);
+    var notifications = await q
+        .OrderByDescending(n => n.CreatedAt)
+        .Take(50)
+        .Select(n => new
+        {
+            n.Id,
+            n.Type,
+            n.Title,
+            n.Body,
+            n.ActionUrl,
+            n.ActionLabel,
+            n.SourceModule,
+            n.IsRead,
+            n.ReadAt,
+            n.CreatedAt,
+            n.DeliveryStatus
+        })
+        .ToListAsync();
+
+    return Results.Ok(new { total, unread, notifications });
+}).WithName("NotificationsList");
+
+// Mark a notification as read
+app.MapPost("/api/notifications/{id:int}/read", async (
+    UkuuHrDbContext db,
+    int id,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var n = await db.NotificationRecords
+        .FirstOrDefaultAsync(x => x.OrganizationId == oid && x.Id == id);
+    if (n == null) return Results.NotFound();
+
+    n.IsRead = true;
+    n.ReadAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { status = "ok" });
+}).WithName("NotificationMarkRead");
+
+// Mark all notifications as read
+app.MapPost("/api/notifications/read-all", async (
+    UkuuHrDbContext db,
+    int? orgId,
+    string? userId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var q = db.NotificationRecords.Where(n => n.OrganizationId == oid && !n.IsRead);
+    if (!string.IsNullOrWhiteSpace(userId))
+        q = q.Where(n => n.RecipientUserId == null || n.RecipientUserId == userId);
+    else
+        q = q.Where(n => n.RecipientUserId == null);
+
+    var now = DateTime.UtcNow;
+    var count = await q.CountAsync();
+    await q.ExecuteUpdateAsync(s => s
+        .SetProperty(n => n.IsRead, true)
+        .SetProperty(n => n.ReadAt, now));
+
+    return Results.Ok(new { markedRead = count });
+}).WithName("NotificationMarkAllRead");
 
 // FR-013: Devices list (modular API surface — minimal read endpoint for external systems).
 app.MapGet("/api/devices", async (UkuuHrDbContext db, int? orgId) =>
@@ -540,6 +621,106 @@ app.MapGet("/api/devices", async (UkuuHrDbContext db, int? orgId) =>
         .ToListAsync();
     return Results.Ok(new { total = devices.Count, devices });
 }).WithName("DevicesList");
+
+// ───── FR-010: Attendance report download endpoints ─────
+// These endpoints allow Blazor pages to download CSV/Excel reports via a simple redirect,
+// avoiding the need to write files to a server-side path.
+// The /search variants accept all AttendanceSearchFilter params for filtered exports (FR-009).
+
+app.MapGet("/api/reports/attendance/csv", async (
+    ReportExportService reportSvc,
+    UkuuHrDbContext db,
+    int? orgId,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    DateTime? fromDate = DateTime.TryParse(from, out var fd) ? fd : null;
+    DateTime? toDate = DateTime.TryParse(to, out var td) ? td : null;
+    var report = await reportSvc.GenerateAsync(oid, ReportPeriod.Custom, fromDate, toDate);
+    var bytes = reportSvc.ExportCsv(report);
+    return Results.File(bytes, "text/csv", $"attendance-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+}).WithName("DownloadAttendanceCsv");
+
+app.MapGet("/api/reports/attendance/xlsx", async (
+    ReportExportService reportSvc,
+    UkuuHrDbContext db,
+    int? orgId,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    DateTime? fromDate = DateTime.TryParse(from, out var fd) ? fd : null;
+    DateTime? toDate = DateTime.TryParse(to, out var td) ? td : null;
+    var report = await reportSvc.GenerateAsync(oid, ReportPeriod.Custom, fromDate, toDate);
+    var bytes = reportSvc.ExportXlsx(report);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"attendance-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
+}).WithName("DownloadAttendanceXlsx");
+
+// FR-009: Filtered search-export endpoints — pass all AttendanceSearchFilter params
+app.MapGet("/api/reports/attendance/csv/search", async (
+    ReportExportService reportSvc,
+    UkuuHrDbContext db,
+    int? orgId,
+    int? employeeId,
+    string? department,
+    string? branch,
+    int? shiftId,
+    string? status,
+    string? search,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var filter = new AttendanceSearchFilter
+    {
+        EmployeeId = employeeId,
+        Department = department,
+        Branch = branch,
+        ShiftId = shiftId,
+        Status = Enum.TryParse<AttendanceStatus>(status, out var s) ? s : null,
+        Search = search,
+        FromDate = DateTime.TryParse(from, out var fd) ? fd : null,
+        ToDate = DateTime.TryParse(to, out var td) ? td : null,
+        Page = 1,
+        PageSize = 100000
+    };
+    var report = await reportSvc.GenerateFromFilterAsync(oid, filter);
+    var bytes = reportSvc.ExportCsv(report);
+    return Results.File(bytes, "text/csv", $"attendance-search-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+}).WithName("DownloadAttendanceSearchCsv");
+
+app.MapGet("/api/reports/attendance/xlsx/search", async (
+    ReportExportService reportSvc,
+    UkuuHrDbContext db,
+    int? orgId,
+    int? employeeId,
+    string? department,
+    string? branch,
+    int? shiftId,
+    string? status,
+    string? search,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var filter = new AttendanceSearchFilter
+    {
+        EmployeeId = employeeId,
+        Department = department,
+        Branch = branch,
+        ShiftId = shiftId,
+        Status = Enum.TryParse<AttendanceStatus>(status, out var s) ? s : null,
+        Search = search,
+        FromDate = DateTime.TryParse(from, out var fd) ? fd : null,
+        ToDate = DateTime.TryParse(to, out var td) ? td : null,
+        Page = 1,
+        PageSize = 100000
+    };
+    var report = await reportSvc.GenerateFromFilterAsync(oid, filter);
+    var bytes = reportSvc.ExportXlsx(report);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"attendance-search-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
+}).WithName("DownloadAttendanceSearchXlsx");
 
 // FR-013: System metrics endpoint (for monitoring dashboards / NFR — 99.9% availability).
 app.MapGet("/api/system/metrics", (UkuuHrDbContext db) =>

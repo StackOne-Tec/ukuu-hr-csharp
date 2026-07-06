@@ -1,0 +1,292 @@
+@page "/payroll/pending"
+@attribute [Authorize(Policy = "FinanceOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject PayrollService PayrollSvc
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Pending Payroll Approvals · @_pending.Count awaiting review</div>
+            <h1 class="bk-admin-h1">Pending Approvals</h1>
+            <p class="bk-admin-sub">
+                Review and approve payroll runs before disbursement. Each run includes gross-to-net computation
+                with PAYE, NAPSA, and NHIMA deductions per Zambia (ZRA 2025) statutory rules.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/payroll" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                Full Payroll
+            </a>
+            @if (_pending.Count > 1)
+            {
+                <button class="bk-btn bk-btn-primary" @onclick="ApproveAll" style="background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;">
+                    <span class="material-icons-round" style="font-size:16px;">done_all</span>
+                    Approve All (@_pending.Count)
+                </button>
+            }
+        </div>
+    </div>
+
+    @* ───── KPI row ───── *@
+    <div class="bk-admin-kpi-grid">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon pink">
+                    <span class="material-icons-round">pending_actions</span>
+                </div>
+            </div>
+            <div class="bk-admin-kpi-value" style="color:var(--bk-accent-4);">@_pending.Count</div>
+            <div class="bk-admin-kpi-label">Awaiting Review</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon pink">
+                    <span class="material-icons-round">payments</span>
+                </div>
+            </div>
+            <div class="bk-admin-kpi-value">ZMW @_totalNetPending.ToString("N0")</div>
+            <div class="bk-admin-kpi-label">Pending Net Pay</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold">
+                    <span class="material-icons-round">receipt</span>
+                </div>
+            </div>
+            <div class="bk-admin-kpi-value">ZMW @_totalPayePending.ToString("N0")</div>
+            <div class="bk-admin-kpi-label">PAYE Due</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green">
+                    <span class="material-icons-round">account_balance</span>
+                </div>
+            </div>
+            <div class="bk-admin-kpi-value">@_batchCount</div>
+            <div class="bk-admin-kpi-label">Batches</div>
+        </div>
+    </div>
+
+    @* ───── Batch-level summaries ───── *@
+    @if (_batches.Count > 0)
+    {
+        <div class="bk-admin-card" style="margin-bottom:24px;">
+            <div class="bk-admin-card-header">
+                <h3>Batch Summary</h3>
+                <p>Collated totals per batch. Click to expand individual employees.</p>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="bk-admin-table">
+                    <thead>
+                        <tr>
+                            <th>Batch ID</th>
+                            <th>Employees</th>
+                            <th>Period</th>
+                            <th>Gross</th>
+                            <th>PAYE</th>
+                            <th>NAPSA</th>
+                            <th>NHIMA</th>
+                            <th>Net</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var batch in _batches)
+                        {
+                            <tr>
+                                <td style="font-family:var(--ukuu-font-mono);font-size:12px;font-weight:600;">@batch.BatchId</td>
+                                <td>@batch.EmployeeCount</td>
+                                <td style="font-size:12px;color:var(--bk-ink-3);">@batch.PeriodLabel</td>
+                                <td style="font-weight:600;">ZMW @batch.TotalGross.ToString("N0")</td>
+                                <td style="color:var(--bk-accent-4);">ZMW @batch.TotalPaye.ToString("N0")</td>
+                                <td style="color:var(--bk-accent);">ZMW @batch.TotalNapsa.ToString("N0")</td>
+                                <td style="color:var(--bk-accent);">ZMW @batch.TotalNhima.ToString("N0")</td>
+                                <td style="font-weight:700;color:var(--bk-accent-3);">ZMW @batch.TotalNet.ToString("N0")</td>
+                                <td>
+                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);color:white;border:none;" @onclick="() => ApproveBatch(batch.BatchId)">
+                                        <span class="material-icons-round" style="font-size:14px;">done_all</span>
+                                        Approve Batch
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @* ───── Employee-level pending list ───── *@
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <div class="bk-admin-card-header">
+            <h3>Employee Payroll Runs</h3>
+            <p>Approve or reject individual runs. Rejected runs require re-generation.</p>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table bk-mobile-card-view">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Period</th>
+                        <th>Gross</th>
+                        <th>Deductions</th>
+                        <th>Net Pay</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _pending)
+                    {
+                        var dept = _allEmployees.FirstOrDefault(e => e.Id == p.EmployeeId)?.Department ?? "—";
+                        <tr>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@GetInitials(p.EmployeeName)</div>
+                                    <div>
+                                        <div style="font-weight:600;font-size:13px;">@p.EmployeeName</div>
+                                        <div style="font-size:11px;color:var(--bk-ink-3);">@p.PeriodLabel</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span style="font-size:12px;color:var(--bk-ink-2);">@dept</span></td>
+                            <td style="font-size:12px;color:var(--bk-ink-3);">@p.PeriodLabel</td>
+                            <td style="font-weight:600;">@p.Currency @p.Gross.ToString("N0")</td>
+                            <td>
+                                <div style="font-size:12px;color:var(--bk-ink-2);">
+                                    PAYE: @p.Paye.ToString("N0")
+                                    @if (p.Napsa > 0) { <text> · NAPSA: @p.Napsa.ToString("N0")</text> }
+                                    @if (p.Nhima > 0) { <text> · NHIMA: @p.Nhima.ToString("N0")</text> }
+                                </div>
+                            </td>
+                            <td style="font-weight:700;color:var(--bk-accent-3);font-size:15px;">@p.Currency @p.Net.ToString("N0")</td>
+                            <td style="font-size:12px;color:var(--bk-ink-3);">@(p.SubmittedAt?.ToString("dd MMM") ?? "—")</td>
+                            <td>
+                                <div style="display:flex;gap:6px;">
+                                    <button class="bk-btn bk-btn-primary" style="font-size:11px;padding:6px 12px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;" @onclick="() => Approve(p.Id)">
+                                        <span class="material-icons-round" style="font-size:14px;">check</span>
+                                        Approve
+                                    </button>
+                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;min-height:32px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);" @onclick="() => Reject(p.Id)">
+                                        <span class="material-icons-round" style="font-size:14px;">close</span>
+                                        Reject
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (_pending.Count == 0)
+        {
+            <div style="padding:64px 24px;text-align:center;color:var(--bk-ink-3);">
+                <div style="width:80px;height:80px;margin:0 auto 16px;background:rgba(22,163,74,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <span class="material-icons-round" style="font-size:40px;color:var(--bk-success);">check_circle</span>
+                </div>
+                <h3 style="font-size:18px;margin-bottom:4px;color:var(--bk-ink);">All caught up!</h3>
+                <p style="font-size:14px;color:var(--bk-ink-2);margin-bottom:24px;">No payroll runs awaiting approval. Generate a batch from the Payroll page.</p>
+                <a href="/payroll" class="bk-btn bk-btn-primary">
+                    <span class="material-icons-round" style="font-size:16px;">autorenew</span>
+                    Go to Payroll
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<PayrollRun> _pending = new();
+    private List<Employee> _allEmployees = new();
+    private int _orgId;
+    private double _totalNetPending;
+    private double _totalPayePending;
+    private int _batchCount;
+    private List<PendingBatchInfo> _batches = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _pending = await PayrollSvc.PendingApprovalsAsync(_orgId);
+        _allEmployees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+
+        _totalNetPending = _pending.Sum(p => p.Net);
+        _totalPayePending = _pending.Sum(p => p.Paye);
+
+        // Group into batches
+        _batches = _pending
+            .Where(p => p.BatchId != null)
+            .GroupBy(p => p.BatchId!)
+            .Select(g => new PendingBatchInfo
+            {
+                BatchId = g.Key,
+                EmployeeCount = g.Count(),
+                PeriodLabel = g.First().PeriodLabel,
+                TotalGross = g.Sum(p => p.Gross),
+                TotalNet = g.Sum(p => p.Net),
+                TotalPaye = g.Sum(p => p.Paye),
+                TotalNapsa = g.Sum(p => p.Napsa),
+                TotalNhima = g.Sum(p => p.Nhima)
+            })
+            .ToList();
+        _batchCount = _batches.Count;
+    }
+
+    private async Task Approve(int id)
+    {
+        await PayrollSvc.ApproveAsync(_orgId, id, "admin@ukuuhr.demo", "Approved from Pending Approvals.");
+        Snackbar.Add("Payroll approved. Net pay ready for disbursement.", Severity.Success);
+        await LoadData();
+    }
+
+    private async Task Reject(int id)
+    {
+        await PayrollSvc.RejectAsync(_orgId, id, "admin@ukuuhr.demo", "Rejected — please review and re-generate.");
+        Snackbar.Add("Payroll rejected.", Severity.Warning);
+        await LoadData();
+    }
+
+    private async Task ApproveBatch(string batchId)
+    {
+        var count = await PayrollSvc.BulkApproveBatchAsync(_orgId, batchId, "admin@ukuuhr.demo", $"Batch {batchId} approved.");
+        Snackbar.Add($"Approved {count} payroll runs in batch {batchId}.", Severity.Success);
+        await LoadData();
+    }
+
+    private async Task ApproveAll()
+    {
+        var count = await PayrollSvc.BulkApproveAllAsync(_orgId, "admin@ukuuhr.demo", "Batch approve all pending.");
+        Snackbar.Add($"Approved {count} pending payroll runs.", Severity.Success);
+        await LoadData();
+    }
+
+    private string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2) return name.Length > 2 ? name[..2].ToUpper() : name.ToUpper();
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+
+    private record PendingBatchInfo
+    {
+        public string BatchId { get; init; } = "";
+        public int EmployeeCount { get; init; }
+        public string PeriodLabel { get; init; } = "";
+        public double TotalGross { get; init; }
+        public double TotalNet { get; init; }
+        public double TotalPaye { get; init; }
+        public double TotalNapsa { get; init; }
+        public double TotalNhima { get; init; }
+    }
+}

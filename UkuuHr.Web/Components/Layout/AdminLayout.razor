@@ -166,18 +166,42 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">event</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Holidays</span> }
             </a>
-            <a href="/payroll" class="bk-admin-sidebar-item @(IsActive("payroll") ? "active" : "")">
+            <a href="/payroll" class="bk-admin-sidebar-item @(IsActive("payroll") && !IsActive("payroll/pending") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">payments</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Payroll</span> }
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-badge">4</span> }
             </a>
-            <a href="/shifts" class="bk-admin-sidebar-item @(IsActive("shifts") || IsActive("scheduling") ? "active" : "")">
+            <a href="/payroll/pending" class="bk-admin-sidebar-item @(IsActive("payroll/pending") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">pending_actions</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Pending Approvals</span> }
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-badge">5</span> }
+            </a>
+            <a href="/payroll/calculator" class="bk-admin-sidebar-item" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">calculate</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Calculator</span> }
+            </a>
+            <a href="/shifts" class="bk-admin-sidebar-item @(IsActive("shifts") && !IsActive("shifts/assignments") && !IsActive("shifts/tolerance") && !IsActive("shifts/coverage") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">calendar_month</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Shifts</span> }
             </a>
-            <a href="/devices" class="bk-admin-sidebar-item @(IsActive("devices") || IsActive("hikvision") ? "active" : "")">
+            <a href="/shifts/assignments" class="bk-admin-sidebar-item @(IsActive("shifts/assignments") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">assignment_ind</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Assignments</span> }
+            </a>
+            <a href="/shifts/tolerance" class="bk-admin-sidebar-item @(IsActive("shifts/tolerance") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">tune</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Tolerance Policy</span> }
+            </a>
+            <a href="/shifts/coverage" class="bk-admin-sidebar-item @(IsActive("shifts/coverage") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">calendar_view_week</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Weekly Coverage</span> }
+            </a>
+            <a href="/devices" class="bk-admin-sidebar-item @(IsActive("devices") && !IsActive("devices/add") && !IsActive("hikvision") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">fingerprint</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Devices</span> }
+            </a>
+            <a href="/devices/add" class="bk-admin-sidebar-item @(IsActive("devices/add") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">add_circle</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Add Device</span> }
             </a>
 
             @if (!_collapsed)
@@ -189,10 +213,6 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">folder</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Documents</span> }
             </a>
-            <a href="/messages" class="bk-admin-sidebar-item @(IsActive("messages") ? "active" : "")">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">forum</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Messages</span> }
-            </a>
             <a href="/reports" class="bk-admin-sidebar-item @(IsActive("reports") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">bar_chart</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Reports</span> }
@@ -203,9 +223,29 @@
                 <div class="bk-admin-sidebar-section-label">Administration</div>
             }
 
-            <a href="/settings" class="bk-admin-sidebar-item @(IsActive("settings") ? "active" : "")">
+            <a href="/settings" class="bk-admin-sidebar-item @(IsActive("settings") && !IsActive("settings/organization") && !IsActive("settings/payroll-config") && !IsActive("settings/leave-types") && !IsActive("settings/notifications") && !IsActive("settings/user-management") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">settings</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Settings</span> }
+            </a>
+            <a href="/settings/organization" class="bk-admin-sidebar-item @(IsActive("settings/organization") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">business</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Organization</span> }
+            </a>
+            <a href="/settings/payroll-config" class="bk-admin-sidebar-item @(IsActive("settings/payroll-config") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">payments</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Payroll Config</span> }
+            </a>
+            <a href="/settings/leave-types" class="bk-admin-sidebar-item @(IsActive("settings/leave-types") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">event_available</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Leave Types</span> }
+            </a>
+            <a href="/settings/notifications" class="bk-admin-sidebar-item @(IsActive("settings/notifications") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">notifications</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Notifications</span> }
+            </a>
+            <a href="/settings/user-management" class="bk-admin-sidebar-item @(IsActive("settings/user-management") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">manage_accounts</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">User Management</span> }
             </a>
             <a href="/security" class="bk-admin-sidebar-item @(IsActive("security") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">shield</span></span>

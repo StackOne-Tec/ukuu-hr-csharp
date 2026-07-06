@@ -31,6 +31,7 @@ public class UkuuHrDbContext : DbContext
     public DbSet<HikvisionDevice> HikvisionDevices => Set<HikvisionDevice>();
     public DbSet<HikvisionClockEvent> HikvisionClockEvents => Set<HikvisionClockEvent>();
     public DbSet<OvertimeRecord> OvertimeRecords => Set<OvertimeRecord>();
+    public DbSet<NotificationRecord> NotificationRecords => Set<NotificationRecord>();
 
     // ───── Phase 1 additions (FR-003 / FR-004 / FR-005) ─────
     public DbSet<AttendanceTolerance> AttendanceTolerances => Set<AttendanceTolerance>();
@@ -109,6 +110,7 @@ public class UkuuHrDbContext : DbContext
         b.Entity<LeaveHoliday>(e =>
         {
             e.HasIndex(h => new { h.OrganizationId, h.Date });
+            e.Property(h => h.IsRecurring).HasDefaultValue(false);
         });
 
         // Payroll
@@ -228,6 +230,15 @@ public class UkuuHrDbContext : DbContext
             e.Ignore(o => o.StatusDisplay);
             e.Ignore(o => o.DateDisplay);
             e.Ignore(o => o.TimeWindow);
+        });
+
+        // NotificationRecord
+        b.Entity<NotificationRecord>(e =>
+        {
+            e.HasIndex(n => new { n.OrganizationId, n.CreatedAt });
+            e.HasIndex(n => new { n.OrganizationId, n.RecipientUserId, n.IsRead });
+            e.Property(n => n.DeliveryStatus).HasConversion<string>();
+            e.Property(n => n.Channel).HasConversion<string>();
         });
 
         // Leave balances

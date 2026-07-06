@@ -326,11 +326,13 @@ public class OvertimeService
 {
     private readonly UkuuHrDbContext _db;
     private readonly ILogger<OvertimeService> _logger;
+    private readonly NotificationService _notifications;
 
-    public OvertimeService(UkuuHrDbContext db, ILogger<OvertimeService> logger)
+    public OvertimeService(UkuuHrDbContext db, ILogger<OvertimeService> logger, NotificationService notifications)
     {
         _db = db;
         _logger = logger;
+        _notifications = notifications;
     }
 
     /// <summary>
@@ -400,12 +402,12 @@ public class OvertimeService
         _db.OvertimeRecords.Add(record);
         results.Add(record);
         await _db.SaveChangesAsync();
-
         return results;
     }
 
     /// <summary>
     /// Auto-calculate overtime for all employees for a given date range.
+    /// FR-006: Notifies admins of batch results.
     /// </summary>
     public async Task<int> AutoCalculateForDateRangeAsync(int orgId, DateTime from, DateTime to)
     {
@@ -421,6 +423,17 @@ public class OvertimeService
                 var records = await CalculateOvertimeForEmployeeAsync(orgId, emp.Id, date);
                 totalCreated += records.Count;
             }
+        }
+
+        // FR-006: Single batch notification (avoids noise of per-record notifications)
+        if (totalCreated > 0)
+        {
+            await NotifySafeAsync(orgId,
+                type: "info",
+                title: "Overtime auto-calculated",
+                body: $"Generated {totalCreated} overtime records for {from:yyyy-MM-dd} to {to:yyyy-MM-dd}",
+                sourceModule: "overtime",
+                actionUrl: "/overtime");
         }
 
         return totalCreated;
@@ -467,6 +480,15 @@ public class OvertimeService
 
         _db.OvertimeRecords.Add(record);
         await _db.SaveChangesAsync();
+
+        // FR-006: Notify admins of manual overtime entry
+        await NotifySafeAsync(orgId,
+            type: "info",
+            title: $"Manual overtime: {record.EmployeeName}",
+            body: $"{record.Hours:F1}h {record.RateTypeDisplay} on {record.Date:yyyy-MM-dd} — pending approval",
+            sourceModule: "overtime",
+            actionUrl: "/overtime");
+
         return record;
     }
 
@@ -479,6 +501,16 @@ public class OvertimeService
         ot.ApprovedAt = DateTime.UtcNow;
         ot.ApproverNotes = notes;
         await _db.SaveChangesAsync();
+
+        // FR-006: Notify employee (broadcast if no specific requester)
+        await NotifySafeAsync(orgId,
+            type: "success",
+            title: "Overtime approved",
+            body: $"{ot.Hours:F1}h overtime on {ot.Date:yyyy-MM-dd} ({ot.RateTypeDisplay}) approved.",
+            recipientUserId: ot.RequestedByUserId,
+            sourceModule: "overtime",
+            actionUrl: "/overtime");
+
         return true;
     }
 
@@ -491,7 +523,47 @@ public class OvertimeService
         ot.ApprovedAt = DateTime.UtcNow;
         ot.RejectionReason = reason;
         await _db.SaveChangesAsync();
+
+        // FR-006: Notify employee (broadcast if no specific requester)
+        await NotifySafeAsync(orgId,
+            type: "error",
+            title: "Overtime rejected",
+            body: $"{ot.Hours:F1}h overtime on {ot.Date:yyyy-MM-dd} rejected. Reason: {reason}",
+            recipientUserId: ot.RequestedByUserId,
+            sourceModule: "overtime",
+            actionUrl: "/overtime");
+
         return true;
+    }
+
+    // ───────────── FR-006: Notification helper ─────────────
+
+    /// <summary>Send a notification safely — failures are silently caught (best-effort delivery).</summary>
+    private async Task NotifySafeAsync(int orgId, string type, string title, string? body = null,
+        string? recipientUserId = null, string? sourceModule = null, string? actionUrl = null)
+    {
+        try
+        {
+            switch (type)
+            {
+                case "success":
+                    await _notifications.NotifySuccessAsync(orgId, title, body, recipientUserId, sourceModule, actionUrl);
+                    break;
+                case "error":
+                    await _notifications.NotifyErrorAsync(orgId, title, body, recipientUserId, sourceModule, actionUrl);
+                    break;
+                case "warning":
+                    await _notifications.NotifyWarningAsync(orgId, title, body, recipientUserId, sourceModule, actionUrl);
+                    break;
+                default:
+                    await _notifications.NotifyInfoAsync(orgId, title, body, recipientUserId, sourceModule, actionUrl);
+                    break;
+            }
+        }
+        catch
+        {
+            // Notification failures must never break the operation — best-effort only
+        }
     }
 
     public async Task<OvertimeSummary> GetSummaryAsync(int orgId, int month, int year)

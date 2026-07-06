@@ -19,8 +19,11 @@ public class AttendanceSearchService
     private readonly UkuuHrDbContext _db;
     public AttendanceSearchService(UkuuHrDbContext db) => _db = db;
 
-    /// <summary>Search attendance records with multiple filters.</summary>
-    public async Task<List<Attendance>> SearchAsync(int orgId, AttendanceSearchFilter filter)
+    /// <summary>
+    /// Build the base IQueryable with all non-pagination filters applied.
+    /// Shared by SearchAsync, CountAsync, and ReportExportService for filtered exports.
+    /// </summary>
+    public IQueryable<Attendance> BuildFilteredQuery(int orgId, AttendanceSearchFilter filter)
     {
         var q = _db.Attendances.Where(a => a.OrganizationId == orgId);
 
@@ -29,7 +32,6 @@ public class AttendanceSearchService
 
         if (!string.IsNullOrWhiteSpace(filter.Department))
         {
-            // Department lives on Employee, so we need to join.
             q = from a in q
                 join e in _db.Employees on a.EmployeeId equals e.Id
                 where e.Department == filter.Department
@@ -38,7 +40,6 @@ public class AttendanceSearchService
 
         if (!string.IsNullOrWhiteSpace(filter.Branch))
         {
-            // Branch = City for MVP (City is the closest location field on Employee).
             q = from a in q
                 join e in _db.Employees on a.EmployeeId equals e.Id
                 where e.City == filter.Branch
@@ -47,12 +48,10 @@ public class AttendanceSearchService
 
         if (filter.ShiftId.HasValue)
         {
-            // Filter to employees who have this shift assigned.
-            var empIds = await _db.EmployeeShiftAssignments
+            var empIds = _db.EmployeeShiftAssignments
                 .Where(s => s.ShiftId == filter.ShiftId.Value && s.IsActive)
                 .Select(s => s.EmployeeId)
-                .Distinct()
-                .ToListAsync();
+                .Distinct();
             q = q.Where(a => empIds.Contains(a.EmployeeId));
         }
 
@@ -71,6 +70,13 @@ public class AttendanceSearchService
             q = q.Where(a => a.EmployeeName.ToLower().Contains(s));
         }
 
+        return q;
+    }
+
+    /// <summary>Search attendance records with multiple filters (paged).</summary>
+    public async Task<List<Attendance>> SearchAsync(int orgId, AttendanceSearchFilter filter)
+    {
+        var q = BuildFilteredQuery(orgId, filter);
         return await q
             .OrderByDescending(a => a.Date)
             .ThenBy(a => a.EmployeeName)
@@ -82,52 +88,7 @@ public class AttendanceSearchService
     /// <summary>Count of total matching records (for pagination).</summary>
     public async Task<int> CountAsync(int orgId, AttendanceSearchFilter filter)
     {
-        var q = _db.Attendances.Where(a => a.OrganizationId == orgId);
-
-        if (filter.EmployeeId.HasValue)
-            q = q.Where(a => a.EmployeeId == filter.EmployeeId.Value);
-
-        if (!string.IsNullOrWhiteSpace(filter.Department))
-        {
-            q = from a in q
-                join e in _db.Employees on a.EmployeeId equals e.Id
-                where e.Department == filter.Department
-                select a;
-        }
-
-        if (!string.IsNullOrWhiteSpace(filter.Branch))
-        {
-            q = from a in q
-                join e in _db.Employees on a.EmployeeId equals e.Id
-                where e.City == filter.Branch
-                select a;
-        }
-
-        if (filter.ShiftId.HasValue)
-        {
-            var empIds = await _db.EmployeeShiftAssignments
-                .Where(s => s.ShiftId == filter.ShiftId.Value && s.IsActive)
-                .Select(s => s.EmployeeId)
-                .Distinct()
-                .ToListAsync();
-            q = q.Where(a => empIds.Contains(a.EmployeeId));
-        }
-
-        if (filter.Status.HasValue)
-            q = q.Where(a => a.Status == filter.Status.Value);
-
-        if (filter.FromDate.HasValue)
-            q = q.Where(a => a.Date >= filter.FromDate.Value.Date);
-
-        if (filter.ToDate.HasValue)
-            q = q.Where(a => a.Date <= filter.ToDate.Value.Date.AddDays(1).AddTicks(-1));
-
-        if (!string.IsNullOrWhiteSpace(filter.Search))
-        {
-            var s = filter.Search.Trim().ToLower();
-            q = q.Where(a => a.EmployeeName.ToLower().Contains(s));
-        }
-
+        var q = BuildFilteredQuery(orgId, filter);
         return await q.CountAsync();
     }
 
@@ -173,7 +134,7 @@ public class ReportExportService
     private readonly UkuuHrDbContext _db;
     public ReportExportService(UkuuHrDbContext db) => _db = db;
 
-    /// <summary>Generate a report for the given period.</summary>
+    /// <summary>Generate a report for the given period, including overtime data.</summary>
     public async Task<AttendanceReport> GenerateAsync(int orgId, ReportPeriod period, DateTime? fromDate = null, DateTime? toDate = null)
     {
         var (from, to) = ResolveRange(period, fromDate, toDate);
@@ -183,14 +144,54 @@ public class ReportExportService
             .ThenBy(a => a.EmployeeName)
             .ToListAsync();
 
+        return await BuildReportAsync(orgId, records, period, from, to);
+    }
+
+    /// <summary>Generate a report from an AttendanceSearchFilter (respects all search filters for export).</summary>
+    public async Task<AttendanceReport> GenerateFromFilterAsync(int orgId, AttendanceSearchFilter filter)
+    {
+        var searchSvc = new AttendanceSearchService(_db);
+        var q = searchSvc.BuildFilteredQuery(orgId, filter);
+
+        var records = await q
+            .OrderBy(a => a.Date)
+            .ThenBy(a => a.EmployeeName)
+            .ToListAsync();
+
+        var from = filter.FromDate ?? records.MinBy(r => r.Date)?.Date ?? DateTime.Today;
+        var to = filter.ToDate ?? records.MaxBy(r => r.Date)?.Date ?? DateTime.Today;
+
+        return await BuildReportAsync(orgId, records, ReportPeriod.Custom, from, to.AddDays(1).AddTicks(-1));
+    }
+
+    /// <summary>Shared implementation that builds the report rows + summary from raw attendance records.</summary>
+    private async Task<AttendanceReport> BuildReportAsync(int orgId, List<Attendance> records, ReportPeriod period, DateTime from, DateTime to)
+    {
+        var employeeIds = records.Select(r => r.EmployeeId).Distinct().ToList();
+
         var employeeIds = records.Select(r => r.EmployeeId).Distinct().ToList();
         var employees = await _db.Employees
             .Where(e => employeeIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
+        // Fetch overtime records for the same period and index by (EmployeeId, Date)
+        var overtimeRecords = await _db.OvertimeRecords
+            .Where(o => o.OrganizationId == orgId && o.Date >= from && o.Date <= to
+                     && o.Status != OvertimeStatus.Rejected)
+            .ToListAsync();
+        var overtimeByKey = overtimeRecords
+            .GroupBy(o => (o.EmployeeId, o.Date.Date))
+            .ToDictionary(g => g.Key, g => g.Sum(o => o.Hours));
+        var overtimePayByKey = overtimeRecords
+            .GroupBy(o => (o.EmployeeId, o.Date.Date))
+            .ToDictionary(g => g.Key, g => g.Sum(o => o.Pay));
+
         var rows = records.Select(r =>
         {
             employees.TryGetValue(r.EmployeeId, out var emp);
+            var key = (r.EmployeeId, r.Date.Date);
+            overtimeByKey.TryGetValue(key, out var otHours);
+            overtimePayByKey.TryGetValue(key, out var otPay);
             return new AttendanceReportRow
             {
                 Date = r.Date,
@@ -201,6 +202,8 @@ public class ReportExportService
                 CheckIn = r.CheckIn,
                 CheckOut = r.CheckOut,
                 WorkedHours = r.WorkedHours,
+                OvertimeHours = Math.Round(otHours, 2),
+                OvertimePay = Math.Round(otPay, 2),
                 Status = r.Status.ToString(),
                 Notes = r.Notes
             };
@@ -222,7 +225,9 @@ public class ReportExportService
                 OnLeaveCount = rows.Count(r => r.Status == nameof(AttendanceStatus.OnLeave)),
                 RemoteCount = rows.Count(r => r.Status == nameof(AttendanceStatus.Remote)),
                 HalfDayCount = rows.Count(r => r.Status == nameof(AttendanceStatus.HalfDay)),
-                TotalWorkedHours = rows.Sum(r => r.WorkedHours)
+                TotalWorkedHours = rows.Sum(r => r.WorkedHours),
+                TotalOvertimeHours = Math.Round(rows.Sum(r => r.OvertimeHours), 2),
+                TotalOvertimePay = Math.Round(rows.Sum(r => r.OvertimePay), 2)
             }
         };
     }
@@ -261,6 +266,8 @@ public class ReportExportService
         csv.WriteField("CheckIn");
         csv.WriteField("CheckOut");
         csv.WriteField("WorkedHours");
+        csv.WriteField("OvertimeHours");
+        csv.WriteField("OvertimePay");
         csv.WriteField("Status");
         csv.WriteField("Notes");
         csv.NextRecord();
@@ -276,6 +283,8 @@ public class ReportExportService
             csv.WriteField(r.CheckIn?.ToString("HH:mm") ?? "");
             csv.WriteField(r.CheckOut?.ToString("HH:mm") ?? "");
             csv.WriteField(r.WorkedHours.ToString("0.00", CultureInfo.InvariantCulture));
+            csv.WriteField(r.OvertimeHours.ToString("0.00", CultureInfo.InvariantCulture));
+            csv.WriteField(r.OvertimePay.ToString("0.00", CultureInfo.InvariantCulture));
             csv.WriteField(r.Status);
             csv.WriteField(r.Notes ?? "");
             csv.NextRecord();
@@ -316,12 +325,14 @@ public class ReportExportService
         summaryWs.Cell(row, 1).Value = "Remote"; summaryWs.Cell(row, 2).Value = report.Summary.RemoteCount;
         summaryWs.Cell(row, 1).Value = "Half Day"; summaryWs.Cell(row, 2).Value = report.Summary.HalfDayCount;
         summaryWs.Cell(row, 1).Value = "Total Worked Hours"; summaryWs.Cell(row, 2).Value = Math.Round(report.Summary.TotalWorkedHours, 2);
+        summaryWs.Cell(row, 1).Value = "Total Overtime Hours"; summaryWs.Cell(row++, 2).Value = Math.Round(report.Summary.TotalOvertimeHours, 2);
+        summaryWs.Cell(row, 1).Value = "Total Overtime Pay"; summaryWs.Cell(row, 2).Value = Math.Round(report.Summary.TotalOvertimePay, 2);
 
         summaryWs.Columns().AdjustToContents();
 
         // ─── Sheet 2: Detail ───
         var detailWs = wb.AddWorksheet("Detail");
-        var headers = new[] { "Date", "EmployeeCode", "EmployeeName", "Department", "Branch", "CheckIn", "CheckOut", "WorkedHours", "Status", "Notes" };
+        var headers = new[] { "Date", "EmployeeCode", "EmployeeName", "Department", "Branch", "CheckIn", "CheckOut", "WorkedHours", "OvertimeHours", "OvertimePay", "Status", "Notes" };
         for (int i = 0; i < headers.Length; i++)
         {
             detailWs.Cell(1, i + 1).Value = headers[i];
@@ -342,8 +353,10 @@ public class ReportExportService
             detailWs.Cell(x, 6).Value = r.CheckIn?.ToString("HH:mm") ?? "";
             detailWs.Cell(x, 7).Value = r.CheckOut?.ToString("HH:mm") ?? "";
             detailWs.Cell(x, 8).Value = Math.Round(r.WorkedHours, 2);
-            detailWs.Cell(x, 9).Value = r.Status;
-            detailWs.Cell(x, 10).Value = r.Notes ?? "";
+            detailWs.Cell(x, 9).Value = Math.Round(r.OvertimeHours, 2);
+            detailWs.Cell(x, 10).Value = Math.Round(r.OvertimePay, 2);
+            detailWs.Cell(x, 11).Value = r.Status;
+            detailWs.Cell(x, 12).Value = r.Notes ?? "";
 
             // Color-code the Status cell.
             var statusCell = detailWs.Cell(x, 9);
@@ -397,6 +410,10 @@ public class AttendanceReportRow
     public DateTime? CheckIn { get; set; }
     public DateTime? CheckOut { get; set; }
     public double WorkedHours { get; set; }
+    /// <summary>Overtime hours for this attendance date.</summary>
+    public double OvertimeHours { get; set; }
+    /// <summary>Overtime pay amount for this attendance date.</summary>
+    public double OvertimePay { get; set; }
     public string Status { get; set; } = "";
     public string? Notes { get; set; }
 }
@@ -412,4 +429,6 @@ public class AttendanceReportSummary
     public int RemoteCount { get; set; }
     public int HalfDayCount { get; set; }
     public double TotalWorkedHours { get; set; }
+    public double TotalOvertimeHours { get; set; }
+    public double TotalOvertimePay { get; set; }
 }

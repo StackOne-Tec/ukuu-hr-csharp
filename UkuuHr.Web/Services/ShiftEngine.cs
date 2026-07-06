@@ -58,13 +58,23 @@ public static class ShiftEngine
     /// Resolve the applicable shift for an employee on a given date.
     /// Returns the primary active assignment whose EffectiveFrom/To window,
     /// DaysOfWeekMask, and rotation slot all match.
+    /// If the date is a public holiday (FR-008), returns a DayOff resolution
+    /// so the attendance engine does not mark the employee absent.
     /// </summary>
     public static ShiftResolution Resolve(
         DateTime date,
         Shift? fallbackShift,
-        IEnumerable<EmployeeShiftAssignment> assignments)
+        IEnumerable<EmployeeShiftAssignment> assignments,
+        HashSet<DateTime>? holidayDates = null)
     {
         var d = date.Date;
+
+        // FR-008: If the date is a public holiday, treat it as a scheduled day off
+        if (holidayDates != null && holidayDates.Contains(d))
+        {
+            return ShiftResolution.DayOff($"Public holiday — no attendance expected");
+        }
+
         var candidates = assignments
             .Where(a => a.IsActive && a.IsEffectiveOn(d))
             .Where(a => a.IsRotationSlotActiveOn(d))
@@ -120,6 +130,7 @@ public static class ShiftEngine
     /// <summary>
     /// Compute the AttendanceStatus for a check-in/check-out pair against the
     /// resolved shift and the org's tolerance policy.
+    /// FR-008: If the date is a public holiday, attendance is not expected.
     /// </summary>
     public static AttendanceComputation ComputeStatus(
         ShiftResolution shift,
@@ -129,13 +140,17 @@ public static class ShiftEngine
         DateTime date)
     {
         // Case 1: No working day → no status to compute.
+        // FR-008: This covers public holidays (shift.IsWorkingDay == false via Resolve).
         if (!shift.IsWorkingDay || shift.Shift is null)
         {
-            // If there's a clock event on a non-working day, it's overtime-relevant
+            // If there's a clock event on a non-working day / holiday, it's overtime-relevant
             // (handled by the overtime engine) but attendance-wise it's still a day off.
+            var reason = shift.Reason.Contains("Public holiday", StringComparison.OrdinalIgnoreCase)
+                ? "Public holiday — no attendance expected"
+                : "Scheduled day off";
             return checkIn.HasValue
-                ? new AttendanceComputation(AttendanceStatus.Remote, 0, 0, 0, 0, "Off-day clock event (OT engine will pick up)")
-                : new AttendanceComputation(AttendanceStatus.Remote, 0, 0, 0, 0, "Scheduled day off");
+                ? new AttendanceComputation(AttendanceStatus.Remote, 0, 0, 0, 0, $"Off-day clock event ({reason})")
+                : new AttendanceComputation(AttendanceStatus.Remote, 0, 0, 0, 0, reason);
         }
 
         var s = shift.Shift;

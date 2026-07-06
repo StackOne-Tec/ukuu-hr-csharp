@@ -4,6 +4,7 @@
 @inject HolidayService HolidaySvc
 @inject UkuuHrDbContext Db
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -22,9 +23,20 @@
                     <option value="@y" selected="@(y == _selectedYear)">@y</option>
                 }
             </select>
+            <button class="bk-btn bk-btn-secondary" @onclick="ExportCsv" disabled="@(_holidays.Count == 0)">
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export CSV
+            </button>
+            @if (_holidays.Count > 0)
+            {
+                <button class="bk-btn bk-btn-secondary" @onclick="DeleteYear" style="color:var(--bk-error);">
+                    <span class="material-icons-round" style="font-size:16px;">delete_sweep</span>
+                    Delete @_selectedYear
+                </button>
+            }
             <button class="bk-btn bk-btn-secondary" @onclick="SeedZambia">
                 <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
-                Seed Zambia @DateTime.Now.Year
+                Seed @_selectedYear
             </button>
             <label class="bk-btn bk-btn-secondary" style="cursor:pointer;">
                 <span class="material-icons-round" style="font-size:16px;">upload</span>
@@ -98,6 +110,7 @@
                         <th>Day</th>
                         <th>Holiday Name</th>
                         <th>Country</th>
+                        <th>Type</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -116,6 +129,16 @@
                                 </div>
                             </td>
                             <td><span class="bk-admin-pill info" style="font-size:11px;">@(h.Country ?? "Zambia")</span></td>
+                            <td>
+                                @if (h.IsRecurring)
+                                {
+                                    <span class="bk-admin-pill pending" style="font-size:11px;">Recurring</span>
+                                }
+                                else
+                                {
+                                    <span style="font-size:11px;color:var(--bk-ink-3);">Once-off</span>
+                                }
+                            </td>
                             <td>
                                 @if (isPast)
                                 {
@@ -152,7 +175,7 @@
                     <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">event_busy</span>
                 </div>
                 <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No holidays for @_selectedYear</h3>
-                <p style="font-size:13px;margin-bottom:16px;">Add manually, import a CSV, or click "Seed Zambia @DateTime.Now.Year" to populate the public calendar.</p>
+                <p style="font-size:13px;margin-bottom:16px;">Add manually, import a CSV, or click "Seed @_selectedYear" to populate the public calendar.</p>
                 <button class="bk-btn bk-btn-primary" @onclick="SeedZambia">
                     <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
                     Seed @_selectedYear Zambia Holidays
@@ -226,6 +249,13 @@
                             <label class="bk-label">Country</label>
                             <InputText class="bk-input" @bind-Value="_holidayForm.Country" placeholder="Zambia" />
                         </div>
+                        <div class="bk-field" style="margin-top:12px;">
+                            <label class="bk-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <InputCheckbox class="bk-checkbox" @bind-Value="_holidayForm.IsRecurring" />
+                                <span>Recurring annually</span>
+                            </label>
+                            <p style="font-size:11px;color:var(--bk-ink-3);margin:4px 0 0 0;">If checked, this holiday repeats every year on the same date.</p>
+                        </div>
                         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
                             <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseHolidayDialog">Cancel</button>
                             <button type="submit" class="bk-btn bk-btn-primary">
@@ -234,6 +264,32 @@
                             </button>
                         </div>
                     </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ───── Bulk delete confirmation ───── *@
+    @if (_showBulkDeleteConfirm)
+    {
+        <div class="bk-modal-backdrop" @onclick="() => _showBulkDeleteConfirm = false">
+            <div class="bk-modal" @onclick:stopPropagation style="max-width:420px;">
+                <div class="bk-modal-header">
+                    <h3>Delete all @_selectedYear holidays?</h3>
+                    <button class="bk-modal-close" @onclick="() => _showBulkDeleteConfirm = false"><span class="material-icons-round">close</span></button>
+                </div>
+                <div class="bk-modal-body">
+                    <p style="font-size:14px;color:var(--bk-ink-2);line-height:1.6;margin:0;">
+                        This will permanently delete all <strong>@_holidays.Count holidays</strong>
+                        for the year <strong>@_selectedYear</strong>. This action cannot be undone.
+                    </p>
+                </div>
+                <div class="bk-modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding:16px 24px;border-top:1px solid var(--bk-line);">
+                    <button class="bk-btn bk-btn-secondary" @onclick="() => _showBulkDeleteConfirm = false">Cancel</button>
+                    <button class="bk-btn bk-btn-secondary" style="color:var(--bk-error);" @onclick="ConfirmDeleteYear">
+                        <span class="material-icons-round" style="font-size:14px;">delete_forever</span>
+                        Delete All @_selectedYear
+                    </button>
                 </div>
             </div>
         </div>
@@ -256,6 +312,9 @@
     // Import results state
     private bool _showImportResults;
     private (int imported, int skipped, List<string> errors) _importResult;
+
+    // Bulk delete state
+    private bool _showBulkDeleteConfirm;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -389,5 +448,32 @@
                 Snackbar.Add($"Imported {_importResult.imported} holidays (skipped {_importResult.skipped}).", Severity.Success);
         }
         catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private void ExportCsv()
+    {
+        try
+        {
+            var bytes = HolidaySvc.ExportCsv(_holidays);
+            var fileName = $"holidays-{_orgId}-{_selectedYear}.csv";
+            var base64 = Convert.ToBase64String(bytes);
+            var href = $"data:text/csv;base64,{base64}";
+            Nav.NavigateTo(href, forceLoad: true);
+            Snackbar.Add($"Exported {_holidays.Count} holidays for {_selectedYear}.", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private void DeleteYear() => _showBulkDeleteConfirm = true;
+
+    private async Task ConfirmDeleteYear()
+    {
+        _showBulkDeleteConfirm = false;
+        var count = await HolidaySvc.DeleteYearAsync(_orgId, _selectedYear, "admin@ukuuhr.demo");
+        if (count > 0)
+            Snackbar.Add($"Deleted all {count} holidays for {_selectedYear}.", Severity.Success);
+        else
+            Snackbar.Add("No holidays found to delete.", Severity.Info);
+        await LoadAsync();
     }
 }

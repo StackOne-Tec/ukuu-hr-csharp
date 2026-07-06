@@ -1,0 +1,469 @@
+@page "/settings/user-management"
+@attribute [Authorize(Policy = "UserManagement")]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@inject IHttpContextAccessor HttpAccessor
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Settings · User Management · @_userAccounts.Count users</div>
+            <h1 class="bk-admin-h1">User Management</h1>
+            <p class="bk-admin-sub">
+                Manage user accounts, roles, and access permissions. Each user is linked to an
+                employee record. Roles control access to HR, payroll, and administrative modules.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/settings" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                All Settings
+            </a>
+            <button class="bk-btn bk-btn-primary" @onclick="OpenInviteDialog">
+                <span class="material-icons-round" style="font-size:16px;">person_add</span>
+                Invite User
+            </button>
+        </div>
+    </div>
+
+    @* ───── KPI cards ───── *@
+    <div class="bk-admin-kpi-grid">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">check_circle</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_userAccounts.Count(u => u.Status == AccountStatus.Active)</div>
+            <div class="bk-admin-kpi-label">Active Users</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">pending</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_userAccounts.Count(u => u.Status == AccountStatus.Pending)</div>
+            <div class="bk-admin-kpi-label">Pending Invitations</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">admin_panel_settings</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_userAccounts.Count(u => u.Role.IsAdmin())</div>
+            <div class="bk-admin-kpi-label">Admin Accounts</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">person</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_userAccounts.Count(u => u.Role == UserRole.Employee)</div>
+            <div class="bk-admin-kpi-label">Employee Accounts</div>
+        </div>
+    </div>
+
+    @* ───── Users table ───── *@
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <div style="display:flex;gap:12px;padding:0 24px 16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;position:relative;">
+                <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bk-ink-3);pointer-events:none;">search</span>
+                <input type="text" class="bk-input" style="padding-left:36px;" placeholder="Search by name or email…" @bind="_filterName" @bind:event="oninput" />
+            </div>
+            <select class="bk-input" style="width:auto;min-width:140px;" @bind="_filterRole">
+                <option value="">All Roles</option>
+                @foreach (var role in Enum.GetValues<UserRole>())
+                {
+                    <option value="@role.ToString()">@role.DisplayName()</option>
+                }
+            </select>
+            <select class="bk-input" style="width:auto;min-width:140px;" @bind="_filterStatus">
+                <option value="">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
+                <option value="Suspended">Suspended</option>
+            </select>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table bk-mobile-card-view">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Last Active</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in _filteredUsers)
+                    {
+                        <tr>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <div class="bk-admin-avatar" style="width:36px;height:36px;font-size:13px;background:@(u.Role.BadgeColor());">@u.Initials</div>
+                                    <div>
+                                        <div style="font-weight:600;font-size:13px;color:var(--bk-ink);">@u.FullName</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="font-size:12px;color:var(--bk-ink-2);">@u.Email</td>
+                            <td>
+                                <span class="bk-admin-pill" style="background:@(u.Role.BadgeColor())22;color:@(u.Role.BadgeColor());font-size:10px;">
+                                    @u.Role.DisplayName()
+                                </span>
+                            </td>
+                            <td>
+                                <span class="bk-admin-pill @(u.Status switch { AccountStatus.Active => "active", AccountStatus.Pending => "pending", AccountStatus.Suspended => "rejected", _ => "inactive" })" style="font-size:10px;">
+                                    @u.Status
+                                </span>
+                            </td>
+                            <td style="font-size:12px;color:var(--bk-ink-3);">
+                                @(u.LastActivatedAt?.ToString("dd MMM yyyy") ?? "Never")
+                            </td>
+                            <td>
+                                <div class="bk-admin-row-actions" style="display:flex;gap:2px;">
+                                    <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;" title="Edit Role" @onclick="() => OpenEditRoleDialog(u)">
+                                        <span class="material-icons-round" style="font-size:16px;">edit</span>
+                                    </button>
+                                    @if (u.Status == AccountStatus.Active)
+                                    {
+                                        <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;color:var(--bk-warning);" title="Suspend" @onclick="() => ToggleSuspend(u, true)">
+                                            <span class="material-icons-round" style="font-size:16px;">pause_circle</span>
+                                        </button>
+                                    }
+                                    else if (u.Status == AccountStatus.Suspended)
+                                    {
+                                        <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;color:var(--bk-success);" title="Reactivate" @onclick="() => ToggleSuspend(u, false)">
+                                            <span class="material-icons-round" style="font-size:16px;">play_circle</span>
+                                        </button>
+                                    }
+                                    @if (u.Status != AccountStatus.Active && u.Status != AccountStatus.Suspended)
+                                    {
+                                        <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;color:var(--bk-error);" title="Delete" @onclick="() => DeleteUser(u)">
+                                            <span class="material-icons-round" style="font-size:16px;">delete</span>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (_filteredUsers.Count == 0)
+                    {
+                        <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--bk-ink-3);">
+                            <span class="material-icons-round" style="font-size:36px;color:var(--bk-ink-3);opacity:0.4;display:block;margin-bottom:12px;">manage_accounts</span>
+                            @if (_userAccounts.Count == 0)
+                            {
+                                <text>No user accounts yet. Click "Invite User" to add one.</text>
+                            }
+                            else
+                            {
+                                <text>No users match the current filters.</text>
+                            }
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ───── Role info cards ───── *@
+    <div class="bk-admin-card" style="margin-top:20px;">
+        <div class="bk-admin-card-header">
+            <h3>Role Descriptions</h3>
+            <p>What each role can access in the system.</p>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;padding:0 24px 20px;">
+            @foreach (var roleInfo in _roleDescriptions)
+            {
+                <div style="padding:14px;border:1px solid var(--bk-line);border-radius:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <span style="width:10px;height:10px;border-radius:3px;background:@roleInfo.Color;flex-shrink:0;"></span>
+                        <span style="font-weight:700;font-size:13px;color:var(--bk-ink);">@roleInfo.Name</span>
+                    </div>
+                    <p style="font-size:12px;color:var(--bk-ink-2);margin:0;line-height:1.5;">@roleInfo.Description</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@* ───── Invite user dialog ───── *@
+@if (_showInviteDialog)
+{
+    <div class="bk-modal-backdrop" @onclick="CloseInviteDialog">
+        <div class="bk-modal" @onclick:stopPropagation style="max-width:480px;">
+            <div class="bk-modal-header">
+                <h3>Invite User</h3>
+                <button class="bk-modal-close" @onclick="CloseInviteDialog"><span class="material-icons-round">close</span></button>
+            </div>
+            <div class="bk-modal-body">
+                <EditForm Model="@_inviteForm" OnValidSubmit="SendInvite">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="bk-field">
+                            <label class="bk-label">First Name *</label>
+                            <InputText class="bk-input" @bind-Value="_inviteForm.FirstName" placeholder="First name" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Last Name *</label>
+                            <InputText class="bk-input" @bind-Value="_inviteForm.LastName" placeholder="Last name" />
+                        </div>
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Email Address *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">mail</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_inviteForm.Email" placeholder="user@company.com" />
+                            </div>
+                        </div>
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Role</label>
+                            <InputSelect class="bk-input" @bind-Value="_inviteForm.Role">
+                                @foreach (var role in Enum.GetValues<UserRole>().Where(r => r != UserRole.Guest))
+                                {
+                                    <option value="@role">@role.DisplayName()</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Link to Employee <span style="color:var(--bk-ink-3);font-weight:400;">(optional)</span></label>
+                            <InputSelect class="bk-input" @bind-Value="_inviteForm.EmployeeId">
+                                <option value="0">— No employee link —</option>
+                                @foreach (var e in _employees.Where(e => !_userAccounts.Any(u => u.EmployeeId == e.Id)).OrderBy(e => e.FullName))
+                                {
+                                    <option value="@e.Id">@e.FullName (@e.EmployeeCode)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                        <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseInviteDialog">Cancel</button>
+                        <button type="submit" class="bk-btn bk-btn-primary">
+                            <span class="material-icons-round" style="font-size:16px;">send</span>
+                            Send Invitation
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@* ───── Edit role dialog ───── *@
+@if (_showRoleDialog && _editingUser != null)
+{
+    <div class="bk-modal-backdrop" @onclick="CloseRoleDialog">
+        <div class="bk-modal" @onclick:stopPropagation style="max-width:440px;">
+            <div class="bk-modal-header">
+                <h3>Edit User Role</h3>
+                <button class="bk-modal-close" @onclick="CloseRoleDialog"><span class="material-icons-round">close</span></button>
+            </div>
+            <div class="bk-modal-body">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                    <div class="bk-admin-avatar" style="width:40px;height:40px;font-size:14px;background:@(_editingUser.Role.BadgeColor());">@_editingUser.Initials</div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px;color:var(--bk-ink);">@_editingUser.FullName</div>
+                        <div style="font-size:12px;color:var(--bk-ink-3);">@_editingUser.Email</div>
+                    </div>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Current Role: @_editingUser.Role.DisplayName()</label>
+                    <InputSelect class="bk-input" @bind-Value="_newRole">
+                        @foreach (var role in Enum.GetValues<UserRole>().Where(r => r != UserRole.Guest))
+                        {
+                            <option value="@role">@role.DisplayName()</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                    <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseRoleDialog">Cancel</button>
+                    <button type="button" class="bk-btn bk-btn-primary" @onclick="UpdateRole">
+                        <span class="material-icons-round" style="font-size:16px;">save</span>
+                        Update Role
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserAccount> _userAccounts = new();
+    private List<Employee> _employees = new();
+    private int _orgId;
+
+    // Filters
+    private string _filterName = string.Empty;
+    private string _filterRole = string.Empty;
+    private string _filterStatus = string.Empty;
+
+    // Invite dialog
+    private bool _showInviteDialog;
+    private InviteForm _inviteForm = new();
+
+    // Role dialog
+    private bool _showRoleDialog;
+    private UserAccount? _editingUser;
+    private UserRole _newRole;
+
+    private List<UserAccount> _filteredUsers
+    {
+        get
+        {
+            var q = _userAccounts.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(_filterName))
+                q = q.Where(u => u.FullName.Contains(_filterName, StringComparison.OrdinalIgnoreCase) || u.Email.Contains(_filterName, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(_filterRole) && Enum.TryParse<UserRole>(_filterRole, out var role))
+                q = q.Where(u => u.Role == role);
+            if (!string.IsNullOrWhiteSpace(_filterStatus) && Enum.TryParse<AccountStatus>(_filterStatus, out var status))
+                q = q.Where(u => u.Status == status);
+            return q.OrderByDescending(u => u.CreatedAt).ToList();
+        }
+    }
+
+    private List<(string Name, string Color, string Description)> _roleDescriptions = new()
+    {
+        ("Super Admin", "#25163F", "Full system access to all modules, settings, users, security, and billing. Can manage all aspects of the HRMS."),
+        ("HR Admin", "#4A3C68", "Access to HR modules: employees, attendance, shifts, leave, reports, and user management. Can manage all HR operations."),
+        ("Finance & Payroll Admin", "#6E5F92", "Access to payroll, reports, and payroll-related settings. Can generate and approve payroll runs."),
+        ("HR Operator", "#5E4B85", "Day-to-day HR operations: employee records, attendance, leave management, and scheduling. Cannot modify settings."),
+        ("Finance & Payroll", "#7B6A9F", "View and process payroll runs and reports. Cannot approve or modify configuration."),
+        ("Employee", "#16A34A", "Self-service access: view personal attendance, submit leave requests, view payslips, and update personal profile.")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+
+        _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == _orgId).OrderByDescending(u => u.CreatedAt).ToListAsync();
+        _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).OrderBy(e => e.FullName).ToListAsync();
+    }
+
+    // ───── Invite dialog ─────
+    private void OpenInviteDialog()
+    {
+        _inviteForm = new InviteForm();
+        _showInviteDialog = true;
+    }
+
+    private void CloseInviteDialog() => _showInviteDialog = false;
+
+    private async Task SendInvite()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_inviteForm.Email) || string.IsNullOrWhiteSpace(_inviteForm.FirstName) || string.IsNullOrWhiteSpace(_inviteForm.LastName))
+            {
+                Snackbar.Add("Name and email are required.", Severity.Warning);
+                return;
+            }
+
+            var existing = await Db.UserAccounts.AnyAsync(u => u.OrganizationId == _orgId && u.Email.ToLower() == _inviteForm.Email.ToLower());
+            if (existing)
+            {
+                Snackbar.Add("A user with this email already exists.", Severity.Warning);
+                return;
+            }
+
+            var account = new UserAccount
+            {
+                OrganizationId = _orgId,
+                Email = _inviteForm.Email,
+                FirstName = _inviteForm.FirstName,
+                LastName = _inviteForm.LastName,
+                Role = _inviteForm.Role,
+                Status = AccountStatus.Pending,
+                EmployeeId = _inviteForm.EmployeeId > 0 ? _inviteForm.EmployeeId : null,
+                UserType = "employee",
+                IsFirstLogin = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            Db.UserAccounts.Add(account);
+            await Db.SaveChangesAsync();
+            _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == _orgId).OrderByDescending(u => u.CreatedAt).ToListAsync();
+            _showInviteDialog = false;
+            Snackbar.Add($"Invitation sent to {_inviteForm.Email}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to invite user: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ───── Edit role dialog ─────
+    private void OpenEditRoleDialog(UserAccount u)
+    {
+        _editingUser = u;
+        _newRole = u.Role;
+        _showRoleDialog = true;
+    }
+
+    private void CloseRoleDialog()
+    {
+        _showRoleDialog = false;
+        _editingUser = null;
+    }
+
+    private async Task UpdateRole()
+    {
+        try
+        {
+            if (_editingUser == null) return;
+            _editingUser.Role = _newRole;
+            _editingUser.UpdatedAt = DateTime.UtcNow;
+            Db.UserAccounts.Update(_editingUser);
+            await Db.SaveChangesAsync();
+            _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == _orgId).OrderByDescending(u => u.CreatedAt).ToListAsync();
+            _showRoleDialog = false;
+            Snackbar.Add($"Role updated to {_newRole.DisplayName()}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to update role: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ───── Suspend / Reactivate ─────
+    private async Task ToggleSuspend(UserAccount u, bool suspend)
+    {
+        try
+        {
+            u.Status = suspend ? AccountStatus.Suspended : AccountStatus.Active;
+            u.UpdatedAt = DateTime.UtcNow;
+            if (!suspend) u.LastActivatedAt = DateTime.UtcNow;
+            Db.UserAccounts.Update(u);
+            await Db.SaveChangesAsync();
+            _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == _orgId).OrderByDescending(u => u.CreatedAt).ToListAsync();
+            Snackbar.Add(suspend ? $"User '{u.FullName}' suspended." : $"User '{u.FullName}' reactivated.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ───── Delete ─────
+    private async Task DeleteUser(UserAccount u)
+    {
+        try
+        {
+            Db.UserAccounts.Remove(u);
+            await Db.SaveChangesAsync();
+            _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == _orgId).OrderByDescending(u => u.CreatedAt).ToListAsync();
+            Snackbar.Add($"User '{u.FullName}' deleted.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to delete: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ───── Form model ─────
+    private class InviteForm
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public UserRole Role { get; set; } = UserRole.Employee;
+        public int EmployeeId { get; set; }
+    }
+}

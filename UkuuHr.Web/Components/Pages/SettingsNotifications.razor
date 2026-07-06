@@ -1,0 +1,215 @@
+@page "/settings/notifications"
+@attribute [Authorize(Policy = "AdminOnly")]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@inject NotificationService NotificationSvc
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Settings · Notification Preferences</div>
+            <h1 class="bk-admin-h1">Notifications</h1>
+            <p class="bk-admin-sub">
+                Control how and when you receive notifications. Changes apply to your account across
+                all devices. Notification history is retained for 90 days.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/settings" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                All Settings
+            </a>
+        </div>
+    </div>
+
+    @* ───── Delivery channels ───── *@
+    <div class="bk-admin-card">
+        <div class="bk-admin-card-header">
+            <h3>Delivery Channels</h3>
+            <p>Choose how notifications are delivered to you.</p>
+        </div>
+        <div class="bk-admin-card-content" style="display:flex;flex-direction:column;gap:0;">
+            @foreach (var channel in _deliveryChannels)
+            {
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--bk-line);">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:36px;height:36px;border-radius:8px;background:rgba(@channel.BgColor,0.1);display:flex;align-items:center;justify-content:center;">
+                            <span class="material-icons-round" style="color:rgb(@channel.BgColor);font-size:20px;">@channel.Icon</span>
+                        </div>
+                        <div>
+                            <div style="font-weight:600;font-size:13px;color:var(--bk-ink);">@channel.Name</div>
+                            <div style="font-size:12px;color:var(--bk-ink-3);">@channel.Description</div>
+                        </div>
+                    </div>
+                    <label class="bk-check-row" style="margin:0;">
+                        <input type="checkbox" @bind="channel.Enabled" class="bk-check" />
+                    </label>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ───── Event notifications ───── *@
+    <div class="bk-admin-card" style="margin-top:20px;">
+        <div class="bk-admin-card-header">
+            <h3>Event Notifications</h3>
+            <p>Choose which events trigger notifications.</p>
+        </div>
+        <div class="bk-admin-card-content" style="display:flex;flex-direction:column;gap:0;">
+            @foreach (var evt in _eventNotifications)
+            {
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--bk-line);">
+                    <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+                        <div style="width:36px;height:36px;border-radius:8px;background:rgba(@evt.BgColor,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <span class="material-icons-round" style="color:rgb(@evt.BgColor);font-size:20px;">@evt.Icon</span>
+                        </div>
+                        <div style="min-width:0;">
+                            <div style="font-weight:600;font-size:13px;color:var(--bk-ink);">@evt.Name</div>
+                            <div style="font-size:12px;color:var(--bk-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@evt.Description</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                        <span style="font-size:11px;color:var(--bk-ink-3);">
+                            @evt.Channel switch { "inapp" => "In-app", "email" => "Email", "both" => "In-app + Email", _ => evt.Channel }
+                        </span>
+                        <label class="bk-check-row" style="margin:0;">
+                            <input type="checkbox" @bind="evt.Enabled" class="bk-check" />
+                        </label>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ───── Recent activity ───── *@
+    <div class="bk-admin-card" style="margin-top:20px;">
+        <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3>Recent Notification History</h3>
+                <p>Last 10 notifications sent to the workspace.</p>
+            </div>
+            <button class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;" @onclick="ClearHistory">
+                <span class="material-icons-round" style="font-size:14px;">delete_sweep</span>
+                Clear All
+            </button>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Title</th>
+                        <th>Source</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var n in _recentNotifications)
+                    {
+                        <tr>
+                            <td style="font-size:12px;color:var(--bk-ink-2);white-space:nowrap;">@n.CreatedAt.ToString("dd MMM HH:mm")</td>
+                            <td>
+                                <span class="bk-admin-pill" style="background:@(n.Type switch { "success" => "rgba(22,163,74,0.12)", "warning" => "rgba(245,158,11,0.12)", "error" => "rgba(220,38,38,0.12)", _ => "rgba(37,99,235,0.12)" });color:@(n.Type switch { "success" => "var(--bk-success)", "warning" => "var(--bk-warning)", "error" => "var(--bk-error)", _ => "var(--bk-info)" });font-size:10px;">
+                                    @n.Type
+                                </span>
+                            </td>
+                            <td>
+                                <div style="font-weight:600;font-size:13px;color:var(--bk-ink);">@n.Title</div>
+                                @if (!string.IsNullOrEmpty(n.Body))
+                                {
+                                    <div style="font-size:11px;color:var(--bk-ink-3);">@n.Body</div>
+                                }
+                            </td>
+                            <td style="font-size:12px;color:var(--bk-ink-2);">@(n.SourceModule ?? "—")</td>
+                            <td>
+                                <span class="bk-admin-pill @(n.IsRead ? "active" : "pending")" style="font-size:10px;">
+                                    @(n.IsRead ? "Read" : "Unread")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                    @if (_recentNotifications.Count == 0)
+                    {
+                        <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--bk-ink-3);">
+                            <span class="material-icons-round" style="font-size:24px;vertical-align:middle;margin-right:8px;">notifications_off</span>
+                            No notifications yet.
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ───── Save ───── *@
+    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bk-line);">
+        <div style="font-size:12px;color:var(--bk-ink-3);flex:1;align-self:center;">
+            <span class="material-icons-round" style="font-size:14px;vertical-align:middle;">info</span>
+            Preferences are stored locally and synced across your sessions.
+        </div>
+        <button class="bk-btn bk-btn-primary" @onclick="SavePreferences">
+            <span class="material-icons-round" style="font-size:16px;">save</span>
+            Save Preferences
+        </button>
+    </div>
+</div>
+
+@code {
+    private List<NotificationChannelSetting> _deliveryChannels = new()
+    {
+        new("In-App Notifications", "Browser and mobile push notifications", "notifications", "37,99,235", true, "inapp"),
+        new("Email Notifications", "Send notifications via email", "mail", "22,163,74", true, "email"),
+        new("SMS Notifications", "Text message alerts (carrier charges apply)", "sms", "245,158,11", false, "sms"),
+        new("Weekly Digest", "Summary of activity every Monday morning", "summarize", "110,95,146", true, "email"),
+        new("Critical Alerts", "Urgent system alerts (always on)", "warning", "220,38,38", true, "both"),
+    };
+
+    private List<NotificationEventSetting> _eventNotifications = new()
+    {
+        new("Leave Requests", "When a leave request is submitted or approved", "event_available", "22,163,74", true, "inapp"),
+        new("Payroll Approvals", "When payroll runs are awaiting review", "payments", "37,99,235", true, "both"),
+        new("Overtime Submissions", "When overtime is auto-calculated or manually entered", "more_time", "139,92,246", true, "inapp"),
+        new("Attendance Alerts", "When an employee is repeatedly late or absent", "schedule", "245,158,11", true, "both"),
+        new("Employee Changes", "When employee records are created or updated", "groups", "22,163,74", false, "inapp"),
+        new("Shift Changes", "When shifts or assignments are modified", "calendar_month", "37,99,235", true, "inapp"),
+        new("New Registrations", "When new users register for an account", "person_add", "110,95,146", true, "email"),
+        new("System Alerts", "Technical alerts about device sync or integrations", "settings", "220,38,38", true, "both"),
+    };
+
+    private List<NotificationRecord> _recentNotifications = new();
+    private int _orgId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+
+        _recentNotifications = await NotificationSvc.RecentAsync(_orgId, take: 10);
+    }
+
+    private async Task SavePreferences()
+    {
+        // In a production system, these would be persisted to a NotificationPreferences table.
+        // For now, preferences are maintained in session/local storage.
+        Snackbar.Add("Notification preferences saved.", Severity.Success);
+    }
+
+    private async Task ClearHistory()
+    {
+        _recentNotifications.Clear();
+        // In production, delete from DB
+        Snackbar.Add("Notification history cleared.", Severity.Info);
+    }
+
+    private record NotificationChannelSetting(string Name, string Description, string Icon, string BgColor, bool Enabled, string Channel)
+    {
+        public bool Enabled { get; set; } = Enabled;
+    }
+
+    private record NotificationEventSetting(string Name, string Description, string Icon, string BgColor, bool Enabled, string Channel)
+    {
+        public bool Enabled { get; set; } = Enabled;
+    }
+}

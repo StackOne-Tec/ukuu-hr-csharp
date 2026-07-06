@@ -1,0 +1,251 @@
+@page "/settings/payroll-config"
+@attribute [Authorize(Policy = "FinanceOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@using System.Text.Json
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Settings · Payroll Configuration</div>
+            <h1 class="bk-admin-h1">Payroll Configuration</h1>
+            <p class="bk-admin-sub">
+                Configure country-specific statutory rates, PAYE tax bands, NAPSA, NHIMA, and other
+                payroll deductions. Select a country to load its default configuration.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/settings" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                All Settings
+            </a>
+        </div>
+    </div>
+
+    @if (!_loaded)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">payments</span>
+            <h3 style="margin-top:16px;">Loading payroll configuration…</h3>
+        </div>
+    }
+    else
+    {
+        @* ───── Country selector ───── *@
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>Country Configuration — @_cfg.Country</h3>
+                <p>Select a country to load preset rates. Changes are saved to the organization profile.</p>
+            </div>
+            <div class="bk-admin-card-content">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+                    @foreach (var preset in _availablePresets)
+                    {
+                        var isActive = _cfg.Country == preset.Country;
+                        <button type="button" @onclick="() => LoadPreset(preset.Country)"
+                                style="padding:10px 18px;border-radius:8px;border:2px solid @(isActive ? "var(--bk-ink)" : "var(--bk-line)");background:@(isActive ? "var(--bk-ink)" : "transparent");color:@(isActive ? "white" : "var(--bk-ink)");font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+                            <span class="material-icons-round" style="font-size:16px;vertical-align:middle;margin-right:6px;">@(isActive ? "check_circle" : "public")</span>
+                            @preset.Country (@preset.Currency)
+                        </button>
+                    }
+                </div>
+
+                <EditForm Model="@_cfg" OnValidSubmit="SaveConfig">
+                    @* ───── Statutory rates ───── *@
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-bottom:24px;">
+                        <div style="padding:16px;border:1px solid var(--bk-line);border-radius:10px;background:rgba(37,99,235,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                                <span class="material-icons-round" style="color:var(--bk-info);font-size:20px;">account_balance</span>
+                                <h4 style="font-size:13px;font-weight:700;margin:0;color:var(--bk-info);">NAPSA / Social Security</h4>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Employee Contribution %</label>
+                                <InputNumber class="bk-input" @bind-Value="_cfg.NapsaPercent" step="0.1" />
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;">
+                                <label class="bk-label">Ceiling (monthly)</label>
+                                <InputNumber class="bk-input" @bind-Value="_cfg.NapsaCeiling" step="100" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Max contribution per month. Set to 0 for no cap.</small>
+                            </div>
+                        </div>
+
+                        <div style="padding:16px;border:1px solid var(--bk-line);border-radius:10px;background:rgba(22,163,74,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                                <span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">health_and_safety</span>
+                                <h4 style="font-size:13px;font-weight:700;margin:0;color:var(--bk-success);">NHIMA / Health Insurance</h4>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Employee Contribution %</label>
+                                <InputNumber class="bk-input" @bind-Value="_cfg.NhimaPercent" step="0.1" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Health insurance / skills levy percentage.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* ───── PAYE tax bands ───── *@
+                    <div class="bk-admin-card" style="background:var(--bk-muted);">
+                        <div style="padding:16px 20px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <h3 style="font-size:14px;margin:0;">PAYE Tax Bands</h3>
+                                <p style="font-size:12px;color:var(--bk-ink-3);margin:2px 0 0;">Progressive tax brackets. Each band has a lower bound, upper bound, and marginal rate.</p>
+                            </div>
+                            <button type="button" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;" @onclick="AddBand">
+                                <span class="material-icons-round" style="font-size:14px;">add</span>
+                                Add Band
+                            </button>
+                        </div>
+                    <div style="padding:16px 20px;">
+                        @for (int i = 0; i < _bands.Count; i++)
+                        {
+                            var band = _bands[i];
+                            var idx = i;
+                            var isLast = i == _bands.Count - 1;
+                            <div style="display:grid;grid-template-columns:1fr 1fr 80px 40px;gap:12px;align-items:end;margin-bottom:10px;padding:12px;border:1px solid var(--bk-line);border-radius:8px;background:var(--bk-card-bg);">
+                                <div class="bk-field" style="margin:0;">
+                                    <label class="bk-label" style="font-size:10px;">Lower (ZMW)</label>
+                                    <InputNumber class="bk-input" @bind-Value="band.Lower" step="100" />
+                                </div>
+                                <div class="bk-field" style="margin:0;">
+                                    <label class="bk-label" style="font-size:10px;">Upper @(isLast ? "(∞)" : "(ZMW)")</label>
+                                    @if (isLast)
+                                    {
+                                        <div class="bk-input" style="background:var(--bk-muted);display:flex;align-items:center;height:42px;color:var(--bk-ink-3);">∞ (unlimited)</div>
+                                    }
+                                    else
+                                    {
+                                        <InputNumber class="bk-input" @bind-Value="band.Upper" step="100" />
+                                    }
+                                </div>
+                                <div class="bk-field" style="margin:0;">
+                                    <label class="bk-label" style="font-size:10px;">Rate %</label>
+                                    <InputNumber class="bk-input" @bind-Value="band.Rate" step="0.1" />
+                                </div>
+                                <button type="button" class="bk-btn bk-btn-secondary" style="padding:6px 8px;font-size:11px;color:var(--bk-error);margin-bottom:1px;" @onclick="() => RemoveBand(idx)" disabled="@(_bands.Count <= 1)">
+                                    <span class="material-icons-round" style="font-size:14px;">remove</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    </div>
+
+                    @* ───── Save ───── *@
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                        <button type="submit" class="bk-btn bk-btn-primary">
+                            <span class="material-icons-round" style="font-size:16px;">save</span>
+                            Save Payroll Configuration
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private PayrollCountryConfig _cfg = PayrollCountryConfig.Zambia();
+    private bool _loaded;
+    private List<PayeBandMutable> _bands = new();
+    private List<(string Country, string Currency)> _availablePresets = new()
+    {
+        ("Zambia", "ZMW"),
+        ("Tanzania", "TZS"),
+        ("Malawi", "MWK")
+    };
+    private int _orgId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+
+        // Try to load config from DB
+        if (!string.IsNullOrEmpty(org.PayrollConfigJson) && org.PayrollConfigJson != "{}")
+        {
+            try
+            {
+                var deserialized = JsonSerializer.Deserialize<PayrollCountryConfig>(org.PayrollConfigJson);
+                if (deserialized != null) _cfg = deserialized;
+            }
+            catch { /* fallback to default */ }
+        }
+        else
+        {
+            // Use country-appropriate default
+            _cfg = PayrollCountryConfig.Default(org.Country);
+        }
+
+        SyncBandsFromConfig();
+        _loaded = true;
+    }
+
+    private void SyncBandsFromConfig()
+    {
+        _bands = _cfg.PayeBands.Select(b => new PayeBandMutable { Lower = b.Lower, Upper = b.Upper, Rate = b.Rate }).ToList();
+    }
+
+    private void SyncConfigToBands()
+    {
+        // Ensure last band is unlimited
+        if (_bands.Count > 0)
+        {
+            _bands[^1].Upper = double.MaxValue;
+        }
+        _cfg.PayeBands = _bands.Select(b => new PayeBand(b.Lower, b.Upper, b.Rate)).ToList();
+    }
+
+    private void LoadPreset(string country)
+    {
+        _cfg = PayrollCountryConfig.Default(country);
+        SyncBandsFromConfig();
+    }
+
+    private void AddBand()
+    {
+        var last = _bands.LastOrDefault();
+        _bands.Add(new PayeBandMutable
+        {
+            Lower = last?.Upper ?? 0,
+            Upper = double.MaxValue,
+            Rate = 30
+        });
+    }
+
+    private void RemoveBand(int index)
+    {
+        if (_bands.Count <= 1) return;
+        _bands.RemoveAt(index);
+    }
+
+    private async Task SaveConfig()
+    {
+        try
+        {
+            SyncConfigToBands();
+
+            // Serialize and save to organization
+            var json = JsonSerializer.Serialize(_cfg, new JsonSerializerOptions { WriteIndented = false });
+            var org = await Db.Organizations.FirstOrDefaultAsync(o => o.Id == _orgId);
+            if (org == null) return;
+
+            org.PayrollConfigJson = json;
+            org.UpdatedAt = DateTime.UtcNow;
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add($"Payroll configuration for {_cfg.Country} saved.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save: {ex.Message}", Severity.Error);
+        }
+    }
+
+    /// <summary>Mutable band model for two-way binding in the edit form.</summary>
+    private class PayeBandMutable
+    {
+        public double Lower { get; set; }
+        public double Upper { get; set; } = double.MaxValue;
+        public double Rate { get; set; }
+    }
+}

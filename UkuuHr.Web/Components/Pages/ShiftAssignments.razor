@@ -1,0 +1,429 @@
+@page "/shifts/assignments"
+@attribute [Authorize(Policy = "HrOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject ShiftService ShiftSvc
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Shift Management · @_assignments.Count active assignments</div>
+            <h1 class="bk-admin-h1">Shift Assignments</h1>
+            <p class="bk-admin-sub">
+                Assign multiple shifts to employees. The engine picks the highest-priority active
+                assignment per day. Supports date-bounded, rotating, and primary/secondary assignments.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/shifts" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                All Shifts
+            </a>
+            <button class="bk-btn bk-btn-primary" @onclick="OpenAssignDialog">
+                <span class="material-icons-round" style="font-size:16px;">person_add</span>
+                Assign Shift
+            </button>
+        </div>
+    </div>
+
+    @* ───── KPI cards ───── *@
+    <div class="bk-admin-kpi-grid">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">assignment_ind</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_assignments.Count</div>
+            <div class="bk-admin-kpi-label">Total Assignments</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">groups</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_assignments.Select(a => a.EmployeeId).Distinct().Count()</div>
+            <div class="bk-admin-kpi-label">Assigned Employees</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">star</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_assignments.Count(a => a.IsPrimary)</div>
+            <div class="bk-admin-kpi-label">Primary Assignments</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">calendar_month</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_shifts.Count</div>
+            <div class="bk-admin-kpi-label">Active Shifts</div>
+        </div>
+    </div>
+
+    @* ───── Assignment list ───── *@
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <div class="bk-admin-card-header">
+            <h3>Employee Shift Assignments</h3>
+            <p>Each employee can hold multiple concurrent shifts. The primary shift takes priority on any given day.</p>
+        </div>
+
+        @* ── Filters ── *@
+        <div style="display:flex;gap:12px;padding:0 24px 16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;position:relative;">
+                <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bk-ink-3);pointer-events:none;">search</span>
+                <input type="text" class="bk-input" style="padding-left:36px;" placeholder="Filter by employee name…" @bind="_filterName" @bind:event="oninput" />
+            </div>
+            <select class="bk-input" style="width:auto;min-width:160px;" @bind="_filterShiftId">
+                <option value="0">All Shifts</option>
+                @foreach (var s in _shifts)
+                {
+                    <option value="@s.Id">@s.Name</option>
+                }
+            </select>
+            <select class="bk-input" style="width:auto;min-width:140px;" @bind="_filterPrimary">
+                <option value="">All Types</option>
+                <option value="primary">Primary Only</option>
+                <option value="secondary">Secondary Only</option>
+            </select>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table bk-mobile-card-view">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Shift</th>
+                        <th>Type</th>
+                        <th>Time Window</th>
+                        <th>Effective</th>
+                        <th>Priority</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in _filteredAssignments)
+                    {
+                        <tr>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <div class="bk-admin-avatar-sm">@a.Employee.Initials</div>
+                                    <div>
+                                        <div style="font-weight:600;color:var(--bk-ink);">@a.Employee.FullName</div>
+                                        <div style="font-size:11px;color:var(--bk-ink-3);">@a.Employee.EmployeeCode</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span style="font-size:12px;color:var(--bk-ink-2);">@(a.Employee.Department ?? "—")</span></td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="width:6px;height:24px;border-radius:2px;background:@(a.Shift?.Color ?? "#999");"></div>
+                                    <span style="font-weight:600;">@(a.Shift?.Name ?? "—")</span>
+                                </div>
+                            </td>
+                            <td><span class="bk-admin-pill @ShiftKindClass(a.Shift?.Kind ?? ShiftKind.Fixed)" style="font-size:10px;">@(a.Shift?.KindDisplay ?? "—")</span></td>
+                            <td><span style="font-family:var(--ukuu-font-mono);font-size:12px;">@(a.Shift?.TimeWindow ?? "—")</span></td>
+                            <td>
+                                <div style="font-size:12px;color:var(--bk-ink-2);">@a.EffectiveFrom.ToString("dd MMM yyyy")</div>
+                                @if (a.EffectiveTo.HasValue)
+                                {
+                                    <div style="font-size:11px;color:var(--bk-ink-3);">to @a.EffectiveTo.Value.ToString("dd MMM yyyy")</div>
+                                }
+                                else
+                                {
+                                    <div style="font-size:11px;color:var(--bk-success);">Open-ended</div>
+                                }
+                            </td>
+                            <td>
+                                @if (a.IsPrimary)
+                                {
+                                    <span class="bk-admin-pill approved" style="font-size:10px;">PRIMARY</span>
+                                }
+                                else
+                                {
+                                    <span style="font-size:11px;color:var(--bk-ink-3);">Secondary</span>
+                                }
+                            </td>
+                            <td>
+                                <div style="display:flex;gap:4px;">
+                                    @if (!a.IsPrimary && _assignments.Any(x => x.EmployeeId == a.EmployeeId && x.IsPrimary && x.Id != a.Id))
+                                    {
+                                        <button class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;" title="Make Primary" @onclick="() => MakePrimary(a)">
+                                            <span class="material-icons-round" style="font-size:14px;">star</span>
+                                        </button>
+                                    }
+                                    <button class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);" @onclick="() => Unassign(a)">
+                                        <span class="material-icons-round" style="font-size:14px;">remove_circle</span>
+                                        Unassign
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (_filteredAssignments.Count == 0)
+                    {
+                        <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--bk-ink-3);">
+                            <span class="material-icons-round" style="font-size:36px;color:var(--bk-ink-3);opacity:0.4;display:block;margin-bottom:12px;">assignment_ind</span>
+                            @if (_assignments.Count == 0)
+                            {
+                                <text>No assignments yet. Click "Assign Shift" to get started.</text>
+                            }
+                            else
+                            {
+                                <text>No assignments match the current filters.</text>
+                            }
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@* ───── Assign dialog ───── *@
+@if (_showAssignDialog)
+{
+    <div class="bk-modal-backdrop" @onclick="CloseAssignDialog">
+        <div class="bk-modal" @onclick:stopPropagation style="max-width:560px;">
+            <div class="bk-modal-header">
+                <h3>Assign Shift to Employee</h3>
+                <button class="bk-modal-close" @onclick="CloseAssignDialog"><span class="material-icons-round">close</span></button>
+            </div>
+            <div class="bk-modal-body">
+                <EditForm Model="@_assignForm" OnValidSubmit="SaveAssignment">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Employee *</label>
+                            <InputSelect class="bk-input" @bind-Value="_assignForm.EmployeeId">
+                                <option value="0">— Select employee —</option>
+                                @foreach (var e in _employees.Where(e => !e.IsTerminated).OrderBy(e => e.FullName))
+                                {
+                                    <option value="@e.Id">@e.FullName (@e.EmployeeCode) — @(e.Department ?? "—")</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Shift *</label>
+                            <InputSelect class="bk-input" @bind-Value="_assignForm.ShiftId">
+                                <option value="0">— Select shift —</option>
+                                @foreach (var s in _shifts)
+                                {
+                                    <option value="@s.Id">@s.Name (@s.KindDisplay) — @s.TimeWindow</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Effective From</label>
+                            <input type="date" class="bk-input" value="@_assignEffectiveFromStr" @oninput="OnEffectiveFromInput" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Effective To <span style="color:var(--bk-ink-3);font-weight:400;">(optional)</span></label>
+                            <input type="date" class="bk-input" value="@_assignEffectiveToStr" @oninput="OnEffectiveToInput" />
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 16px;background:rgba(22,163,74,0.04);border:1px solid rgba(22,163,74,0.12);border-radius:8px;">
+                        <InputCheckbox @bind-Value="_assignForm.IsPrimary" id="isPrimary" />
+                        <div>
+                            <label for="isPrimary" style="font-size:13px;font-weight:600;color:var(--bk-ink);cursor:pointer;">
+                                Primary shift
+                            </label>
+                            <div style="font-size:11px;color:var(--bk-ink-3);margin-top:2px;">
+                                Overrides other concurrent shifts for this employee on matching days.
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (_assignForm.ShiftId > 0)
+                    {
+                        var selectedShift = _shifts.FirstOrDefault(s => s.Id == _assignForm.ShiftId);
+                        if (selectedShift?.Kind == ShiftKind.Rotating)
+                        {
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+                                <div class="bk-field">
+                                    <label class="bk-label">Rotation Slot</label>
+                                    <InputNumber class="bk-input" @bind-Value="_assignForm.RotationSlot" />
+                                    <small style="color:var(--bk-ink-3);font-size:11px;">0-based slot index</small>
+                                </div>
+                                <div class="bk-field">
+                                    <label class="bk-label">Anchor Date</label>
+                                    <input type="date" class="bk-input" value="@_assignAnchorStr" @oninput="OnAnchorInput" />
+                                </div>
+                            </div>
+                        }
+                        if (selectedShift?.Kind == ShiftKind.Fixed || selectedShift?.Kind == ShiftKind.Flexible)
+                        {
+                            <div class="bk-field" style="margin-top:16px;">
+                                <label class="bk-label">Days of Week Override <span style="color:var(--bk-ink-3);font-weight:400;">(optional)</span></label>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+                                    @for (int i = 0; i < 7; i++)
+                                    {
+                                        var dayIdx = i;
+                                        var dayName = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }[i];
+                                        var mask = _assignForm.DaysOfWeekMaskOverride ?? selectedShift.DaysOfWeekMask;
+                                        var isActive = (mask & (1 << i)) != 0;
+                                        <button type="button" @onclick="() => ToggleAssignDay(dayIdx)"
+                                                style="padding:6px 10px;border-radius:6px;border:1px solid @(isActive ? "var(--bk-ink)" : "var(--bk-line)");background:@(isActive ? "var(--bk-ink)" : "transparent");color:@(isActive ? "white" : "var(--bk-ink-2)");font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">
+                                            @dayName
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                        <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseAssignDialog">Cancel</button>
+                        <button type="submit" class="bk-btn bk-btn-primary">
+                            <span class="material-icons-round" style="font-size:16px;">person_add</span>
+                            Assign
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Shift> _shifts = new();
+    private List<EmployeeShiftAssignment> _assignments = new();
+    private List<Employee> _employees = new();
+    private int _orgId;
+
+    // Filters
+    private string _filterName = string.Empty;
+    private int _filterShiftId;
+    private string _filterPrimary = string.Empty;
+
+    private List<EmployeeShiftAssignment> _filteredAssignments
+    {
+        get
+        {
+            var q = _assignments.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(_filterName))
+                q = q.Where(a => a.Employee.FullName.Contains(_filterName, StringComparison.OrdinalIgnoreCase));
+            if (_filterShiftId > 0)
+                q = q.Where(a => a.ShiftId == _filterShiftId);
+            if (_filterPrimary == "primary")
+                q = q.Where(a => a.IsPrimary);
+            else if (_filterPrimary == "secondary")
+                q = q.Where(a => !a.IsPrimary);
+            return q.OrderByDescending(a => a.IsPrimary)
+                    .ThenBy(a => a.Employee.FullName)
+                    .ToList();
+        }
+    }
+
+    // Assign dialog state
+    private bool _showAssignDialog;
+    private EmployeeShiftAssignment _assignForm = new();
+    private string _assignEffectiveFromStr = DateTime.Today.ToString("yyyy-MM-dd");
+    private string? _assignEffectiveToStr;
+    private string _assignAnchorStr = DateTime.Today.ToString("yyyy-MM-dd");
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+
+        _shifts = await Db.Shifts.Where(s => s.OrganizationId == _orgId && s.IsActive).OrderBy(s => s.Name).ToListAsync();
+        _assignments = await Db.EmployeeShiftAssignments
+            .Include(a => a.Shift)
+            .Include(a => a.Employee)
+            .Where(a => a.OrganizationId == _orgId && a.IsActive)
+            .ToListAsync();
+        _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+    }
+
+    // ───── Assign dialog handlers ─────
+    private void OpenAssignDialog()
+    {
+        _assignForm = new EmployeeShiftAssignment
+        {
+            EffectiveFrom = DateTime.Today,
+            IsPrimary = false,
+            IsActive = true
+        };
+        _assignEffectiveFromStr = DateTime.Today.ToString("yyyy-MM-dd");
+        _assignEffectiveToStr = null;
+        _assignAnchorStr = DateTime.Today.ToString("yyyy-MM-dd");
+        _showAssignDialog = true;
+    }
+
+    private void CloseAssignDialog() => _showAssignDialog = false;
+
+    private async Task SaveAssignment()
+    {
+        try
+        {
+            if (_assignForm.EmployeeId == 0 || _assignForm.ShiftId == 0)
+            {
+                Snackbar.Add("Please select both an employee and a shift.", Severity.Warning);
+                return;
+            }
+            if (DateTime.TryParse(_assignEffectiveFromStr, out var from)) _assignForm.EffectiveFrom = from;
+            if (!string.IsNullOrEmpty(_assignEffectiveToStr) && DateTime.TryParse(_assignEffectiveToStr, out var to))
+                _assignForm.EffectiveTo = to;
+            else
+                _assignForm.EffectiveTo = null;
+
+            if (DateTime.TryParse(_assignAnchorStr, out var anchor))
+                _assignForm.RotationAnchorDate = anchor;
+
+            await ShiftSvc.AssignShiftAsync(_orgId, _assignForm, "admin@ukuuhr.demo");
+            _assignments = await Db.EmployeeShiftAssignments.Include(a => a.Shift).Include(a => a.Employee)
+                .Where(a => a.OrganizationId == _orgId && a.IsActive).ToListAsync();
+            _showAssignDialog = false;
+            Snackbar.Add("Shift assigned successfully.", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task Unassign(EmployeeShiftAssignment a)
+    {
+        await ShiftSvc.UnassignShiftAsync(_orgId, a.Id, "admin@ukuuhr.demo");
+        _assignments = await Db.EmployeeShiftAssignments.Include(x => x.Shift).Include(x => x.Employee)
+            .Where(x => x.OrganizationId == _orgId && x.IsActive).ToListAsync();
+        Snackbar.Add($"Assignment removed for {a.Employee.FullName}.", Severity.Info);
+    }
+
+    private async Task MakePrimary(EmployeeShiftAssignment a)
+    {
+        try
+        {
+            await ShiftSvc.MakePrimaryAsync(_orgId, a.Id, "admin@ukuuhr.demo");
+            _assignments = await Db.EmployeeShiftAssignments.Include(x => x.Shift).Include(x => x.Employee)
+                .Where(x => x.OrganizationId == _orgId && x.IsActive).ToListAsync();
+            Snackbar.Add($"{a.Employee.FullName}'s primary shift updated to {a.Shift?.Name}.", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private void ToggleAssignDay(int dayIdx)
+    {
+        var currentMask = _assignForm.DaysOfWeekMaskOverride ?? 0;
+        currentMask ^= (1 << dayIdx);
+        _assignForm.DaysOfWeekMaskOverride = currentMask;
+    }
+
+    // ───── Input handlers ─────
+    private void OnEffectiveFromInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => _assignEffectiveFromStr = e.Value?.ToString() ?? DateTime.Today.ToString("yyyy-MM-dd");
+
+    private void OnEffectiveToInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => _assignEffectiveToStr = e.Value?.ToString();
+
+    private void OnAnchorInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => _assignAnchorStr = e.Value?.ToString() ?? DateTime.Today.ToString("yyyy-MM-dd");
+
+    // ───── Helpers ─────
+    private static string ShiftKindClass(ShiftKind kind) => kind switch
+    {
+        ShiftKind.Fixed => "approved",
+        ShiftKind.Rotating => "pending",
+        ShiftKind.Overnight => "rejected",
+        ShiftKind.Flexible => "info",
+        _ => ""
+    };
+}

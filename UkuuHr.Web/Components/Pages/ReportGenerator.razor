@@ -1,0 +1,331 @@
+@page "/reports/generate"
+@attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@inject ReportExportService ReportSvc
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Reporting · @_periodLabel</div>
+            <h1 class="bk-admin-h1">Attendance Report</h1>
+            <p class="bk-admin-sub">
+                Generate daily, weekly, monthly, or custom-range attendance reports with worked hours,
+                overtime, attendance status, and leave status. Export to CSV or Microsoft Excel.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-secondary" @onclick="GenerateReport" disabled="@(!CanGenerate())">
+                <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                Generate
+            </button>
+            <button class="bk-btn bk-btn-secondary" @onclick="ExportCsv" disabled="@(_report == null)">
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export CSV
+            </button>
+            <button class="bk-btn bk-btn-primary" @onclick="ExportXlsx" disabled="@(_report == null)">
+                <span class="material-icons-round" style="font-size:16px;">table_view</span>
+                Export Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Period selector -->
+    <div class="bk-admin-card" style="margin-bottom:24px;">
+        <div class="bk-admin-card-header">
+            <h3>Report Configuration</h3>
+            <p>Select the period and parameters for your report.</p>
+        </div>
+        <div class="bk-admin-card-content">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;">
+                <div class="bk-field">
+                    <label class="bk-label">Report Period</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">calendar_month</span>
+                        <select class="bk-input" @bind="_selectedPeriod" @bind:event="onchange" style="padding-left:44px;">
+                            <option value="Daily">Daily</option>
+                            <option value="Weekly">Weekly (Last 7 Days)</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Custom">Custom Range</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">From Date</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">today</span>
+                        <input type="date" class="bk-input" @bind="_fromDate" @bind:event="onchange"
+                               style="padding-left:44px;" />
+                    </div>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">To Date</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">event</span>
+                        <input type="date" class="bk-input" @bind="_toDate" @bind:event="onchange"
+                               style="padding-left:44px;" />
+                    </div>
+                </div>
+            </div>
+
+            @if (_selectedPeriod == "Custom")
+            {
+                <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--bk-line);">
+                    <span style="font-size:12px;color:var(--bk-ink-3);padding:6px 0;">Quick range:</span>
+                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="() => SetPreset(-1)">Yesterday</button>
+                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="() => SetPreset(-7)">Last 7 days</button>
+                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="() => SetPreset(-30)">Last 30 days</button>
+                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="() => SetPreset(-90)">Last 90 days</button>
+                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="SetThisMonth">This month</button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Results -->
+    @if (_loading)
+    {
+        <div style="display:flex;justify-content:center;padding:60px;">
+            <div class="ukuu-loader"></div>
+        </div>
+    }
+    else if (_report != null)
+    {
+        <!-- Summary KPIs -->
+        <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:24px;">
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;">@_report.Summary.TotalRecords</div>
+                <div class="bk-admin-kpi-label">Total Records</div>
+            </div>
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;">@_report.Summary.DistinctEmployees</div>
+                <div class="bk-admin-kpi-label">Employees</div>
+            </div>
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;color:var(--bk-accent-3);">@_report.Summary.TotalWorkedHours.ToString("0.0")h</div>
+                <div class="bk-admin-kpi-label">Total Worked Hours</div>
+            </div>
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;color:var(--bk-accent);">@_report.Summary.TotalOvertimeHours.ToString("0.0")h</div>
+                <div class="bk-admin-kpi-label">Overtime Hours</div>
+            </div>
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;color:var(--bk-accent-4);">ZMW @_report.Summary.TotalOvertimePay.ToString("N0")</div>
+                <div class="bk-admin-kpi-label">Overtime Pay</div>
+            </div>
+        </div>
+
+        <!-- Status breakdown -->
+        <div class="bk-admin-card" style="margin-bottom:24px;">
+            <div class="bk-admin-card-header">
+                <h3>Status Breakdown</h3>
+                <p>Attendance distribution for @_periodLabel</p>
+            </div>
+            <div class="bk-admin-card-content">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;">
+                    <div class="bk-admin-stat-box">
+                        <div class="bk-admin-stat-box-label">Present</div>
+                        <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-3);">@_report.Summary.PresentCount</div>
+                    </div>
+                    <div class="bk-admin-stat-box">
+                        <div class="bk-admin-stat-box-label">Late</div>
+                        <div class="bk-admin-stat-box-value" style="color:var(--bk-accent);">@_report.Summary.LateCount</div>
+                    </div>
+                    <div class="bk-admin-stat-box">
+                        <div class="bk-admin-stat-box-label">Absent</div>
+                        <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-4);">@_report.Summary.AbsentCount</div>
+                    </div>
+                    <div class="bk-admin-stat-box">
+                        <div class="bk-admin-stat-box-label">On Leave</div>
+                        <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-2);">@_report.Summary.OnLeaveCount</div>
+                    </div>
+                    <div class="bk-admin-stat-box">
+                        <div class="bk-admin-stat-box-label">Remote</div>
+                        <div class="bk-admin-stat-box-value" style="color:var(--bk-info);">@_report.Summary.RemoteCount</div>
+                    </div>
+                    <div class="bk-admin-stat-box">
+                        <div class="bk-admin-stat-box-label">Half Day</div>
+                        <div class="bk-admin-stat-box-value" style="color:var(--bk-accent);">@_report.Summary.HalfDayCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail table -->
+        <div class="bk-admin-card" style="overflow:hidden;">
+            <div class="bk-admin-card-header">
+                <h3>Detail — @_report.Rows.Count rows</h3>
+                <p>@_report.FromDate.ToString("yyyy-MM-dd") to @_report.ToDate.ToString("yyyy-MM-dd")</p>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="bk-admin-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Employee</th>
+                            <th>Code</th>
+                            <th>Department</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Hours</th>
+                            <th>OT Hours</th>
+                            <th>OT Pay</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _report.Rows.Take(100))
+                        {
+                            <tr>
+                                <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@r.Date.ToString("yyyy-MM-dd")</td>
+                                <td style="font-weight:600;font-size:13px;">@r.EmployeeName</td>
+                                <td style="font-size:12px;color:var(--bk-ink-3);">@r.EmployeeCode</td>
+                                <td style="font-size:12px;">@r.Department</td>
+                                <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@(r.CheckIn?.ToString("HH:mm") ?? "—")</td>
+                                <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@(r.CheckOut?.ToString("HH:mm") ?? "—")</td>
+                                <td style="font-weight:600;">@(r.WorkedHours > 0 ? r.WorkedHours.ToString("0.0") + "h" : "—")</td>
+                                <td style="color:var(--bk-accent);font-weight:600;">@(r.OvertimeHours > 0 ? r.OvertimeHours.ToString("0.0") + "h" : "—")</td>
+                                <td style="color:var(--bk-accent-4);font-weight:600;">@(r.OvertimePay > 0 ? r.OvertimePay.ToString("N2") : "—")</td>
+                                <td>
+                                    <span class="bk-admin-pill @(r.Status == "Present" ? "active" : r.Status == "Late" ? "probation" : r.Status == "Absent" ? "inactive" : r.Status == "HalfDay" ? "pending" : "info")" style="font-size:10px;">
+                                        @r.Status
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (_report.Rows.Count > 100)
+                {
+                    <div style="padding:12px 16px;text-align:center;font-size:12px;color:var(--bk-ink-3);">
+                        Showing 100 of @_report.Rows.Count rows. Export to CSV or Excel for the full dataset.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else if (!_loading)
+    {
+        <div class="bk-admin-card">
+            <div style="padding:64px 24px;text-align:center;color:var(--bk-ink-3);">
+                <span class="material-icons-round" style="font-size:64px;opacity:0.4;">bar_chart</span>
+                <h3 style="margin-top:16px;font-size:18px;color:var(--bk-ink-2);">No report generated yet</h3>
+                <p style="font-size:14px;margin-top:4px;">Configure your report period above and click "Generate".</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string _selectedPeriod = "Monthly";
+    private DateTime _fromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime _toDate = DateTime.Today;
+    private AttendanceReport? _report;
+    private bool _loading;
+    private int _orgId;
+    private string _periodLabel => _selectedPeriod switch
+    {
+        "Daily" => $"Today ({_fromDate:dd MMM yyyy})",
+        "Weekly" => $"Last 7 Days ({_fromDate:dd MMM} – {_toDate:dd MMM yyyy})",
+        "Monthly" => $"{_fromDate:MMMM yyyy}",
+        "Custom" => $"{_fromDate:dd MMM} – {_toDate:dd MMM yyyy}",
+        _ => _selectedPeriod
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        UpdateDateRange();
+    }
+
+    private bool CanGenerate() => _toDate >= _fromDate;
+
+    private void UpdateDateRange()
+    {
+        switch (_selectedPeriod)
+        {
+            case "Daily":
+                _fromDate = DateTime.Today;
+                _toDate = DateTime.Today;
+                break;
+            case "Weekly":
+                _fromDate = DateTime.Today.AddDays(-6);
+                _toDate = DateTime.Today;
+                break;
+            case "Monthly":
+                _fromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                _toDate = DateTime.Today;
+                break;
+            // Custom: keep existing _fromDate/_toDate
+        }
+    }
+
+    private async Task GenerateReport()
+    {
+        if (!CanGenerate()) return;
+        UpdateDateRange();
+        _loading = true;
+
+        try
+        {
+            var period = _selectedPeriod switch
+            {
+                "Daily" => ReportPeriod.Daily,
+                "Weekly" => ReportPeriod.Weekly,
+                "Monthly" => ReportPeriod.Monthly,
+                "Custom" => ReportPeriod.Custom,
+                _ => ReportPeriod.Monthly
+            };
+
+            _report = await ReportSvc.GenerateAsync(_orgId, period, _fromDate, _toDate);
+            Snackbar.Add($"Report generated: {_report.Rows.Count} records.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ExportCsv()
+    {
+        if (_report == null) return;
+        var from = _fromDate.ToString("yyyy-MM-dd");
+        var to = _toDate.ToString("yyyy-MM-dd");
+        var period = _selectedPeriod.ToLower();
+        var url = $"/api/reports/attendance/csv?orgId={_orgId}&from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}";
+        Nav.NavigateTo(url, forceLoad: true);
+        Snackbar.Add("CSV export downloading...", Severity.Success);
+    }
+
+    private void ExportXlsx()
+    {
+        if (_report == null) return;
+        var from = _fromDate.ToString("yyyy-MM-dd");
+        var to = _toDate.ToString("yyyy-MM-dd");
+        var url = $"/api/reports/attendance/xlsx?orgId={_orgId}&from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}";
+        Nav.NavigateTo(url, forceLoad: true);
+        Snackbar.Add("Excel export downloading...", Severity.Success);
+    }
+
+    private void SetPreset(int days)
+    {
+        _fromDate = DateTime.Today.AddDays(days);
+        _toDate = DateTime.Today;
+    }
+
+    private void SetThisMonth()
+    {
+        _fromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        _toDate = DateTime.Today;
+    }
+}

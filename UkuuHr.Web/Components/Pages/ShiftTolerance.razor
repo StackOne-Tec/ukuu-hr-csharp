@@ -1,0 +1,253 @@
+@page "/shifts/tolerance"
+@attribute [Authorize(Policy = "HrOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject ShiftService ShiftSvc
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Shift Management · Attendance Tolerance Policy</div>
+            <h1 class="bk-admin-h1">Attendance Tolerance Policy</h1>
+            <p class="bk-admin-sub">
+                Organization-wide thresholds that drive automatic attendance status computation.
+                Configure late check-in, early check-out, early arrival allowances, absent thresholds,
+                grace periods, and break-handling rules. Changes are audit-logged and the ShiftEngine
+                re-evaluates all future attendance records against the new policy.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/shifts" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                All Shifts
+            </a>
+        </div>
+    </div>
+
+    @if (_tolerance == null)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">tune</span>
+            <h3 style="margin-top:16px;">Loading tolerance policy…</h3>
+        </div>
+    }
+    else
+    {
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-content" style="padding-bottom:24px;">
+                <EditForm Model="@_tolerance" OnValidSubmit="SaveTolerance">
+                    @* ───── Policy cards grid ───── *@
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">
+
+                        @* 1. Late check-in *@
+                        <div style="padding:20px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(245,158,11,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,158,11,0.12);display:flex;align-items:center;justify-content:center;">
+                                    <span class="material-icons-round" style="color:var(--bk-warning);font-size:20px;">schedule</span>
+                                </div>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-warning);margin:0;">Late Check-In</h4>
+                                    <p style="font-size:11px;color:var(--bk-ink-3);margin:2px 0 0;">Tolerance before marking late</p>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Late tolerance (minutes)</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.LateCheckInToleranceMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Minutes after shift start still considered "On Time"</small>
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;">
+                                <label class="bk-label">Very-late threshold (minutes)</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.VeryLateThresholdMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Beyond this, employee is flagged "Very Late" (escalated)</small>
+                            </div>
+                        </div>
+
+                        @* 2. Early check-out *@
+                        <div style="padding:20px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(220,38,38,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(220,38,38,0.12);display:flex;align-items:center;justify-content:center;">
+                                    <span class="material-icons-round" style="color:var(--bk-error);font-size:20px;">logout</span>
+                                </div>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-error);margin:0;">Early Check-Out</h4>
+                                    <p style="font-size:11px;color:var(--bk-ink-3);margin:2px 0 0;">Tolerance before marking early</p>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Early tolerance (minutes)</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.EarlyCheckOutToleranceMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Minutes before shift end still considered "On Time"</small>
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;">
+                                <label class="bk-label">Half-day threshold (minutes early)</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.HalfDayEarlyThresholdMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Leaving this early triggers "Half Day" status</small>
+                            </div>
+                        </div>
+
+                        @* 3. Early arrival *@
+                        <div style="padding:20px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(22,163,74,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(22,163,74,0.12);display:flex;align-items:center;justify-content:center;">
+                                    <span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">login</span>
+                                </div>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-success);margin:0;">Early Arrival</h4>
+                                    <p style="font-size:11px;color:var(--bk-ink-3);margin:2px 0 0;">Paid early arrival allowance</p>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Allowance (minutes paid)</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.EarlyArrivalAllowanceMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Minutes before shift start counted as paid work time</small>
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+                                <InputCheckbox @bind-Value="_tolerance.CapEarlyArrivalToAllowance" id="capEarly" />
+                                <div>
+                                    <label for="capEarly" style="font-size:13px;color:var(--bk-ink);cursor:pointer;">Cap to allowance</label>
+                                    <div style="font-size:11px;color:var(--bk-ink-3);">Don't pay beyond the allowance (unpaid extra)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* 4. Absent threshold *@
+                        <div style="padding:20px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(220,38,38,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(220,38,38,0.12);display:flex;align-items:center;justify-content:center;">
+                                    <span class="material-icons-round" style="color:var(--bk-error);font-size:20px;">cancel</span>
+                                </div>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-error);margin:0;">Absent Threshold</h4>
+                                    <p style="font-size:11px;color:var(--bk-ink-3);margin:2px 0 0;">When to auto-mark absent</p>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Min present minutes</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.MinPresentMinutesForAttendance" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Min worked minutes to avoid Absent status</small>
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+                                <InputCheckbox @bind-Value="_tolerance.AutoMarkAbsentWhenNoClockEvent" id="autoAbsent" />
+                                <div>
+                                    <label for="autoAbsent" style="font-size:13px;color:var(--bk-ink);cursor:pointer;">Auto-mark absent</label>
+                                    <div style="font-size:11px;color:var(--bk-ink-3);">Auto-mark Absent when no clock event on a working day</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* 5. Grace period *@
+                        <div style="padding:20px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(37,99,235,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(37,99,235,0.12);display:flex;align-items:center;justify-content:center;">
+                                    <span class="material-icons-round" style="color:var(--bk-info);font-size:20px;">timer</span>
+                                </div>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-info);margin:0;">Grace Period</h4>
+                                    <p style="font-size:11px;color:var(--bk-ink-3);margin:2px 0 0;">Extra tolerance on selected days</p>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Grace minutes</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.GracePeriodMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Extra tolerance added to late/early thresholds on grace days</small>
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;">
+                                <label class="bk-label">Grace applies on</label>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+                                    @for (int i = 0; i < 7; i++)
+                                    {
+                                        var dayIdx = i;
+                                        var dayName = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }[i];
+                                        var isActive = (_tolerance.GracePeriodDaysMask & (1 << i)) != 0;
+                                        <button type="button" @onclick="() => ToggleGraceDay(dayIdx)"
+                                                style="padding:6px 10px;border-radius:6px;border:1px solid @(isActive ? "var(--bk-ink)" : "var(--bk-line)");background:@(isActive ? "var(--bk-ink)" : "transparent");color:@(isActive ? "white" : "var(--bk-ink-2)");font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">
+                                            @dayName
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        @* 6. Break & Half-Day *@
+                        <div style="padding:20px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(110,95,146,0.04);">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(110,95,146,0.12);display:flex;align-items:center;justify-content:center;">
+                                    <span class="material-icons-round" style="color:var(--bk-accent-2);font-size:20px;">restaurant</span>
+                                </div>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-accent-2);margin:0;">Break & Half-Day</h4>
+                                    <p style="font-size:11px;color:var(--bk-ink-3);margin:2px 0 0;">Break handling and partial-day rules</p>
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Default break (minutes)</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.DefaultBreakMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Unpaid break deducted from worked hours when no break clocked</small>
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;">
+                                <label class="bk-label">Min minutes before break deducted</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.MinWorkedMinutesBeforeBreak" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Prevents over-deduction on short days</small>
+                            </div>
+                            <div class="bk-field" style="margin-top:12px;">
+                                <label class="bk-label">Half-day worked minutes</label>
+                                <InputNumber class="bk-input" @bind-Value="_tolerance.HalfDayWorkedMinutes" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;">Minutes of work that count as a half day</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* ───── Summary & Save ───── *@
+                    <div style="margin-top:28px;padding:16px 20px;background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.1);border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="material-icons-round" style="font-size:18px;color:var(--bk-info);">info</span>
+                            <div>
+                                <div style="font-size:12px;font-weight:600;color:var(--bk-ink);">Audit-logged policy change</div>
+                                <div style="font-size:11px;color:var(--bk-ink-3);">
+                                    The ShiftEngine re-evaluates all future attendance records against the new policy.
+                                    Current values: Late @_tolerance.LateCheckInToleranceMinutes min · Early @_tolerance.EarlyCheckOutToleranceMinutes min ·
+                                    Grace @_tolerance.GracePeriodMinutes min · Absent @_tolerance.MinPresentMinutesForAttendance min
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="bk-btn bk-btn-primary">
+                            <span class="material-icons-round" style="font-size:16px;">save</span>
+                            Save Tolerance Policy
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private AttendanceTolerance? _tolerance;
+    private int _orgId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+
+        _tolerance = await ShiftSvc.GetOrCreateToleranceAsync(_orgId);
+    }
+
+    private async Task SaveTolerance()
+    {
+        try
+        {
+            await ShiftSvc.UpdateToleranceAsync(_orgId, _tolerance!, "admin@ukuuhr.demo");
+            _tolerance = await ShiftSvc.GetToleranceAsync(_orgId);
+            Snackbar.Add("Tolerance policy saved successfully.", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private void ToggleGraceDay(int dayIdx)
+    {
+        if (_tolerance != null) _tolerance.GracePeriodDaysMask ^= (1 << dayIdx);
+    }
+}

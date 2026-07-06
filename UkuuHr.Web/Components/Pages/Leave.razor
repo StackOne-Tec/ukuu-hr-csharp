@@ -3,6 +3,8 @@
 @using Microsoft.EntityFrameworkCore
 @inject LeaveService LeaveSvc
 @inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -12,10 +14,10 @@
             <p class="bk-admin-sub">Review and approve leave requests. Configure leave types and public holidays.</p>
         </div>
         <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary">
+            <a href="/leave/request" class="bk-btn bk-btn-primary">
                 <span class="material-icons-round" style="font-size:16px;">event</span>
                 Request Leave
-            </button>
+            </a>
         </div>
     </div>
 
@@ -65,13 +67,91 @@
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">cancel</span>
             Rejected (@_all.Count(l => l.Status == LeaveRequestStatus.Rejected))
         </div>
+        <div @onclick="@(() => _tab = "balances")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "balances" ? "var(--bk-ink)" : "transparent");color:@(_tab == "balances" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">account_balance</span>
+            Leave Balances
+        </div>
         <div @onclick="@(() => _tab = "holidays")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "holidays" ? "var(--bk-ink)" : "transparent");color:@(_tab == "holidays" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">celebration</span>
             Public Holidays
         </div>
     </div>
 
-    @if (_tab == "holidays")
+    @if (_tab == "balances")
+    {
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>Employee Leave Balances — @DateTime.Now.Year</h3>
+                    <p>Entitlement, usage, and remaining days per employee per leave type.</p>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="bk-admin-table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Leave Type</th>
+                                <th>Entitled</th>
+                                <th>Used</th>
+                                <th>Remaining</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var bal in _allBalances)
+                            {
+                                <tr>
+                                    <td>
+                                        <div style="display:flex;align-items:center;gap:8px;">
+                                            <div class="bk-admin-avatar-sm">@bal.EmployeeInitials</div>
+                                            <span style="font-weight:600;font-size:12px;">@bal.EmployeeName</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                            <span style="width:8px;height:8px;border-radius:2px;background:@(bal.Color);"></span>
+                                            @bal.LeaveTypeName
+                                        </span>
+                                    </td>
+                                    <td style="font-weight:600;">@bal.EntitlementDays</td>
+                                    <td style="color:var(--bk-accent-4);font-weight:600;">@bal.UsedDays</td>
+                                    <td style="font-weight:700;color:@(bal.RemainingDays > 0 ? "var(--bk-accent-3)" : "var(--bk-accent-4)");">
+                                        @bal.RemainingDays.ToString("0.#")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>Summary</h3>
+                    <p>Aggregated leave usage across the organization</p>
+                </div>
+                <div class="bk-admin-card-content">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="bk-admin-stat-box">
+                            <div class="bk-admin-stat-box-label">Active Employees</div>
+                            <div class="bk-admin-stat-box-value">@_activeEmployeeCount</div>
+                        </div>
+                        <div class="bk-admin-stat-box">
+                            <div class="bk-admin-stat-box-label">Total Approved Days</div>
+                            <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-2);">@_totalApprovedDays</div>
+                        </div>
+                        <div class="bk-admin-stat-box">
+                            <div class="bk-admin-stat-box-label">Avg Days / Employee</div>
+                            <div class="bk-admin-stat-box-value">@_avgDaysPerEmployee.ToString("0.0")</div>
+                        </div>
+                        <div class="bk-admin-stat-box dark">
+                            <div class="bk-admin-stat-box-label">Pending Requests</div>
+                            <div class="bk-admin-stat-box-value">@_pending</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (_tab == "holidays")
     {
         <div class="bk-admin-card" style="overflow:hidden;">
             <div class="bk-admin-card-header">
@@ -168,6 +248,21 @@
     private int _pending, _approvedThisMonth, _activeLeaveDays;
     private int _orgId;
 
+    // Balances tab data
+    private List<LeaveBalanceDisplay> _allBalances = new();
+    private int _activeEmployeeCount;
+    private int _totalApprovedDays;
+    private double _avgDaysPerEmployee;
+
+    private sealed record LeaveBalanceDisplay(
+        string EmployeeName,
+        string EmployeeInitials,
+        string LeaveTypeName,
+        string Color,
+        double EntitlementDays,
+        double UsedDays,
+        double RemainingDays);
+
     private IEnumerable<LeaveRequest> _filtered => _tab switch
     {
         "pending" => _all.Where(l => l.Status == LeaveRequestStatus.Pending),
@@ -182,6 +277,7 @@
         if (org == null) return;
         _orgId = org.Id;
         await Load();
+        await LoadBalances();
     }
 
     private async Task Load()
@@ -191,6 +287,35 @@
         _pending = _all.Count(l => l.Status == LeaveRequestStatus.Pending);
         _approvedThisMonth = _all.Count(l => l.Status == LeaveRequestStatus.Approved && l.ReviewedAt?.Month == DateTime.Now.Month);
         _activeLeaveDays = _all.Count(l => l.Status == LeaveRequestStatus.Approved && l.StartDate <= DateTime.Today && l.EndDate >= DateTime.Today);
+    }
+
+    private async Task LoadBalances()
+    {
+        var yr = DateTime.Now.Year;
+        var allEmps = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+        var activeEmps = allEmps.Where(e => e.Status != EmploymentStatus.Inactive).ToList();
+        _activeEmployeeCount = activeEmps.Count;
+        _totalApprovedDays = _all.Where(l => l.Status == LeaveRequestStatus.Approved && l.StartDate.Year == yr).Sum(l => l.RequestedDays);
+        _avgDaysPerEmployee = _activeEmployeeCount > 0 ? (double)_totalApprovedDays / _activeEmployeeCount : 0;
+
+        var allBalances = new List<LeaveBalanceDisplay>();
+        foreach (var emp in activeEmps)
+        {
+            var empBalances = await LeaveSvc.GetOrCreateBalancesAsync(_orgId, emp.Id, yr);
+            foreach (var b in empBalances)
+            {
+                allBalances.Add(new LeaveBalanceDisplay(
+                    EmployeeName: emp.FullName,
+                    EmployeeInitials: emp.Initials,
+                    LeaveTypeName: b.LeaveType?.Name ?? "Unknown",
+                    Color: b.LeaveType?.Color ?? "#25163F",
+                    EntitlementDays: b.EntitlementDays,
+                    UsedDays: b.UsedDays,
+                    RemainingDays: b.RemainingDays
+                ));
+            }
+        }
+        _allBalances = allBalances;
     }
 
     private async Task Approve(int id)

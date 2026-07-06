@@ -87,6 +87,16 @@ public class HolidayService
     public Task<bool> IsHolidayAsync(int orgId, DateTime date) =>
         _db.LeaveHolidays.AnyAsync(h => h.OrganizationId == orgId && h.Date.Date == date.Date);
 
+    /// <summary>Get all holiday dates for an org (as a HashSet for fast lookup). Used by ShiftEngine and leave calculations.</summary>
+    public async Task<HashSet<DateTime>> GetHolidayDatesAsync(int orgId, int? year = null)
+    {
+        var q = _db.LeaveHolidays.Where(h => h.OrganizationId == orgId);
+        if (year.HasValue)
+            q = q.Where(h => h.Date.Year == year.Value);
+        var dates = await q.Select(h => h.Date.Date).ToListAsync();
+        return dates.ToHashSet();
+    }
+
     /// <summary>Import holidays from CSV. Columns: Name,Date(yyyy-MM-dd),Country.</summary>
     public async Task<(int imported, int skipped, List<string> errors)> ImportCsvAsync(int orgId, Stream csvStream, string? actorEmail)
     {
@@ -163,6 +173,49 @@ public class HolidayService
         }
 
         return (imported, skipped, errors);
+    }
+
+    /// <summary>Export holidays as CSV bytes for download.</summary>
+    public byte[] ExportCsv(List<LeaveHoliday> holidays)
+    {
+        using var ms = new MemoryStream();
+        using var writer = new StreamWriter(ms, Encoding.UTF8);
+        using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+
+        csv.WriteField("Name");
+        csv.WriteField("Date");
+        csv.WriteField("DayOfWeek");
+        csv.WriteField("Country");
+        csv.WriteField("IsRecurring");
+        csv.NextRecord();
+
+        foreach (var h in holidays.OrderBy(h => h.Date))
+        {
+            csv.WriteField(h.Name);
+            csv.WriteField(h.Date.ToString("yyyy-MM-dd"));
+            csv.WriteField(h.Date.ToString("dddd"));
+            csv.WriteField(h.Country ?? "");
+            csv.WriteField(h.IsRecurring ? "Yes" : "No");
+            csv.NextRecord();
+        }
+
+        writer.Flush();
+        return ms.ToArray();
+    }
+
+    /// <summary>Delete all holidays for an org in a given year (bulk cleanup).</summary>
+    public async Task<int> DeleteYearAsync(int orgId, int year, string? actorEmail)
+    {
+        var holidays = await _db.LeaveHolidays
+            .Where(h => h.OrganizationId == orgId && h.Date.Year == year)
+            .ToListAsync();
+        if (holidays.Count == 0) return 0;
+
+        _db.LeaveHolidays.RemoveRange(holidays);
+        await _db.SaveChangesAsync();
+        await _audit.LogAsync(orgId, AuditAction.BulkImport, actorEmail,
+            details: $"Deleted {holidays.Count} holidays for year {year}");
+        return holidays.Count;
     }
 
     /// <summary>Seed the org with the Zambia public holiday calendar for the given year.</summary>

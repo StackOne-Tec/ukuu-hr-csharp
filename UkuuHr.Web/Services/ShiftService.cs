@@ -229,9 +229,38 @@ public class ShiftService
         return true;
     }
 
+    public async Task MakePrimaryAsync(int orgId, int assignmentId, string? actorEmail)
+    {
+        var assignment = await _db.Set<EmployeeShiftAssignment>()
+            .Include(x => x.Shift)
+            .Include(x => x.Employee)
+            .FirstOrDefaultAsync(x => x.OrganizationId == orgId && x.Id == assignmentId)
+            ?? throw new InvalidOperationException("Assignment not found.");
+
+        // Demote any existing primary for this employee
+        var existingPrimary = await _db.Set<EmployeeShiftAssignment>()
+            .Where(x => x.OrganizationId == orgId && x.EmployeeId == assignment.EmployeeId && x.IsPrimary && x.Id != assignmentId && x.IsActive)
+            .ToListAsync();
+        foreach (var p in existingPrimary)
+        {
+            p.IsPrimary = false;
+            p.UpdatedAt = DateTime.UtcNow;
+        }
+
+        assignment.IsPrimary = true;
+        assignment.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(orgId, AuditAction.ProfileUpdated, actorEmail,
+            details: $"Made '{assignment.Shift?.Name}' primary for {assignment.Employee?.FullName}",
+            previousValue: existingPrimary.Count > 0 ? $"Demoted {existingPrimary.Count} previous primary(s)" : "No previous primary",
+            newValue: $"{assignment.Shift?.Name} → {assignment.Employee?.FullName}");
+    }
+
     // ───────────── Engine integration: resolve shift for a date ─────────────
 
-    /// <summary>Resolve the applicable shift for an employee on a date.</summary>
+    /// <summary>Resolve the applicable shift for an employee on a date.
+    /// FR-008: Public holidays are treated as non-working days.</summary>
     public async Task<ShiftResolution> ResolveForEmployeeAsync(int orgId, int employeeId, DateTime date)
     {
         var assignments = await _db.Set<EmployeeShiftAssignment>()
@@ -249,7 +278,14 @@ public class ShiftService
             // The actual shift model takes precedence.
         }
 
-        return ShiftEngine.Resolve(date, fallback, assignments);
+        // FR-008: Fetch holiday dates so the engine treats them as non-working days
+        var holidayDates = await _db.LeaveHolidays
+            .Where(h => h.OrganizationId == orgId && h.Date.Year == date.Year)
+            .Select(h => h.Date.Date)
+            .ToListAsync();
+        var holidaySet = holidayDates.ToHashSet();
+
+        return ShiftEngine.Resolve(date, fallback, assignments, holidaySet);
     }
 
     /// <summary>Get the org's tolerance config (no auto-create).</summary>

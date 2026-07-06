@@ -106,14 +106,19 @@ public class LeaveRequest
 
     public string PeriodLabel => $"{StartDate:yyyy-MM-dd} To {EndDate:yyyy-MM-dd}";
 
-    public static int CalculateBusinessDays(DateTime start, DateTime end)
+    public static int CalculateBusinessDays(DateTime start, DateTime end, HashSet<DateTime>? holidayDates = null)
     {
         if (end < start) return 0;
         var days = 0;
         for (var d = start.Date; d <= end.Date; d = d.AddDays(1))
         {
-            if (d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday)
-                days++;
+            // Skip weekends
+            if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                continue;
+            // Skip holidays (FR-008: holidays do not count as leave days)
+            if (holidayDates != null && holidayDates.Contains(d))
+                continue;
+            days++;
         }
         return days;
     }
@@ -147,10 +152,13 @@ public class LeaveType
     public bool RequiresApproval { get; set; } = true;
     public bool CarryForward { get; set; } = false;
 
+    /// <summary>Maximum days that can be carried forward into the next year. Null = no limit.</summary>
+    public int? MaxCarryForwardDays { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
-/// <summary>Public holiday per country.</summary>
+/// <summary>Public holiday per country (FR-008).</summary>
 public class LeaveHoliday
 {
     public int Id { get; set; }
@@ -162,6 +170,9 @@ public class LeaveHoliday
     public DateTime Date { get; set; }
     [MaxLength(100)]
     public string? Country { get; set; }
+
+    /// <summary>If true, this holiday repeats annually (e.g. Christmas always on Dec 25).</summary>
+    public bool IsRecurring { get; set; }
 
     public string DateKey => Date.ToString("yyyy-MM-dd");
 }
