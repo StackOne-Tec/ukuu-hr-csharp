@@ -55,38 +55,6 @@
         </div>
     </div>
 
-    <!-- Rate types info -->
-    <div class="bk-admin-card" style="margin-bottom:24px;">
-        <div class="bk-admin-card-header">
-            <div>
-                <h3>Overtime Rate Structure (FR-007 Classification)</h3>
-                <p>Automatic rate selection based on day type — weekday / weekend / public holiday</p>
-            </div>
-        </div>
-        <div class="bk-admin-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
-            <div class="bk-admin-stat-box" style="background:rgba(108,99,255,0.06);">
-                <div class="bk-admin-stat-box-label">Weekday (Standard)</div>
-                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-2);">1.5×</div>
-                <div style="font-size:11px;color:var(--bk-ink-3);margin-top:4px;">@_weekdayCount records</div>
-            </div>
-            <div class="bk-admin-stat-box" style="background:rgba(216,156,17,0.06);">
-                <div class="bk-admin-stat-box-label">Weekend (Rest Day)</div>
-                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent);">2.0×</div>
-                <div style="font-size:11px;color:var(--bk-ink-3);margin-top:4px;">@_weekendCount records</div>
-            </div>
-            <div class="bk-admin-stat-box" style="background:rgba(232,93,117,0.06);">
-                <div class="bk-admin-stat-box-label">Public Holiday</div>
-                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-4);">2.5×</div>
-                <div style="font-size:11px;color:var(--bk-ink-3);margin-top:4px;">@_holidayCount records</div>
-            </div>
-            <div class="bk-admin-stat-box" style="background:rgba(20,163,127,0.06);">
-                <div class="bk-admin-stat-box-label">Double Time (>2h OT)</div>
-                <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-3);">2.0×</div>
-                <div style="font-size:11px;color:var(--bk-ink-3);margin-top:4px;">@_doubleTimeCount records</div>
-            </div>
-        </div>
-    </div>
-
     <!-- Tabs -->
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:24px;overflow-x:auto;">
         <div @onclick="@(() => _tab = "pending")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
@@ -194,8 +162,6 @@
     private List<OvertimeRecord> _all = new();
     private OvertimeSummary _summary = new();
     private int _orgId;
-    private int _weekdayCount, _weekendCount, _holidayCount, _doubleTimeCount;
-
     private IEnumerable<OvertimeRecord> _filtered => _tab switch
     {
         "pending" => _all.Where(o => o.Status == OvertimeStatus.Pending),
@@ -217,10 +183,6 @@
         var now = DateTime.Now;
         _summary = await OvertimeSvc.GetSummaryAsync(_orgId, now.Month, now.Year);
         // Compute FR-007 classification counts.
-        _weekdayCount = _all.Count(o => o.RateType == OvertimeRateType.Standard);
-        _weekendCount = _all.Count(o => o.RateType == OvertimeRateType.RestDay);
-        _holidayCount = _all.Count(o => o.RateType == OvertimeRateType.PublicHoliday);
-        _doubleTimeCount = _all.Count(o => o.RateType == OvertimeRateType.DoubleTime);
     }
 
     private async Task AutoCalculate()
