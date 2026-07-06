@@ -7,9 +7,48 @@ namespace UkuuHr.Services;
 public class EmployeeService
 {
     private readonly UkuuHrDbContext _db;
-    public EmployeeService(UkuuHrDbContext db) => _db = db;
+    private readonly AesEncryptionService _cipher;
+    public EmployeeService(UkuuHrDbContext db, AesEncryptionService cipher)
+    {
+        _db = db;
+        _cipher = cipher;
+    }
 
-    public Task<List<Employee>> GetAllAsync(int orgId, string? search = null, string? department = null, EmploymentStatus? status = null)
+    /// <summary>Encrypt sensitive fields before persisting to the database.</summary>
+    private void EncryptSensitiveFields(Employee emp)
+    {
+        emp.AccountNumber = _cipher.Encrypt(emp.AccountNumber);
+        emp.Tpin = _cipher.Encrypt(emp.Tpin);
+        emp.NapsaNumber = _cipher.Encrypt(emp.NapsaNumber);
+        emp.HealthInsuranceNumber = _cipher.Encrypt(emp.HealthInsuranceNumber);
+        emp.MobileMoney = _cipher.Encrypt(emp.MobileMoney);
+        emp.PassportNumber = _cipher.Encrypt(emp.PassportNumber);
+        emp.NationalIdentityNumber = _cipher.Encrypt(emp.NationalIdentityNumber);
+        emp.BankName = _cipher.Encrypt(emp.BankName);
+        emp.BeneficiaryName = _cipher.Encrypt(emp.BeneficiaryName);
+        emp.RoutingNumbers = _cipher.Encrypt(emp.RoutingNumbers);
+        emp.SwiftCode = _cipher.Encrypt(emp.SwiftCode);
+        emp.IbanNumber = _cipher.Encrypt(emp.IbanNumber);
+    }
+
+    /// <summary>Decrypt sensitive fields after reading from the database.</summary>
+    private void DecryptSensitiveFields(Employee emp)
+    {
+        emp.AccountNumber = _cipher.Decrypt(emp.AccountNumber);
+        emp.Tpin = _cipher.Decrypt(emp.Tpin);
+        emp.NapsaNumber = _cipher.Decrypt(emp.NapsaNumber);
+        emp.HealthInsuranceNumber = _cipher.Decrypt(emp.HealthInsuranceNumber);
+        emp.MobileMoney = _cipher.Decrypt(emp.MobileMoney);
+        emp.PassportNumber = _cipher.Decrypt(emp.PassportNumber);
+        emp.NationalIdentityNumber = _cipher.Decrypt(emp.NationalIdentityNumber);
+        emp.BankName = _cipher.Decrypt(emp.BankName);
+        emp.BeneficiaryName = _cipher.Decrypt(emp.BeneficiaryName);
+        emp.RoutingNumbers = _cipher.Decrypt(emp.RoutingNumbers);
+        emp.SwiftCode = _cipher.Decrypt(emp.SwiftCode);
+        emp.IbanNumber = _cipher.Decrypt(emp.IbanNumber);
+    }
+
+    public async Task<List<Employee>> GetAllAsync(int orgId, string? search = null, string? department = null, EmploymentStatus? status = null)
     {
         var q = _db.Employees.Where(e => e.OrganizationId == orgId);
         if (!string.IsNullOrWhiteSpace(search))
@@ -24,18 +63,25 @@ public class EmployeeService
         if (!string.IsNullOrWhiteSpace(department))
             q = q.Where(e => e.Department == department);
         if (status.HasValue) q = q.Where(e => e.Status == status);
-        return q.OrderByDescending(e => e.CreatedAt).ToListAsync();
+        var employees = await q.OrderByDescending(e => e.CreatedAt).ToListAsync();
+        foreach (var emp in employees) DecryptSensitiveFields(emp);
+        return employees;
     }
 
     public Task<List<string>> GetDepartmentsAsync(int orgId) =>
         _db.Employees.Where(e => e.OrganizationId == orgId && e.Department != null)
             .Select(e => e.Department!).Distinct().OrderBy(d => d).ToListAsync();
 
-    public Task<Employee?> GetAsync(int orgId, int id) =>
-        _db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == orgId && e.Id == id);
+    public async Task<Employee?> GetAsync(int orgId, int id)
+    {
+        var emp = await _db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == orgId && e.Id == id);
+        if (emp != null) DecryptSensitiveFields(emp);
+        return emp;
+    }
 
     public async Task<Employee> CreateAsync(Employee emp)
     {
+        EncryptSensitiveFields(emp);
         emp.CreatedAt = DateTime.UtcNow;
         _db.Employees.Add(emp);
         await _db.SaveChangesAsync();
@@ -44,6 +90,7 @@ public class EmployeeService
 
     public async Task<Employee> UpdateAsync(Employee emp)
     {
+        EncryptSensitiveFields(emp);
         emp.UpdatedAt = DateTime.UtcNow;
         _db.Employees.Update(emp);
         await _db.SaveChangesAsync();
