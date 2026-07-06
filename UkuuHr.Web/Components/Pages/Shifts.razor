@@ -3,39 +3,66 @@
 @page "/scheduling"
 @attribute [Authorize(Policy = "HrOrAdmin")]
 @using Microsoft.EntityFrameworkCore
+@inject NavigationManager Nav
 @inject ShiftService ShiftSvc
 @inject UkuuHrDbContext Db
 @inject ISnackbar Snackbar
 
 <div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Shift Management · @_shifts.Count active shifts · @_assignments.Count assignments</div>
-            <h1 class="bk-admin-h1">Shifts</h1>
-            <p class="bk-admin-sub">
-                Define fixed, rotating, flexible, and overnight shifts. Configure attendance tolerance,
-                manage assignments, and view weekly coverage from the sidebar sections below.
-            </p>
+    @if (!_loaded)
+    {
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;">
+            <div style="width:32px;height:32px;border:3px solid var(--bk-line);border-top-color:var(--bk-accent);border-radius:50%;animation:bk-spin 0.8s linear infinite;"></div>
+            <p style="margin-top:16px;color:var(--bk-ink-3);font-size:13px;">Loading shifts…</p>
         </div>
-        <div class="bk-admin-actions">
-            <a href="/shifts/assignments" class="bk-btn bk-btn-secondary">
-                <span class="material-icons-round" style="font-size:16px;">assignment_ind</span>
-                Assignments
-            </a>
-            <a href="/shifts/tolerance" class="bk-btn bk-btn-secondary">
-                <span class="material-icons-round" style="font-size:16px;">tune</span>
-                Tolerance
-            </a>
-            <a href="/shifts/coverage" class="bk-btn bk-btn-secondary">
-                <span class="material-icons-round" style="font-size:16px;">calendar_view_week</span>
-                Coverage
-            </a>
-            <button class="bk-btn bk-btn-primary" @onclick="() => OpenShiftDialog(null)">
-                <span class="material-icons-round" style="font-size:16px;">add</span>
-                New Shift
+    }
+    else if (_orgMissing)
+    {
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.4;">business</span>
+            <h3 style="margin-top:16px;">No Organization Found</h3>
+            <p style="color:var(--bk-ink-3);margin:8px 0 20px;max-width:400px;">
+                You need to create an organization before you can manage shifts.
+            </p>
+            <button class="bk-btn bk-btn-primary" @onclick="SeedOrg" disabled="@_seeding">
+                @if (_seeding)
+                {
+                    <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;display:inline-block;animation:bk-spin 0.8s linear infinite;"></span>
+                }
+                <span>Create Default Organization</span>
             </button>
         </div>
-    </div>
+    }
+    else
+    {
+        <div class="bk-admin-section-header">
+            <div class="bk-admin-section-header-left">
+                <div class="bk-admin-greeting">Shift Management · @_shifts.Count active shifts · @_assignments.Count assignments</div>
+                <h1 class="bk-admin-h1">Shifts</h1>
+                <p class="bk-admin-sub">
+                    Define fixed, rotating, flexible, and overnight shifts. Configure attendance tolerance,
+                    manage assignments, and view weekly coverage from the sidebar sections below.
+                </p>
+            </div>
+            <div class="bk-admin-actions">
+                <a href="/shifts/assignments" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">assignment_ind</span>
+                    Assignments
+                </a>
+                <a href="/shifts/tolerance" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">tune</span>
+                    Tolerance
+                </a>
+                <a href="/shifts/coverage" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">calendar_view_week</span>
+                    Coverage
+                </a>
+                <button class="bk-btn bk-btn-primary" @onclick="() => OpenShiftDialog(null)">
+                    <span class="material-icons-round" style="font-size:16px;">add</span>
+                    New Shift
+                </button>
+            </div>
+        </div>
 
     @* ───── KPI cards ───── *@
     <div class="bk-admin-kpi-grid">
@@ -166,15 +193,15 @@
             <div class="bk-admin-card" style="grid-column:1/-1;text-align:center;padding:48px 24px;">
                 <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">schedule</span>
                 <h3 style="margin-top:16px;">No shifts defined yet</h3>
-                <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Create your first shift to start assigning employees.</p>
+                <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Create your first shift to start assigning employees. Morning, mid, night — or any custom window.</p>
                 <button class="bk-btn bk-btn-primary" @onclick="() => OpenShiftDialog(null)">
-                    <span class="material-icons-round" style="font-size:16px;">add</span>
+                    <span class="material-icons-round" style="font-size:18px;">add</span>
                     Create First Shift
                 </button>
             </div>
         }
     </div>
-</div>
+}
 
 @* ───── Shift create/edit dialog ───── *@
 @if (_showShiftDialog)
@@ -186,6 +213,13 @@
                 <button class="bk-modal-close" @onclick="CloseShiftDialog"><span class="material-icons-round">close</span></button>
             </div>
             <div class="bk-modal-body">
+                @if (!string.IsNullOrEmpty(_dialogError))
+                {
+                    <div style="margin-bottom:16px;padding:10px 14px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;color:#991b1b;font-size:13px;display:flex;align-items:flex-start;gap:8px;">
+                        <span class="material-icons-round" style="font-size:16px;flex-shrink:0;margin-top:1px;">error_outline</span>
+                        <span>@_dialogError</span>
+                    </div>
+                }
                 <EditForm Model="@_shiftForm" OnValidSubmit="SaveShift">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                         <div class="bk-field" style="grid-column:1/-1;">
@@ -264,9 +298,16 @@
                         }
                     </div>
                     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
-                        <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseShiftDialog">Cancel</button>
-                        <button type="submit" class="bk-btn bk-btn-primary">
-                            <span class="material-icons-round" style="font-size:16px;">save</span>
+                        <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseShiftDialog" disabled="@_isSaving">Cancel</button>
+                        <button type="submit" class="bk-btn bk-btn-primary" disabled="@_isSaving" style="@(_isSaving ? "opacity:0.7;cursor:not-allowed;" : "")">
+                            @if (_isSaving)
+                            {
+                                <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;display:inline-block;animation:bk-spin 0.8s linear infinite;"></span>
+                            }
+                            else
+                            {
+                                <span class="material-icons-round" style="font-size:16px;">save</span>
+                            }
                             @(_editingShift?.Id > 0 ? "Update Shift" : "Create Shift")
                         </button>
                     </div>
@@ -281,8 +322,15 @@
     private List<EmployeeShiftAssignment> _assignments = new();
     private int _orgId;
 
+    // Loading & org state
+    private bool _loaded;
+    private bool _orgMissing;
+    private bool _seeding;
+
     // Shift dialog state
     private bool _showShiftDialog;
+    private bool _isSaving;
+    private string _dialogError = "";
     private Shift? _editingShift;
     private Shift _shiftForm = new();
     private string _startTimeStr = "08:00";
@@ -290,16 +338,55 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-        _orgId = org.Id;
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _orgMissing = true;
+                return;
+            }
+            _orgId = org.Id;
 
-        _shifts = await Db.Shifts.Where(s => s.OrganizationId == _orgId && s.IsActive).OrderBy(s => s.Name).ToListAsync();
-        _assignments = await Db.EmployeeShiftAssignments
-            .Include(a => a.Shift)
-            .Include(a => a.Employee)
-            .Where(a => a.OrganizationId == _orgId && a.IsActive)
-            .ToListAsync();
+            _shifts = await Db.Shifts.Where(s => s.OrganizationId == _orgId && s.IsActive).OrderBy(s => s.Name).ToListAsync();
+            _assignments = await Db.EmployeeShiftAssignments
+                .Include(a => a.Shift)
+                .Include(a => a.Employee)
+                .Where(a => a.OrganizationId == _orgId && a.IsActive)
+                .ToListAsync();
+        }
+        catch
+        {
+            _orgMissing = true;
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+
+    private async Task SeedOrg()
+    {
+        if (_seeding) return;
+        _seeding = true;
+        try
+        {
+            Db.Organizations.Add(new Organization
+            {
+                Name = "My Organization",
+                Slug = "my-org",
+                Country = "Zambia",
+                Industry = "Technology",
+                OwnerUserId = "system",
+                CreatedAt = DateTime.UtcNow
+            });
+            await Db.SaveChangesAsync();
+            Nav.NavigateTo("/shifts", forceLoad: true);
+        }
+        finally
+        {
+            _seeding = false;
+        }
     }
 
     // ───── Shift dialog handlers ─────
@@ -355,6 +442,8 @@
 
     private async Task SaveShift()
     {
+        _dialogError = "";
+        _isSaving = true;
         try
         {
             // Parse times.
@@ -365,7 +454,7 @@
             var errors = ShiftEngine.ValidateShift(_shiftForm);
             if (errors.Count > 0)
             {
-                Snackbar.Add(string.Join(" ", errors), Severity.Error);
+                _dialogError = string.Join(" ", errors);
                 return;
             }
 
@@ -384,7 +473,11 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add(ex.Message, Severity.Error);
+            _dialogError = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
 
