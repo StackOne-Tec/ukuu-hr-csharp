@@ -16,8 +16,9 @@ public static class DbSeeder
 
         if (await db.Organizations.AnyAsync()) 
         {
-            // Main seed already ran — make sure Phase 1 additions are present too.
+            // Main seed already ran — make sure Phase 1 + Phase 2 additions are present too.
             await Phase1Seeder.SeedAsync(db);
+            await Phase2Seeder.SeedAsync(db);
             return;
         }
 
@@ -675,5 +676,8 @@ public static class DbSeeder
 
         // ───── Phase 1: FR-003 / FR-004 / FR-005 — Tolerance + Shifts + Assignments ─────
         await Phase1Seeder.SeedAsync(db);
+
+        // ───── Phase 2: FR-006 / FR-007 / FR-008 — Holiday calendar ─────
+        await Phase2Seeder.SeedAsync(db);
     }
 }

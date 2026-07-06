@@ -133,6 +133,9 @@ builder.Services.AddHttpClient("KeepAlive");
 // ───── Phase 1: FR-003 / FR-004 / FR-005 — Shifts & Tolerance ─────
 builder.Services.AddScoped<ShiftService>();
 
+// ───── Phase 2: FR-006 / FR-007 / FR-008 — Overtime & Holidays ─────
+builder.Services.AddScoped<HolidayService>();
+
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();
 

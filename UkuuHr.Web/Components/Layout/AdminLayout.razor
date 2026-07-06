@@ -116,6 +116,10 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">more_time</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Overtime</span> }
             </a>
+            <a href="/holidays" class="bk-admin-sidebar-item @(IsActive("holidays") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">event</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Holidays</span> }
+            </a>
             <a href="/payroll" class="bk-admin-sidebar-item @(IsActive("payroll") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">payments</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Payroll</span> }

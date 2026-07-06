@@ -1,0 +1,392 @@
+@page "/holidays"
+@using Microsoft.EntityFrameworkCore
+@inject HolidayService HolidaySvc
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Holiday Management · @_holidays.Count holidays in @_selectedYear</div>
+            <h1 class="bk-admin-h1">Holiday Calendar</h1>
+            <p class="bk-admin-sub">
+                Manage public holidays per organization. Holidays drive overtime classification (FR-007),
+                attendance tolerance grace rules (FR-003), and payroll day-rate calculations.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <select value="@_selectedYear" @onchange="OnSelectedYearChanged" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;">
+                @for (int y = DateTime.Now.Year - 1; y <= DateTime.Now.Year + 2; y++)
+                {
+                    <option value="@y" selected="@(y == _selectedYear)">@y</option>
+                }
+            </select>
+            <button class="bk-btn bk-btn-secondary" @onclick="SeedZambia">
+                <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
+                Seed Zambia @DateTime.Now.Year
+            </button>
+            <label class="bk-btn bk-btn-secondary" style="cursor:pointer;">
+                <span class="material-icons-round" style="font-size:16px;">upload</span>
+                Import CSV
+                <InputFile OnChange="OnCsvUpload" accept=".csv,text/csv" style="display:none;" />
+            </label>
+            <button class="bk-btn bk-btn-primary" @onclick="() => OpenHolidayDialog(null)">
+                <span class="material-icons-round" style="font-size:16px;">add</span>
+                New Holiday
+            </button>
+        </div>
+    </div>
+
+    @* ───── KPI cards ───── *@
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon"><span class="material-icons-round">event</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_holidays.Count</div>
+            <div class="bk-admin-kpi-label">Holidays in @_selectedYear</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">event_available</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_upcomingCount</div>
+            <div class="bk-admin-kpi-label">Upcoming (next 30 days)</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">schedule</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_pastCount</div>
+            <div class="bk-admin-kpi-label">Past Holidays</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">public</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@(_holidays.Select(h => h.Country ?? "Unknown").Distinct().Count())</div>
+            <div class="bk-admin-kpi-label">Countries</div>
+        </div>
+    </div>
+
+    @* ───── CSV format hint ───── *@
+    <div class="bk-admin-card" style="margin-bottom:24px;background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.18);">
+        <div class="bk-admin-card-content" style="display:flex;align-items:center;gap:12px;padding:12px 16px;">
+            <span class="material-icons-round" style="color:var(--bk-info);">info</span>
+            <div style="font-size:12px;color:var(--bk-ink-2);line-height:1.5;flex:1;">
+                <strong>CSV format:</strong>
+                <code style="background:rgba(37,99,235,0.1);padding:2px 6px;border-radius:4px;font-family:var(--ukuu-font-mono);font-size:11px;">Name,Date,Country</code>
+                — Date must be <code style="background:rgba(37,99,235,0.1);padding:2px 6px;border-radius:4px;font-family:var(--ukuu-font-mono);font-size:11px;">yyyy-MM-dd</code>.
+                Country is optional (defaults to <code style="background:rgba(37,99,235,0.1);padding:2px 6px;border-radius:4px;font-family:var(--ukuu-font-mono);font-size:11px;">Zambia</code>).
+                Duplicate dates within the org are silently skipped.
+            </div>
+        </div>
+    </div>
+
+    @* ───── Holidays list ───── *@
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <div class="bk-admin-card-header">
+            <h3>@_selectedYear Holiday Calendar</h3>
+            <p>Click any holiday to edit. Past holidays are dimmed.</p>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Day</th>
+                        <th>Holiday Name</th>
+                        <th>Country</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var h in _holidays.OrderBy(x => x.Date))
+                    {
+                        var isPast = h.Date.Date < DateTime.Today;
+                        <tr style="opacity:@(isPast ? 0.6 : 1);">
+                            <td style="font-family:var(--ukuu-font-mono);font-size:12px;font-weight:600;">@h.Date.ToString("yyyy-MM-dd")</td>
+                            <td style="font-size:12px;color:var(--bk-ink-3);">@h.Date.ToString("dddd")</td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <div style="width:8px;height:32px;border-radius:4px;background:linear-gradient(135deg, var(--ukuu-ink) 0%, var(--ukuu-accent-violet, #5E4B85) 100%);"></div>
+                                    <span style="font-weight:600;font-size:13px;">@h.Name</span>
+                                </div>
+                            </td>
+                            <td><span class="bk-admin-pill info" style="font-size:11px;">@(h.Country ?? "Zambia")</span></td>
+                            <td>
+                                @if (isPast)
+                                {
+                                    <span class="bk-admin-pill inactive" style="font-size:11px;">Past</span>
+                                }
+                                else if (h.Date.Date == DateTime.Today)
+                                {
+                                    <span class="bk-admin-pill pending" style="font-size:11px;">Today</span>
+                                }
+                                else
+                                {
+                                    <span class="bk-admin-pill active" style="font-size:11px;">Upcoming</span>
+                                }
+                            </td>
+                            <td>
+                                <div style="display:flex;gap:4px;">
+                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;" @onclick="() => OpenHolidayDialog(h)">
+                                        <span class="material-icons-round" style="font-size:14px;">edit</span>
+                                    </button>
+                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;color:var(--bk-error);" @onclick="() => DeleteHoliday(h)">
+                                        <span class="material-icons-round" style="font-size:14px;">delete</span>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (_holidays.Count == 0)
+        {
+            <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">event_busy</span>
+                </div>
+                <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No holidays for @_selectedYear</h3>
+                <p style="font-size:13px;margin-bottom:16px;">Add manually, import a CSV, or click "Seed Zambia @DateTime.Now.Year" to populate the public calendar.</p>
+                <button class="bk-btn bk-btn-primary" @onclick="SeedZambia">
+                    <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
+                    Seed @_selectedYear Zambia Holidays
+                </button>
+            </div>
+        }
+    </div>
+
+    @* ───── Import errors dialog ───── *@
+    @if (_showImportResults)
+    {
+        <div class="bk-modal-backdrop" @onclick="() => _showImportResults = false">
+            <div class="bk-modal" @onclick:stopPropagation style="max-width:560px;">
+                <div class="bk-modal-header">
+                    <h3>CSV Import Results</h3>
+                    <button class="bk-modal-close" @onclick="() => _showImportResults = false"><span class="material-icons-round">close</span></button>
+                </div>
+                <div class="bk-modal-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                        <div class="bk-admin-stat-box" style="background:rgba(22,163,74,0.08);">
+                            <div class="bk-admin-stat-box-label">Imported</div>
+                            <div class="bk-admin-stat-box-value" style="color:var(--bk-success);">@_importResult.imported</div>
+                        </div>
+                        <div class="bk-admin-stat-box" style="background:rgba(245,158,11,0.08);">
+                            <div class="bk-admin-stat-box-label">Skipped</div>
+                            <div class="bk-admin-stat-box-value" style="color:var(--bk-warning);">@_importResult.skipped</div>
+                        </div>
+                    </div>
+                    @if (_importResult.errors.Count > 0)
+                    {
+                        <h4 style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--bk-error);">Errors (@_importResult.errors.Count)</h4>
+                        <div style="max-height:240px;overflow-y:auto;border:1px solid var(--bk-line);border-radius:8px;padding:8px;">
+                            @foreach (var err in _importResult.errors)
+                            {
+                                <div style="font-size:12px;color:var(--bk-error);padding:4px 0;font-family:var(--ukuu-font-mono);">@err</div>
+                            }
+                        </div>
+                    }
+                    else if (_importResult.imported > 0)
+                    {
+                        <div style="padding:12px;background:rgba(22,163,74,0.08);border-radius:8px;color:var(--bk-success);font-size:13px;">
+                            <span class="material-icons-round" style="font-size:16px;vertical-align:middle;">check_circle</span>
+                            All rows imported successfully.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ───── Holiday create/edit dialog ───── *@
+    @if (_showHolidayDialog)
+    {
+        <div class="bk-modal-backdrop" @onclick="CloseHolidayDialog">
+            <div class="bk-modal" @onclick:stopPropagation style="max-width:480px;">
+                <div class="bk-modal-header">
+                    <h3>@(_editingHoliday?.Id > 0 ? "Edit Holiday" : "New Holiday")</h3>
+                    <button class="bk-modal-close" @onclick="CloseHolidayDialog"><span class="material-icons-round">close</span></button>
+                </div>
+                <div class="bk-modal-body">
+                    <EditForm Model="@_holidayForm" OnValidSubmit="SaveHoliday">
+                        <div class="bk-field">
+                            <label class="bk-label">Holiday Name *</label>
+                            <InputText class="bk-input" @bind-Value="_holidayForm.Name" placeholder="e.g. Independence Day" />
+                        </div>
+                        <div class="bk-field" style="margin-top:12px;">
+                            <label class="bk-label">Date *</label>
+                            <input type="date" class="bk-input" value="@_holidayDateStr" @oninput="OnHolidayDateInput" />
+                        </div>
+                        <div class="bk-field" style="margin-top:12px;">
+                            <label class="bk-label">Country</label>
+                            <InputText class="bk-input" @bind-Value="_holidayForm.Country" placeholder="Zambia" />
+                        </div>
+                        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                            <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseHolidayDialog">Cancel</button>
+                            <button type="submit" class="bk-btn bk-btn-primary">
+                                <span class="material-icons-round" style="font-size:16px;">save</span>
+                                @(_editingHoliday?.Id > 0 ? "Update" : "Create")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int _selectedYear = DateTime.Now.Year;
+    private List<LeaveHoliday> _holidays = new();
+    private int _orgId;
+    private int _upcomingCount;
+    private int _pastCount;
+
+    // Holiday dialog state
+    private bool _showHolidayDialog;
+    private LeaveHoliday? _editingHoliday;
+    private LeaveHoliday _holidayForm = new();
+    private string _holidayDateStr = DateTime.Today.ToString("yyyy-MM-dd");
+
+    // Import results state
+    private bool _showImportResults;
+    private (int imported, int skipped, List<string> errors) _importResult;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        _holidays = await HolidaySvc.GetAllAsync(_orgId, _selectedYear);
+        _upcomingCount = _holidays.Count(h => h.Date.Date >= DateTime.Today && h.Date.Date <= DateTime.Today.AddDays(30));
+        _pastCount = _holidays.Count(h => h.Date.Date < DateTime.Today);
+    }
+
+    private async Task OnSelectedYearChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var year))
+        {
+            _selectedYear = year;
+            await LoadAsync();
+        }
+    }
+
+    // Wire up the @bind in markup (Blazor 9 select binding works, but this is the safe fallback).
+    private async Task OnYearChanged(int year)
+    {
+        _selectedYear = year;
+        await LoadAsync();
+    }
+
+    private void OpenHolidayDialog(LeaveHoliday? existing)
+    {
+        _editingHoliday = existing;
+        if (existing != null)
+        {
+            _holidayForm = new LeaveHoliday
+            {
+                Id = existing.Id,
+                Name = existing.Name,
+                Date = existing.Date,
+                Country = existing.Country
+            };
+            _holidayDateStr = existing.Date.ToString("yyyy-MM-dd");
+        }
+        else
+        {
+            _holidayForm = new LeaveHoliday
+            {
+                Date = new DateTime(_selectedYear, 1, 1),
+                Country = "Zambia"
+            };
+            _holidayDateStr = new DateTime(_selectedYear, 1, 1).ToString("yyyy-MM-dd");
+        }
+        _showHolidayDialog = true;
+    }
+
+    private void CloseHolidayDialog() => _showHolidayDialog = false;
+
+    private void OnHolidayDateInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _holidayDateStr = e.Value?.ToString() ?? DateTime.Today.ToString("yyyy-MM-dd");
+        if (DateTime.TryParse(_holidayDateStr, out var d)) _holidayForm.Date = d;
+    }
+
+    private async Task SaveHoliday()
+    {
+        try
+        {
+            if (DateTime.TryParse(_holidayDateStr, out var d)) _holidayForm.Date = d;
+            if (string.IsNullOrWhiteSpace(_holidayForm.Name))
+            {
+                Snackbar.Add("Holiday name is required.", Severity.Warning);
+                return;
+            }
+            if (_editingHoliday != null && _editingHoliday.Id > 0)
+            {
+                await HolidaySvc.UpdateAsync(_orgId, _holidayForm, "admin@ukuuhr.demo");
+                Snackbar.Add($"Holiday '{_holidayForm.Name}' updated.", Severity.Success);
+            }
+            else
+            {
+                await HolidaySvc.CreateAsync(_orgId, _holidayForm, "admin@ukuuhr.demo");
+                Snackbar.Add($"Holiday '{_holidayForm.Name}' created.", Severity.Success);
+            }
+            _showHolidayDialog = false;
+            await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task DeleteHoliday(LeaveHoliday h)
+    {
+        await HolidaySvc.DeleteAsync(_orgId, h.Id, "admin@ukuuhr.demo");
+        Snackbar.Add($"Holiday '{h.Name}' deleted.", Severity.Info);
+        await LoadAsync();
+    }
+
+    private async Task SeedZambia()
+    {
+        var count = await HolidaySvc.SeedZambiaHolidaysAsync(_orgId, _selectedYear, "admin@ukuuhr.demo");
+        if (count > 0)
+        {
+            Snackbar.Add($"Seeded {count} Zambia public holidays for {_selectedYear}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add($"No new holidays added (already exist for {_selectedYear}).", Severity.Info);
+        }
+        await LoadAsync();
+    }
+
+    private async Task OnCsvUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file == null || file.Size == 0)
+            {
+                Snackbar.Add("Please select a non-empty CSV file.", Severity.Warning);
+                return;
+            }
+            if (file.Size > 5 * 1024 * 1024)
+            {
+                Snackbar.Add("CSV file too large (max 5MB).", Severity.Warning);
+                return;
+            }
+            using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            _importResult = await HolidaySvc.ImportCsvAsync(_orgId, stream, "admin@ukuuhr.demo");
+            _showImportResults = true;
+            await LoadAsync();
+            if (_importResult.imported > 0)
+                Snackbar.Add($"Imported {_importResult.imported} holidays (skipped {_importResult.skipped}).", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+}
