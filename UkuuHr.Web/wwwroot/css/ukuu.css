@@ -3176,6 +3176,71 @@ html[data-theme="dark"] {
     --bk-accent-3: #2dd4a7;
     --bk-accent-4: #ff7a91;
     --bk-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+
+    /* ───── Phase 13.2: --ukuu-* dark mode overrides ─────
+       Previously these 54 brand variables had NO dark mode overrides,
+       causing dark-on-dark text (invisible) in dark mode. Values follow
+       the Flutter DarkModeColors palette for consistency. */
+    --ukuu-ink: #FCFBFF;
+    --ukuu-ink-deep: #1A0F30;
+    --ukuu-ink-darker: #130A25;
+    --ukuu-accent-cyan: #9C8FB8;
+    --ukuu-accent-gold: #F4B942;
+    --ukuu-accent-violet: #8B80FF;
+    --ukuu-accent-lavender: #CFC6DE;
+
+    --ukuu-surface: #1C112F;
+    --ukuu-surface-alt: #2A1B45;
+    --ukuu-surface-strong: #3A2A55;
+    --ukuu-surface-70: rgba(156, 143, 184, 0.7);
+    --ukuu-surface-54: rgba(207, 198, 222, 0.54);
+
+    --ukuu-text: #FCFBFF;
+    --ukuu-text-muted: #CFC6DE;
+    --ukuu-text-subtle: #9C8FB8;
+    --ukuu-text-on-dark: #FCFBFF;
+
+    --ukuu-border-soft: #5A4A78;
+    --ukuu-border-strong: #FCFBFF;
+    --ukuu-divider: rgba(255, 255, 255, 0.08);
+
+    --ukuu-success: #2DD4A7;
+    --ukuu-success-bg: rgba(45, 212, 167, 0.15);
+    --ukuu-warning: #F4B942;
+    --ukuu-warning-bg: rgba(244, 185, 66, 0.15);
+    --ukuu-error: #FF7A91;
+    --ukuu-error-bg: rgba(255, 122, 145, 0.15);
+    --ukuu-info: #8B80FF;
+    --ukuu-info-bg: rgba(139, 128, 255, 0.15);
+
+    --ukuu-bg: #1C112F;
+    --ukuu-radius-sm: 8px;
+    --ukuu-radius-md: 12px;
+    --ukuu-radius-lg: 16px;
+    --ukuu-radius-xl: 24px;
+    --ukuu-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --ukuu-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --ukuu-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+    --ukuu-shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.6);
+
+    --ukuu-sidebar-bg: #130A25;
+    --ukuu-sidebar-item: rgba(255, 255, 255, 0.65);
+    --ukuu-sidebar-item-active: #FCFBFF;
+    --ukuu-sidebar-item-active-bg: rgba(255, 255, 255, 0.12);
+
+    /* MudBlazor palette dark mode overrides */
+    --mud-palette-primary: #9C8FB8;
+    --mud-palette-primary-lighten: #CFC6DE;
+    --mud-palette-primary-darken: #5E4B85;
+    --mud-palette-text-primary: #FCFBFF;
+    --mud-palette-text-secondary: #CFC6DE;
+    --mud-palette-background: #1C112F;
+    --mud-palette-surface: #2A1B45;
+    --mud-palette-appbar-background: #1C112F;
+    --mud-palette-appbar-text: #FCFBFF;
+    --mud-palette-drawer-background: #130A25;
+    --mud-palette-drawer-text: #FCFBFF;
+    --mud-palette-drawer-icon: #9C8FB8;
 }
 
 html[data-theme="dark"] body,
