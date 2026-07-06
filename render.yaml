@@ -13,3 +13,12 @@ services:
         value: Production
       - key: DOTNET_SYSTEM_GLOBALIZATION_INVARIANT
         value: "false"
+      # ── Phase 7: Prisma Postgres (managed PostgreSQL at db.prisma.io) ──
+      # Production connection string — set in Render dashboard as a secret
+      # (or via the Prisma Console API / Prisma CLI). Local dev can use the
+      # same value by exporting POSTGRES_CONNECTION_STRING before `dotnet run`.
+      - key: POSTGRES_CONNECTION_STRING
+        sync: false  # marks this as a secret — set manually in Render dashboard
+      # Optional: SQLite fallback for local dev (used only when POSTGRES_CONNECTION_STRING unset)
+      - key: ConnectionString_SqlitePath
+        value: "ukuuhr.db"

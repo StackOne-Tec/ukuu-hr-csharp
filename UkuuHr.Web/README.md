@@ -341,6 +341,69 @@ GET /api/devices           → All active devices with sync metadata
 GET /api/system/metrics    → Uptime + active modules list (NFR: 99.9% availability)
 ```
 
+## 🆕 Phase 7 — Prisma Postgres Production Database
+
+The app now uses **Prisma Postgres** (managed PostgreSQL 17 at `db.prisma.io`) as its production database, replacing the previous in-container PostgreSQL setup.
+
+### What was set up
+
+| Resource | Value |
+|---|---|
+| **Prisma workspace** | `wksp_cmquvlaky08kj0ff6otto9o88` ("Personal workspace") |
+| **Prisma project** | `proj_cmquvls7a08lu0ff6ttpschja` ("Chungu Chipimo Chama") |
+| **Database name** | `ukuu-hr-prod` |
+| **Database ID** | `db_cmr96so2r032x0gf3dtugagzu` |
+| **Region** | `us-east-1` (US East — N. Virginia) |
+| **Postgres version** | 17.2 (Alpine) |
+| **Direct endpoint** | `db.prisma.io:5432` |
+| **Pooled endpoint** | `pooled.db.prisma.io:5432` (PgBouncer) |
+| **Accelerate endpoint** | `accelerate.prisma-data.net:443` (Prisma Accelerate cache, optional) |
+| **Tables created** | 26 tables, 412 columns (full Ukuu HR schema) |
+
+### Connection priority
+
+`Program.cs` resolves the database connection in this order:
+
+1. **`POSTGRES_CONNECTION_STRING`** env var (preferred — Npgsql format). **← Set this in production.**
+2. **`DATABASE_URL`** env var (Render-style `postgres://` URL — auto-converted to Npgsql).
+3. **SQLite fallback** (`ukuuhr.db`) — local dev only, used when neither env var is set.
+
+### Local development with Prisma Postgres
+
+```bash
+# 1. Get your connection string from Prisma Console → database → Connection tab
+# 2. Export it as an env var
+export POSTGRES_CONNECTION_STRING="Host=db.prisma.io;Port=5432;Database=postgres;Username=<API_KEY_ID>;Password=<API_KEY_SECRET>;SSL Mode=Require;TrustServerCertificate=true;Timeout=30"
+
+# 3. Run the app — EF Core will run EnsureCreatedAsync + seed automatically
+cd UkuuHr.Web
+dotnet run
+```
+
+### Deploying to Render
+
+1. Push your code to GitHub (the `Dockerfile` + `render.yaml` are already configured).
+2. In Render dashboard → your service → Environment → add a secret variable:
+   - **Key**: `POSTGRES_CONNECTION_STRING`
+   - **Value**: the full Npgsql connection string from Prisma Console
+3. Deploy. The new Dockerfile is much slimmer (no in-container PostgreSQL) — cold-start is ~10s instead of ~30s.
+
+### Managing the database via the Prisma API
+
+The Prisma Console API at `api.prisma.io/v1/` lets you list/create/delete databases programmatically. Example:
+
+```bash
+# List databases
+curl -H "Authorization: Bearer $PRISMA_SERVICE_TOKEN" \
+     https://api.prisma.io/v1/databases
+
+# Create a new database
+curl -X POST -H "Authorization: Bearer $PRISMA_SERVICE_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"ukuu-hr-staging","projectId":"proj_xxx","region":"us-east-1"}' \
+     https://api.prisma.io/v1/databases
+```
+
 ## ⚠️ Notes
 
 - The original Dart project uses Firebase; this C# rebuild uses EF Core + SQLite for simplicity and zero external service dependencies.
