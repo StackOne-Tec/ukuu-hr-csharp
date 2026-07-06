@@ -189,14 +189,14 @@
         _recentNotifications = await NotificationSvc.RecentAsync(_orgId, take: 10);
     }
 
-    private async Task SavePreferences()
+    private void SavePreferences()
     {
         // In a production system, these would be persisted to a NotificationPreferences table.
         // For now, preferences are maintained in session/local storage.
         Snackbar.Add("Notification preferences saved.", Severity.Success);
     }
 
-    private async Task ClearHistory()
+    private void ClearHistory()
     {
         _recentNotifications.Clear();
         // In production, delete from DB

@@ -179,7 +179,7 @@
         if (!string.IsNullOrWhiteSpace(emailClaim)) _profile.Email = emailClaim;
     }
 
-    private async Task SaveProfile()
+    private void SaveProfile()
     {
         // In production, this would update the UserAccount record.
         Snackbar.Add("Profile saved successfully.", Severity.Success);
