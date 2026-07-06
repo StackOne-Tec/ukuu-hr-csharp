@@ -1,4 +1,5 @@
 @page "/security"
+@attribute [Authorize(Policy = "UserManagement")]
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
 

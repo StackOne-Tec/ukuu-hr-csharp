@@ -1,5 +1,7 @@
 @page "/employees/add"
+@attribute [Authorize]
 @page "/employees/{Id:int}/edit"
+@attribute [Authorize]
 @using Microsoft.EntityFrameworkCore
 @inject EmployeeService EmployeeSvc
 @inject UkuuHrDbContext Db

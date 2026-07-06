@@ -1,5 +1,7 @@
 @page "/shifts"
+@attribute [Authorize(Policy = "HrOrAdmin")]
 @page "/scheduling"
+@attribute [Authorize(Policy = "HrOrAdmin")]
 @using Microsoft.EntityFrameworkCore
 @inject ShiftService ShiftSvc
 @inject UkuuHrDbContext Db

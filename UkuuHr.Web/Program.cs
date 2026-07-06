@@ -97,7 +97,17 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", p => p.RequireRole("SuperAdmin", "HrAdmin", "FinancePayrollAdmin", "HrOperator", "FinancePayroll"));
+    // Role values match UserRole.StorageKey() — lowercase with underscores.
+    // Phase 13.3: Fixed mismatch (previously checked "SuperAdmin" but claims store "super_admin").
+    options.AddPolicy("AdminOnly", p => p.RequireRole(
+        "super_admin", "hr_admin", "finance_payroll_admin", "hr_operator", "finance_payroll"));
+    options.AddPolicy("SuperAdminOnly", p => p.RequireRole("super_admin"));
+    options.AddPolicy("HrOrAdmin", p => p.RequireRole(
+        "super_admin", "hr_admin", "hr_operator"));
+    options.AddPolicy("FinanceOrAdmin", p => p.RequireRole(
+        "super_admin", "finance_payroll_admin", "finance_payroll"));
+    options.AddPolicy("UserManagement", p => p.RequireRole(
+        "super_admin", "hr_admin"));
 });
 
 builder.Services.AddCascadingAuthenticationState();
@@ -257,6 +267,39 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+// ───── Phase 13.3: API key auth for external integration endpoints ─────
+// External systems (HR, Payroll, ERP, mobile apps) authenticate via the
+// X-API-Key header. The key is read from the UKUU_API_KEY env var.
+// If UKUU_API_KEY is not set, API endpoints fall back to cookie auth.
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path.Value ?? "";
+    if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+    {
+        var apiKey = Environment.GetEnvironmentVariable("UKUU_API_KEY");
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            var providedKey = ctx.Request.Headers["X-API-Key"].ToString();
+            if (!string.IsNullOrEmpty(providedKey) && providedKey == apiKey)
+            {
+                // API key matches — create a generic identity for the request
+                ctx.User = new System.Security.Claims.ClaimsPrincipal(
+                    new System.Security.Claims.ClaimsIdentity(
+                        new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "api-client") },
+                        "ApiKey"));
+            }
+            else if (!ctx.User.Identity?.IsAuthenticated == true)
+            {
+                ctx.Response.StatusCode = 401;
+                await ctx.Response.WriteAsync("{\"error\":\"Unauthorized. Provide X-API-Key header or sign in via cookie.\"}");
+                return;
+            }
+        }
+        // If UKUU_API_KEY is not set, API endpoints are open (development mode)
+    }
+    await next();
+});
 
 // Public health endpoint — used by Render health check + KeepAlive self-ping + UptimeRobot
 var startTime = DateTime.UtcNow;
