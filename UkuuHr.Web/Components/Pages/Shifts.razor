@@ -316,6 +316,7 @@
         </div>
     </div>
 }
+</div>
 
 @code {
     private List<Shift> _shifts = new();
@@ -374,7 +375,6 @@
             Db.Organizations.Add(new Organization
             {
                 Name = "My Organization",
-                Slug = "my-org",
                 Country = "Zambia",
                 Industry = "Technology",
                 OwnerUserId = "system",
