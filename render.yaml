@@ -22,3 +22,14 @@ services:
       # Optional: SQLite fallback for local dev (used only when POSTGRES_CONNECTION_STRING unset)
       - key: ConnectionString_SqlitePath
         value: "ukuuhr.db"
+      # ── Phase 8: Skip demo data seeding in production ──
+      # Set to "false" to skip the demo seed (8 fictional employees, 7 demo
+      # devices, sample attendance/payroll/leave/holidays). Schema is still
+      # created via EnsureCreatedAsync, but zero rows are inserted.
+      - key: SEED_DEMO_DATA
+        value: "false"
+      # ── Resend email API key ──
+      # Used for transactional emails (payslip delivery, leave approvals, etc.)
+      # Get your key at https://resend.com/api-keys
+      - key: RESEND_API_KEY
+        value: "re_KFnWFKRB_KTw4irSgKsaJyENfQ2LM1MHA"
