@@ -6,6 +6,7 @@
 @inject EmployeeService EmployeeSvc
 @inject AttendanceService AttendanceSvc
 @inject LeaveService LeaveSvc
+@inject OvertimeService OvertimeSvc
 @inject UkuuHrDbContext Db
 @inject IHttpContextAccessor HttpAccessor
 
@@ -93,12 +94,132 @@
             <div class="bk-admin-kpi-sub">@_approvedThisMonth approved this month</div>
         </div>
 
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon pink">
+                    <span class="material-icons-round">timer</span>
+                </div>
+                <span class="bk-admin-kpi-delta down">
+                    <span class="material-icons-round" style="font-size:14px;">pending</span>
+                </span>
+            </div>
+            <div class="bk-admin-kpi-value">@_pendingOvertime</div>
+            <div class="bk-admin-kpi-label">Pending Overtime</div>
+            <div class="bk-admin-kpi-sub">@_pendingOvertimeRecords.Count record(s) awaiting approval</div>
+        </div>
+
     </div>
 
     <!-- MAIN GRID -->
     <div class="bk-admin-grid-2" style="margin-bottom:32px;">
         <!-- LEFT: Charts + tables -->
         <div style="display:flex;flex-direction:column;gap:24px;">
+
+            <!-- Today's clock-in/out status -->
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <div>
+                        <h3>Today's Clock In/Out</h3>
+                        <p>@DateTime.Now.ToString("dd MMMM yyyy") · @_todayAttendance.Count employee(s) recorded</p>
+                    </div>
+                    <a href="/attendance" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View All →</a>
+                </div>
+                <table class="bk-admin-table" style="font-size:13px;">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Status</th>
+                            <th>Clock In</th>
+                            <th>Clock Out</th>
+                            <th>Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_todayAttendance.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" style="text-align:center;padding:24px;color:var(--bk-ink-3);font-size:13px;">No attendance records for today yet.</td>
+                            </tr>
+                        }
+                        @foreach (var a in _todayAttendance.Take(10))
+                        {
+                            <tr>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <div class="bk-admin-avatar" style="width:28px;height:28px;font-size:10px;">@(a.EmployeeName.Length > 0 ? a.EmployeeName[..1].ToUpper() : "?")</div>
+                                        <span style="font-weight:600;color:var(--bk-ink);">@a.EmployeeName</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="bk-admin-pill @(a.Status == AttendanceStatus.Present ? "active" : a.Status == AttendanceStatus.Late ? "pending" : a.Status == AttendanceStatus.Absent ? "inactive" : "info")" style="font-size:11px;">
+                                        @a.Status
+                                    </span>
+                                </td>
+                                <td style="font-weight:500;">@a.CheckInLabel</td>
+                                <td style="font-weight:500;">@a.CheckOutLabel</td>
+                                <td style="font-weight:600;">@a.WorkedHours.ToString("0.0")h</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (_todayAttendance.Count > 10)
+                {
+                    <div style="padding:10px 16px;border-top:1px solid var(--bk-line);text-align:center;font-size:12px;color:var(--bk-ink-3);">
+                        + @(_todayAttendance.Count - 10) more record(s) — <a href="/attendance" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">View full list</a>
+                    </div>
+                }
+            </div>
+
+            <!-- Pending overtime -->
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <div>
+                        <h3>Overtime Pending Approval</h3>
+                        <p>@_pendingOvertime record(s) awaiting review</p>
+                    </div>
+                    <a href="/overtime" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View All →</a>
+                </div>
+                <table class="bk-admin-table" style="font-size:13px;">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Date</th>
+                            <th>Hours</th>
+                            <th>Rate</th>
+                            <th>Est. Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_pendingOvertimeRecords.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" style="text-align:center;padding:24px;color:var(--bk-ink-3);font-size:13px;">No overtime pending approval.</td>
+                            </tr>
+                        }
+                        @foreach (var ot in _pendingOvertimeRecords.Take(8))
+                        {
+                            <tr>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <div class="bk-admin-avatar" style="width:28px;height:28px;font-size:10px;">@(ot.EmployeeName.Length > 0 ? ot.EmployeeName[..1].ToUpper() : "?")</div>
+                                        <span style="font-weight:600;color:var(--bk-ink);">@ot.EmployeeName</span>
+                                    </div>
+                                </td>
+                                <td style="font-weight:500;">@ot.Date.ToString("dd MMM")</td>
+                                <td style="font-weight:700;">@ot.Hours.ToString("0.0")h</td>
+                                <td><span class="bk-admin-pill pending" style="font-size:11px;">@ot.RateTypeDisplay</span></td>
+                                <td style="font-weight:600;color:var(--bk-accent);">ZMW @(ot.Pay.ToString("N0"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (_pendingOvertimeRecords.Count > 8)
+                {
+                    <div style="padding:10px 16px;border-top:1px solid var(--bk-line);text-align:center;font-size:12px;color:var(--bk-ink-3);">
+                        + @(_pendingOvertimeRecords.Count - 8) more — <a href="/overtime" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">View all pending</a>
+                    </div>
+                }
+            </div>
 
         </div>
 
@@ -179,6 +300,9 @@
     private double _attendanceToday;
     private double _attendancePct;
     private Dictionary<AttendanceStatus, int> _attendanceBreakdown = new();
+    private List<Attendance> _todayAttendance = new();
+    private int _pendingOvertime;
+    private List<OvertimeRecord> _pendingOvertimeRecords = new();
     private string? _orgName = null;
     private bool _hasOrg = false;
     private string? _userFirstName = null;
@@ -205,6 +329,13 @@
         _onProbation = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Probation);
         _attendanceBreakdown = await AttendanceSvc.BreakdownAsync(org.Id, today);
         var total = _attendanceBreakdown.Values.Sum();
+
+        // Load today's attendance records with clock-in/out times
+        _todayAttendance = await AttendanceSvc.ForDateAsync(org.Id, today);
+
+        // Load pending overtime
+        _pendingOvertimeRecords = await OvertimeSvc.GetPendingAsync(org.Id);
+        _pendingOvertime = _pendingOvertimeRecords.Count;
         var present = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Present);
         var late = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Late);
         _presentToday = present + late;
