@@ -11,12 +11,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Round" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
-    <link href="css/app.css?v=@_cacheVersion" rel="stylesheet" />
-    <link href="css/ukuu.css?v=@_cacheVersion" rel="stylesheet" />
     @{
         // Cache-busting version: changes on every build to force browser to reload CSS/JS
         var _cacheVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0.0";
     }
+    <link href="css/app.css?v=@_cacheVersion" rel="stylesheet" />
+    <link href="css/ukuu.css?v=@_cacheVersion" rel="stylesheet" />
     <script>
         // Apply saved theme before page renders to avoid flash
         (function() {

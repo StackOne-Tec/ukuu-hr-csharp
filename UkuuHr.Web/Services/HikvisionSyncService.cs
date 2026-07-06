@@ -482,7 +482,7 @@ public class OvertimeService
         await _db.SaveChangesAsync();
 
         // FR-006: Notify admins of manual overtime entry
-        await NotifySafeAsync(orgId,
+        await NotifySafeAsync(record.OrganizationId,
             type: "info",
             title: $"Manual overtime: {record.EmployeeName}",
             body: $"{record.Hours:F1}h {record.RateTypeDisplay} on {record.Date:yyyy-MM-dd} — pending approval",

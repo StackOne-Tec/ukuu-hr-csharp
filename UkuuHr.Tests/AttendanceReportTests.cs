@@ -26,7 +26,7 @@ public class AttendanceReportTests
         // Assert
         Assert.NotEmpty(bytes);
         var text = System.Text.Encoding.UTF8.GetString(bytes);
-        Assert.Contains("Date,EmployeeCode,EmployeeName,Department,Branch,CheckIn,CheckOut,WorkedHours,Status,Notes", text);
+        Assert.Contains("Date,EmployeeCode,EmployeeName,Department,Branch,CheckIn,CheckOut,WorkedHours,OvertimeHours,OvertimePay,Status,Notes", text);
         Assert.Contains("UKU-001", text);
         Assert.Contains("Chungu Chama", text);
         Assert.Contains("Present", text);
@@ -57,7 +57,7 @@ public class AttendanceReportTests
         var row = lines[1].Split(',');
         Assert.Equal("", row[5]); // CheckIn
         Assert.Equal("", row[6]); // CheckOut
-        Assert.Equal("Absent", row[8]); // Status
+        Assert.Equal("Absent", row[10]); // Status (col 10 — after OvertimeHours + OvertimePay)
     }
 
     // ───────────── ReportExportService — XLSX ─────────────
@@ -94,7 +94,7 @@ public class AttendanceReportTests
 
         var detail = wb.Worksheet("Detail");
         Assert.Equal("Date", detail.Cell(1, 1).Value.ToString());
-        Assert.Equal("Status", detail.Cell(1, 9).Value.ToString());
+        Assert.Equal("Status", detail.Cell(1, 11).Value.ToString()); // col 11 — after OvertimeHours + OvertimePay
         Assert.Equal("Chungu Chama", detail.Cell(2, 3).Value.ToString());
     }
 

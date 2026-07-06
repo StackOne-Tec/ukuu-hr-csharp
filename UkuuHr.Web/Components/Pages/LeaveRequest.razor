@@ -170,7 +170,7 @@
                         <div>
                             <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
                                 <span style="font-weight:600;color:var(--bk-ink);display:flex;align-items:center;gap:6px;">
-                                    <span style="width:10px;height:10px;border-radius:3px;background:@(lt?.Color ?? \"#25163F\");"></span>
+                                    <span style="width:10px;height:10px;border-radius:3px;background:@(lt?.Color ?? "#25163F");"></span>
                                     @b.LeaveType.Name
                                 </span>
                                 <span style="color:var(--bk-ink-3);">
@@ -179,7 +179,7 @@
                                 </span>
                             </div>
                             <div class="bk-admin-progress">
-                                <div class="bk-admin-progress-fill" style="width:@Math.Min(pct, 100)%;background:linear-gradient(90deg, @(lt?.Color ?? \"#25163F\") 0%, @(lt?.Color ?? \"#4A3C68\") 100%);"></div>
+                                <div class="bk-admin-progress-fill" style="width:@Math.Min(pct, 100)%;background:linear-gradient(90deg, @(lt?.Color ?? "#25163F") 0%, @(lt?.Color ?? "#4A3C68") 100%);"></div>
                             </div>
                             <div style="display:flex;gap:12px;margin-top:4px;font-size:10px;color:var(--bk-ink-3);">
                                 <span>@b.UsedDays.ToString("0.#") used</span>

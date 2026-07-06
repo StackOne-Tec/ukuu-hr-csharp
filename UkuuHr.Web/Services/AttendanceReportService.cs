@@ -169,7 +169,6 @@ public class ReportExportService
     {
         var employeeIds = records.Select(r => r.EmployeeId).Distinct().ToList();
 
-        var employeeIds = records.Select(r => r.EmployeeId).Distinct().ToList();
         var employees = await _db.Employees
             .Where(e => employeeIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);

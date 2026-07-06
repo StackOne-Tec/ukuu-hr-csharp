@@ -152,7 +152,7 @@
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Color</label>
-                            <input type="color" class="bk-input" style="height:42px;padding:4px;" value="@_form.Color" @oninput="e => _form.Color = e.Value?.ToString() ?? '#25163F'" />
+                            <input type="color" class="bk-input" style="height:42px;padding:4px;" value="@_form.Color" @oninput="OnColorInput" />
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Default Days per Year</label>
@@ -235,6 +235,9 @@
     }
 
     private void CloseDialog() => _showDialog = false;
+
+    private void OnColorInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => _form.Color = e.Value?.ToString() ?? "#25163F";
 
     private async Task SaveLeaveType()
     {
