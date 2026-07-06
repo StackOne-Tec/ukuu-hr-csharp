@@ -194,6 +194,10 @@ builder.Services.AddSingleton<UkuuHr.Services.Devices.IDeviceConnectorRegistry>(
 });
 builder.Services.AddScoped<UkuuHr.Services.Devices.DeviceSyncOrchestrator>();
 
+// ───── Phase 4: FR-009 Attendance Search + FR-010 Reporting ─────
+builder.Services.AddScoped<AttendanceSearchService>();
+builder.Services.AddScoped<ReportExportService>();
+
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();
 

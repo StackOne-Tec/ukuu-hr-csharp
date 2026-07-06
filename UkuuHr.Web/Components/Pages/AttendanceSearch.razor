@@ -1,0 +1,386 @@
+@page "/attendance/search"
+@using Microsoft.EntityFrameworkCore
+@inject AttendanceSearchService SearchSvc
+@inject ReportExportService ReportSvc
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Attendance Search · @_totalResults records found</div>
+            <h1 class="bk-admin-h1">Attendance Search</h1>
+            <p class="bk-admin-sub">
+                Search attendance records by employee, department, branch, shift, status, date, or custom range.
+                Export results to CSV or Excel (FR-009 + FR-010).
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-secondary" @onclick="ExportCsv" disabled="@(_results.Count == 0)">
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export CSV
+            </button>
+            <button class="bk-btn bk-btn-primary" @onclick="ExportXlsx" disabled="@(_results.Count == 0)">
+                <span class="material-icons-round" style="font-size:16px;">table_view</span>
+                Export Excel
+            </button>
+        </div>
+    </div>
+
+    @* ───── Filters ───── *@
+    <div class="bk-admin-card" style="margin-bottom:24px;">
+        <div class="bk-admin-card-header">
+            <h3>Filters</h3>
+            <p>Combine any number of filters. Leave blank for "all".</p>
+        </div>
+        <div class="bk-admin-card-content">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+                <div class="bk-field">
+                    <label class="bk-label">Employee</label>
+                    <select class="bk-input" value="@_filter.EmployeeId" @onchange="OnEmployeeChanged">
+                        <option value="">All employees</option>
+                        @foreach (var e in _employees.OrderBy(e => e.FullName))
+                        {
+                            <option value="@e.Id" selected="@(e.Id == _filter.EmployeeId)">@e.FullName (@e.EmployeeCode)</option>
+                        }
+                    </select>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Department</label>
+                    <select class="bk-input" value="@_filter.Department" @onchange="OnDepartmentChanged">
+                        <option value="">All departments</option>
+                        @foreach (var d in _departments)
+                        {
+                            <option value="@d" selected="@(d == _filter.Department)">@d</option>
+                        }
+                    </select>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Branch (City)</label>
+                    <select class="bk-input" value="@_filter.Branch" @onchange="OnBranchChanged">
+                        <option value="">All branches</option>
+                        @foreach (var b in _branches)
+                        {
+                            <option value="@b" selected="@(b == _filter.Branch)">@b</option>
+                        }
+                    </select>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Shift</label>
+                    <select class="bk-input" value="@_filter.ShiftId" @onchange="OnShiftChanged">
+                        <option value="">All shifts</option>
+                        @foreach (var s in _shifts)
+                        {
+                            <option value="@s.Id" selected="@(s.Id == _filter.ShiftId)">@s.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Status</label>
+                    <select class="bk-input" value="@_filter.Status" @onchange="OnStatusChanged">
+                        <option value="">All statuses</option>
+                        @foreach (var st in Enum.GetValues<AttendanceStatus>())
+                        {
+                            <option value="@st" selected="@(st == _filter.Status)">@st</option>
+                        }
+                    </select>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">From Date</label>
+                    <input type="date" class="bk-input" value="@(_filter.FromDate?.ToString("yyyy-MM-dd"))" @onchange="OnFromDateChanged" />
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">To Date</label>
+                    <input type="date" class="bk-input" value="@(_filter.ToDate?.ToString("yyyy-MM-dd"))" @onchange="OnToDateChanged" />
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Search by name</label>
+                    <input type="text" class="bk-input" placeholder="Employee name..." value="@_filter.Search" @oninput="OnSearchInput" />
+                </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                <div style="font-size:12px;color:var(--bk-ink-3);">
+                    Showing @((_filter.Page - 1) * _filter.PageSize + 1)–@Math.Min(_filter.Page * _filter.PageSize, _totalResults) of @_totalResults
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="bk-btn bk-btn-secondary" @onclick="ClearFilters">
+                        <span class="material-icons-round" style="font-size:14px;">clear</span>
+                        Clear
+                    </button>
+                    <button class="bk-btn bk-btn-primary" @onclick="Search">
+                        <span class="material-icons-round" style="font-size:14px;">search</span>
+                        Search
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ───── Quick date-range presets ───── *@
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--bk-ink-3);padding:8px 0;">Quick range:</span>
+        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;" @onclick="() => SetPresetRange(1)">Today</button>
+        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;" @onclick="() => SetPresetRange(7)">Last 7 days</button>
+        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;" @onclick="() => SetPresetRange(30)">Last 30 days</button>
+        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;" @onclick="() => SetPresetRange(90)">Last 90 days</button>
+        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;" @onclick="() => SetMonthRange()">This month</button>
+    </div>
+
+    @* ───── Results table ───── *@
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <table class="bk-admin-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Employee</th>
+                    <th>Code</th>
+                    <th>Department</th>
+                    <th>Branch</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Hours</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _results)
+                {
+                    var emp = _employees.FirstOrDefault(e => e.Id == r.EmployeeId);
+                    <tr>
+                        <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@r.Date.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div class="bk-admin-avatar-sm">@GetInitials(r.EmployeeName)</div>
+                                <span style="font-weight:600;font-size:13px;">@r.EmployeeName</span>
+                            </div>
+                        </td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@(emp?.EmployeeCode ?? "—")</td>
+                        <td style="font-size:12px;">@(emp?.Department ?? "—")</td>
+                        <td style="font-size:12px;">@(emp?.City ?? "—")</td>
+                        <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@r.CheckInLabel</td>
+                        <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@r.CheckOutLabel</td>
+                        <td style="font-weight:600;">@(r.WorkedHours > 0 ? r.WorkedHours.ToString("0.0") + "h" : "—")</td>
+                        <td>
+                            <span class="bk-admin-pill @(r.Status == AttendanceStatus.Present ? "active" : r.Status == AttendanceStatus.Late ? "probation" : r.Status == AttendanceStatus.Absent ? "inactive" : r.Status == AttendanceStatus.HalfDay ? "pending" : "info")">
+                                @r.Status
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (_results.Count == 0)
+        {
+            <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <span class="material-icons-round" style="font-size:48px;opacity:0.5;">search_off</span>
+                <h3 style="margin-top:12px;">No records found</h3>
+                <p>Try adjusting your filters or expanding the date range.</p>
+            </div>
+        }
+    </div>
+
+    @* ───── Pagination ───── *@
+    @if (_totalPages > 1)
+    {
+        <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:24px;">
+            <button class="bk-btn bk-btn-secondary" disabled="@(_filter.Page <= 1)" @onclick="PrevPage">
+                <span class="material-icons-round" style="font-size:14px;">chevron_left</span>
+            </button>
+            <span style="font-size:13px;color:var(--bk-ink-2);padding:0 12px;">
+                Page @_filter.Page of @_totalPages
+            </span>
+            <button class="bk-btn bk-btn-secondary" disabled="@(_filter.Page >= _totalPages)" @onclick="NextPage">
+                <span class="material-icons-round" style="font-size:14px;">chevron_right</span>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Employee> _employees = new();
+    private List<string> _departments = new();
+    private List<string> _branches = new();
+    private List<Shift> _shifts = new();
+    private List<Attendance> _results = new();
+    private int _orgId;
+    private int _totalResults;
+    private int _totalPages => (int)Math.Ceiling((double)_totalResults / _filter.PageSize);
+
+    private AttendanceSearchFilter _filter = new()
+    {
+        Page = 1,
+        PageSize = 25,
+        FromDate = DateTime.Today.AddDays(-30),
+        ToDate = DateTime.Today
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+        _departments = await SearchSvc.GetDepartmentsAsync(_orgId);
+        _branches = await SearchSvc.GetBranchesAsync(_orgId);
+        _shifts = await SearchSvc.GetShiftsAsync(_orgId);
+        await Search();
+    }
+
+    private async Task Search()
+    {
+        _results = await SearchSvc.SearchAsync(_orgId, _filter);
+        _totalResults = await SearchSvc.CountAsync(_orgId, _filter);
+    }
+
+    private async Task OnEmployeeChanged(ChangeEventArgs e)
+    {
+        _filter.EmployeeId = int.TryParse(e.Value?.ToString(), out var v) ? v : null;
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task OnDepartmentChanged(ChangeEventArgs e)
+    {
+        _filter.Department = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString();
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task OnBranchChanged(ChangeEventArgs e)
+    {
+        _filter.Branch = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString();
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task OnShiftChanged(ChangeEventArgs e)
+    {
+        _filter.ShiftId = int.TryParse(e.Value?.ToString(), out var v) ? v : null;
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task OnStatusChanged(ChangeEventArgs e)
+    {
+        _filter.Status = Enum.TryParse<AttendanceStatus>(e.Value?.ToString(), out var s) ? s : null;
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task OnFromDateChanged(ChangeEventArgs e)
+    {
+        _filter.FromDate = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null;
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task OnToDateChanged(ChangeEventArgs e)
+    {
+        _filter.ToDate = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null;
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _filter.Search = e.Value?.ToString();
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task ClearFilters()
+    {
+        _filter = new AttendanceSearchFilter
+        {
+            Page = 1,
+            PageSize = 25,
+            FromDate = null,
+            ToDate = null,
+            EmployeeId = null,
+            Department = null,
+            Branch = null,
+            ShiftId = null,
+            Status = null,
+            Search = null
+        };
+        await Search();
+        Snackbar.Add("Filters cleared.", Severity.Info);
+    }
+
+    private async Task SetPresetRange(int days)
+    {
+        _filter.FromDate = DateTime.Today.AddDays(-days + 1);
+        _filter.ToDate = DateTime.Today;
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task SetMonthRange()
+    {
+        var today = DateTime.Today;
+        _filter.FromDate = new DateTime(today.Year, today.Month, 1);
+        _filter.ToDate = today;
+        _filter.Page = 1;
+        await Search();
+    }
+
+    private async Task PrevPage()
+    {
+        if (_filter.Page > 1) { _filter.Page--; await Search(); }
+    }
+
+    private async Task NextPage()
+    {
+        if (_filter.Page < _totalPages) { _filter.Page++; await Search(); }
+    }
+
+    private async Task ExportCsv()
+    {
+        try
+        {
+            // Build a report from the current filter (without pagination).
+            var reportFilter = new AttendanceSearchFilter
+            {
+                EmployeeId = _filter.EmployeeId,
+                Department = _filter.Department,
+                Branch = _filter.Branch,
+                ShiftId = _filter.ShiftId,
+                Status = _filter.Status,
+                FromDate = _filter.FromDate,
+                ToDate = _filter.ToDate,
+                Search = _filter.Search,
+                Page = 1,
+                PageSize = int.MaxValue
+            };
+            var records = await SearchSvc.SearchAsync(_orgId, reportFilter);
+            var report = await ReportSvc.GenerateAsync(_orgId, ReportPeriod.Custom, _filter.FromDate, _filter.ToDate);
+            var bytes = ReportSvc.ExportCsv(report);
+            // Write to download folder for the user.
+            var fileName = $"attendance-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+            var path = Path.Combine("/home/z/my-project/download", fileName);
+            await File.WriteAllBytesAsync(path, bytes);
+            Snackbar.Add($"CSV exported: {fileName} ({records.Count} rows).", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task ExportXlsx()
+    {
+        try
+        {
+            var report = await ReportSvc.GenerateAsync(_orgId, ReportPeriod.Custom, _filter.FromDate, _filter.ToDate);
+            var bytes = ReportSvc.ExportXlsx(report);
+            var fileName = $"attendance-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx";
+            var path = Path.Combine("/home/z/my-project/download", fileName);
+            await File.WriteAllBytesAsync(path, bytes);
+            Snackbar.Add($"Excel exported: {fileName} ({report.Rows.Count} rows).", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length < 2 ? (name.Length > 2 ? name[..2].ToUpper() : name.ToUpper()) : $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+}

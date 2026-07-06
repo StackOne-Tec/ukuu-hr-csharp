@@ -103,9 +103,13 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">groups</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Employees</span> }
             </a>
-            <a href="/attendance" class="bk-admin-sidebar-item @(IsActive("attendance") ? "active" : "")">
+            <a href="/attendance" class="bk-admin-sidebar-item @(IsActive("attendance") && !IsActive("attendance/search") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">schedule</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Attendance</span> }
+            </a>
+            <a href="/attendance/search" class="bk-admin-sidebar-item @(IsActive("attendance/search") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">search</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Search & Export</span> }
             </a>
             <a href="/leave" class="bk-admin-sidebar-item @(IsActive("leave") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">event_available</span></span>
