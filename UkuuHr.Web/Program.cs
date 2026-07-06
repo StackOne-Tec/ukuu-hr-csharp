@@ -209,6 +209,9 @@ builder.Services.AddScoped<UkuuHr.Services.Devices.DeviceSyncOrchestrator>();
 builder.Services.AddScoped<AttendanceSearchService>();
 builder.Services.AddScoped<ReportExportService>();
 
+// ───── Phase 13.5: Encryption at rest ─────
+builder.Services.AddScoped<AesEncryptionService>();
+
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();
 
@@ -310,6 +313,30 @@ app.MapGet("/health", () => Results.Ok(new {
     db_host = ExtractHost(connectionString),
     env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "<not set>"
 }));
+
+// ───── Phase 13.6: Availability endpoints (99.9% uptime target) ─────
+
+// Liveness — is the process running? (cheap, no DB check)
+app.MapGet("/liveness", () => Results.Ok(new { status = "alive", timestamp = DateTime.UtcNow }));
+
+// Readiness — is the app ready to serve requests? (includes DB connectivity check)
+app.MapGet("/readiness", async (UkuuHrDbContext db) =>
+{
+    try
+    {
+        // Quick DB ping — can we connect + execute a trivial query?
+        var canConnect = await db.Database.CanConnectAsync();
+        if (canConnect)
+            return Results.Ok(new { status = "ready", timestamp = DateTime.UtcNow, db = "connected" });
+        return Results.Json(new { status = "not_ready", timestamp = DateTime.UtcNow, db = "unreachable" },
+            statusCode: 503);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { status = "not_ready", timestamp = DateTime.UtcNow, db = "error", error = ex.Message },
+            statusCode: 503);
+    }
+});
 
 // Direct POST handler for login form (uses /auth/login to avoid conflict with Blazor's /login page route)
 app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Program> logger) =>
