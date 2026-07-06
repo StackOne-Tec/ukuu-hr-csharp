@@ -54,8 +54,38 @@
         }
     </div>
 
-    @* ──────────────────────────────── Step 1: Vendor & Mode ──────────────────────────────── *@
-    @if (_currentStep == 0)
+    @if (!_loaded)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">fingerprint</span>
+            <h3 style="margin-top:16px;">Loading…</h3>
+        </div>
+    }
+    else if (_orgMissing)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-warning);opacity:0.7;">error_outline</span>
+            <h3 style="margin-top:16px;">No Organization Found</h3>
+            <p style="color:var(--bk-ink-3);max-width:420px;margin:8px auto 0;font-size:14px;">
+                Adding a device requires an organization record. Your workspace has no
+                organization yet — create one first.
+            </p>
+            <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;">
+                <a href="/settings/organization" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">business</span>
+                    Organization Settings
+                </a>
+                <button type="button" class="bk-btn bk-btn-primary" @onclick="SeedOrg">
+                    <span class="material-icons-round" style="font-size:16px;">add_business</span>
+                    Create Default Organization
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* ──────────────────────────────── Step 1: Vendor & Mode ──────────────────────────────── *@
+        @if (_currentStep == 0)
     {
         <div class="bk-admin-card">
             <div class="bk-admin-card-header">
@@ -326,34 +356,37 @@
     }
 
     @* ───── Navigation buttons ───── *@
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
-        <div>
-            @if (_currentStep > 0)
-            {
-                <button class="bk-btn bk-btn-secondary" @onclick="() => _currentStep--">
-                    <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
-                    Back
-                </button>
-            }
+    @if (_loaded && !_orgMissing)
+    {
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+            <div>
+                @if (_currentStep > 0)
+                {
+                    <button class="bk-btn bk-btn-secondary" @onclick="() => _currentStep--">
+                        <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                        Back
+                    </button>
+                }
+            </div>
+            <div style="display:flex;gap:8px;">
+                <a href="/devices" class="bk-btn bk-btn-secondary">Cancel</a>
+                @if (_currentStep < _steps.Count - 1)
+                {
+                    <button class="bk-btn bk-btn-primary" @onclick="NextStep">
+                        <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
+                        Next: @_steps[_currentStep + 1].Label
+                    </button>
+                }
+                else
+                {
+                    <button class="bk-btn bk-btn-primary" @onclick="SaveDevice" disabled="@_isSaving">
+                        <span class="material-icons-round" style="font-size:16px;">@(_isSaving ? "sync" : "add_circle")</span>
+                        @(_isSaving ? "Adding Device…" : "Add Device")
+                    </button>
+                }
+            </div>
         </div>
-        <div style="display:flex;gap:8px;">
-            <a href="/devices" class="bk-btn bk-btn-secondary">Cancel</a>
-            @if (_currentStep < _steps.Count - 1)
-            {
-                <button class="bk-btn bk-btn-primary" @onclick="NextStep">
-                    <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
-                    Next: @_steps[_currentStep + 1].Label
-                </button>
-            }
-            else
-            {
-                <button class="bk-btn bk-btn-primary" @onclick="SaveDevice" disabled="@_isSaving">
-                    <span class="material-icons-round" style="font-size:16px;">@(_isSaving ? "sync" : "add_circle")</span>
-                    @(_isSaving ? "Adding Device…" : "Add Device")
-                </button>
-            }
-        </div>
-    </div>
+    }
 </div>
 
 @code {
@@ -375,6 +408,9 @@
     private bool _connectionSuccess;
     private string _connectionError = "";
     private bool _isSaving;
+    private bool _loaded;
+    private bool _orgMissing;
+    private bool _seeding;
     private DeviceVendor? _hoveredVendor;
 
     private List<StepInfo> _steps = new()
@@ -386,9 +422,56 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-        _orgId = org.Id;
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _orgMissing = true;
+                return;
+            }
+            _orgId = org.Id;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[DeviceAdd] Failed to load: {ex.Message}");
+            _orgMissing = true;
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+
+    private async Task SeedOrg()
+    {
+        if (_seeding) return;
+        _seeding = true;
+        try
+        {
+            var org = new Organization
+            {
+                Name = "My Organization",
+                Country = "Zambia",
+                Currency = "ZMW",
+                Industry = "Human Resources",
+                OwnerUserId = "system",
+                CreatedAt = DateTime.UtcNow
+            };
+            Db.Organizations.Add(org);
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Default organization created. Refreshing…", Severity.Success);
+            Nav.NavigateTo("/devices/add", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to create organization: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _seeding = false;
+        }
     }
 
     private void NextStep()

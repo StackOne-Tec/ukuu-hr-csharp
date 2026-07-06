@@ -5,6 +5,7 @@
 @inject DeviceSyncOrchestrator Orchestrator
 @inject UkuuHrDbContext Db
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -28,8 +29,38 @@
         </div>
     </div>
 
-    @* ───── Vendor matrix ───── *@
-    <div class="bk-admin-card" style="margin-bottom:24px;">
+    @if (!_loaded)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">fingerprint</span>
+            <h3 style="margin-top:16px;">Loading devices…</h3>
+        </div>
+    }
+    else if (_orgMissing)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-warning);opacity:0.7;">error_outline</span>
+            <h3 style="margin-top:16px;">No Organization Found</h3>
+            <p style="color:var(--bk-ink-3);max-width:420px;margin:8px auto 0;font-size:14px;">
+                Attendance devices require an organization record. Your workspace has no
+                organization yet — create one to start connecting devices.
+            </p>
+            <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;">
+                <a href="/settings/organization" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">business</span>
+                    Organization Settings
+                </a>
+                <button type="button" class="bk-btn bk-btn-primary" @onclick="SeedOrg">
+                    <span class="material-icons-round" style="font-size:16px;">add_business</span>
+                    Create Default Organization
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* ───── Vendor matrix ───── *@
+        <div class="bk-admin-card" style="margin-bottom:24px;">
         <div class="bk-admin-card-header">
             <h3>Supported Vendors (FR-001)</h3>
             <p>All 7 vendors × 4 integration modes. REST API + CSV are fully functional; SDK + TCP/IP require vendor binaries.</p>
@@ -269,6 +300,9 @@
 @code {
     private List<AttendanceDevice> _devices = new();
     private int _orgId;
+    private bool _loaded;
+    private bool _orgMissing;
+    private bool _seeding;
     private const int _vendorsSupported = 7;
 
     // Vendor matrix data (computed once).
@@ -282,11 +316,58 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-        _orgId = org.Id;
-        await LoadData();
-        BuildVendorMatrix();
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _orgMissing = true;
+                return;
+            }
+            _orgId = org.Id;
+            await LoadData();
+            BuildVendorMatrix();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Devices] Failed to load: {ex.Message}");
+            _orgMissing = true;
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+
+    private async Task SeedOrg()
+    {
+        if (_seeding) return;
+        _seeding = true;
+        try
+        {
+            var org = new Organization
+            {
+                Name = "My Organization",
+                Country = "Zambia",
+                Currency = "ZMW",
+                Industry = "Human Resources",
+                OwnerUserId = "system",
+                CreatedAt = DateTime.UtcNow
+            };
+            Db.Organizations.Add(org);
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Default organization created. Refreshing…", Severity.Success);
+            Nav.NavigateTo("/devices", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to create organization: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _seeding = false;
+        }
     }
 
     private async Task LoadData()
