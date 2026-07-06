@@ -32,8 +32,8 @@ public class CsvConnector : IDeviceConnector
     {
         var path = ExtractFilePath(device);
         if (string.IsNullOrEmpty(path))
-            return Task.FromResult((false, "CSV file path not configured (set ConnectionJson: { \"filePath\": \"...\" })"));
-        return Task.FromResult((File.Exists(path), File.Exists(path) ? null : $"File not found: {path}"));
+            return Task.FromResult<(bool reachable, string? error)>((false, "CSV file path not configured (set ConnectionJson: { \"filePath\": \"...\" })"));
+        return Task.FromResult<(bool reachable, string? error)>((File.Exists(path), File.Exists(path) ? null : $"File not found: {path}"));
     }
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
@@ -114,7 +114,7 @@ public abstract class SdkConnectorBase : IDeviceConnector
 
     public Task<(bool reachable, string? error)> PingAsync(AttendanceDevice device, CancellationToken ct = default)
     {
-        return Task.FromResult((false, $"{Vendor} SDK connector not registered. Install the vendor SDK and register a concrete subclass in Program.cs."));
+        return Task.FromResult<(bool reachable, string? error)>((false, $"{Vendor} SDK connector not registered. Install the vendor SDK and register a concrete subclass in Program.cs."));
     }
 
     public Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
@@ -137,7 +137,7 @@ public abstract class TcpIpConnectorBase : IDeviceConnector
 
     public Task<(bool reachable, string? error)> PingAsync(AttendanceDevice device, CancellationToken ct = default)
     {
-        return Task.FromResult((false, $"{Vendor} TCP/IP connector not registered. Implement a subclass that speaks the vendor's wire protocol."));
+        return Task.FromResult<(bool reachable, string? error)>((false, $"{Vendor} TCP/IP connector not registered. Implement a subclass that speaks the vendor's wire protocol."));
     }
 
     public Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)

@@ -172,8 +172,6 @@
     [SupplyParameterFromForm(FormName = "register")]
     public RegisterModel? FormData { get; set; }
 
-    private bool _agree = false;
-
     protected override void OnInitialized()
     {
         FormData ??= new RegisterModel();

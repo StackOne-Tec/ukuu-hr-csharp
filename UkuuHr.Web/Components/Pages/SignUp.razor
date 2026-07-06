@@ -275,17 +275,17 @@
 
             @* Social buttons *@
             <div class="bk-social-grid">
-                <button type="button" class="bk-social-btn" @onclick="() => Snackbar.Add(\"Google sign-up coming soon.\", Severity.Info)">
+                <button type="button" class="bk-social-btn" @onclick="ShowGoogleComingSoon">
                     <span class="bk-social-icon bk-social-icon-google"></span>
                     Google
                 </button>
-                <button type="button" class="bk-social-btn" @onclick="() => Snackbar.Add(\"Microsoft sign-up coming soon.\", Severity.Info)">
+                <button type="button" class="bk-social-btn" @onclick="ShowMicrosoftComingSoon">
                     <span class="bk-social-icon bk-social-icon-ms">
                         <span></span><span></span><span></span><span></span>
                     </span>
                     Microsoft
                 </button>
-                <button type="button" class="bk-social-btn" @onclick="() => Snackbar.Add(\"GitHub sign-up coming soon.\", Severity.Info)">
+                <button type="button" class="bk-social-btn" @onclick="ShowGitHubComingSoon">
                     <span class="bk-social-icon" style="background:#24292e;color:white;font-size:14px;font-weight:700;border-radius:50%;display:flex;align-items:center;justify-content:center;">G</span>
                     GitHub
                 </button>
@@ -430,6 +430,10 @@
     private string _passwordHint = "Use at least 8 characters with uppercase, lowercase, and numbers";
 
     private void TogglePasswordVisibility() => _showPassword = !_showPassword;
+
+    private void ShowGoogleComingSoon() => Snackbar.Add("Google sign-up coming soon.", Severity.Info);
+    private void ShowMicrosoftComingSoon() => Snackbar.Add("Microsoft sign-up coming soon.", Severity.Info);
+    private void ShowGitHubComingSoon() => Snackbar.Add("GitHub sign-up coming soon.", Severity.Info);
 
     private void ComputePasswordStrength()
     {

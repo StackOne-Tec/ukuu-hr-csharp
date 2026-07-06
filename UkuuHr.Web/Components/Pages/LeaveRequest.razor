@@ -297,7 +297,7 @@
 
         // Check sufficient balance
         var balance = _balances.FirstOrDefault(b => b.LeaveTypeId == _selectedLeaveTypeId);
-        if (balance != null)
+        if (balance != null && _startDate.HasValue && _endDate.HasValue)
         {
             var requestedDays = LeaveRequestModel.CalculateBusinessDays(_startDate.Value, _endDate.Value);
             if (balance.RemainingDays < requestedDays)
@@ -315,7 +315,9 @@
         var balance = _balances.FirstOrDefault(b => b.LeaveTypeId == _selectedLeaveTypeId);
         if (balance == null) return string.Empty;
 
-        var requestedDays = LeaveRequestModel.CalculateBusinessDays(_startDate.Value, _endDate.Value);
+        var start = _startDate.Value;
+        var end = _endDate.Value;
+        var requestedDays = LeaveRequestModel.CalculateBusinessDays(start, end);
         if (balance.RemainingDays < requestedDays)
         {
             return $"Insufficient balance! You need {requestedDays} day(s) but only have {balance.RemainingDays:0.#} remaining for this leave type.";

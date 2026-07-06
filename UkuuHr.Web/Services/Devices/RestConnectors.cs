@@ -52,7 +52,7 @@ public abstract class RestConnectorBase
     }
 
     /// <summary>Truncate raw payload to 100 chars for storage in audit log.</summary>
-    protected static string TruncatePayload(string? payload) =>
+    protected static string? TruncatePayload(string? payload) =>
         string.IsNullOrEmpty(payload) ? null : (payload.Length > 100 ? payload[..100] + "…" : payload);
 }
 
@@ -348,12 +348,12 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
     public DeviceVendor Vendor => DeviceVendor.Anviz;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
 
-    public async Task<(bool reachable, string? error)> PingAsync(AttendanceDevice device, CancellationToken ct = default)
+    public Task<(bool reachable, string? error)> PingAsync(AttendanceDevice device, CancellationToken ct = default)
     {
         // Anviz uses cloud API — IP address is irrelevant. Check if API key (in Password field) is set.
         if (string.IsNullOrEmpty(device.Password))
-            return (false, "Anviz cloud API requires an API key (set as device Password).");
-        return (true, null);
+            return Task.FromResult<(bool reachable, string? error)>((false, "Anviz cloud API requires an API key (set as device Password)."));
+        return Task.FromResult<(bool reachable, string? error)>((true, null));
     }
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
