@@ -198,7 +198,7 @@
                     <label class="bk-label" for="password">Create password <span style="color:var(--bk-error);">*</span></label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon" style="font-size:18px;">lock_outline</span>
-                        <InputText id="password" type="@(_showPassword ? "text" : "password")" class="bk-input" style="padding-left:36px;padding-right:48px;" @bind-Value="_form.Password" @oninput="() => ComputePasswordStrength()" placeholder="Create a strong password" />
+                        <InputText id="password" type="@(_showPassword ? "text" : "password")" class="bk-input" style="padding-left:36px;padding-right:48px;" @bind-Value="_form.Password" @bind-Value:event="oninput" @oninput="() => ComputePasswordStrength()" placeholder="Create a strong password" />
                         <button type="button" class="bk-input-toggle" @onclick="TogglePasswordVisibility" aria-label="Toggle password visibility" style="cursor:pointer;">
                             <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">@(_showPassword ? "visibility_off" : "visibility")</span>
                         </button>
