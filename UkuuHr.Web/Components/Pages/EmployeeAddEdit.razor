@@ -57,10 +57,12 @@
         }
     </div>
 
+    <EditForm Model="@_model" OnValidSubmit="@Save">
+        <DataAnnotationsValidator />
+
     @* ──────────────────────────────── Step 0: Personal Info ──────────────────────────────── *@
     @if (_currentStep == 0)
     {
-        <EditForm Model="@_model" OnValidSubmit="@(() => {})">
             <div class="bk-admin-card">
                 <div class="bk-admin-card-header">
                     <h3>Personal Information</h3>
@@ -71,14 +73,14 @@
                         @* Name section *@
                         <div class="bk-field">
                             <label class="bk-label">Title</label>
-                            <select class="bk-input" @bind="_model.Title">
+                            <InputSelect class="bk-input" @bind-Value="_model.Title">
                                 <option value="">Select title</option>
                                 <option value="Mr.">Mr.</option>
                                 <option value="Ms.">Ms.</option>
                                 <option value="Mrs.">Mrs.</option>
                                 <option value="Dr.">Dr.</option>
                                 <option value="Prof.">Prof.</option>
-                            </select>
+                            </InputSelect>
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">First Name *</label>
@@ -104,37 +106,37 @@
                         @* Demographics *@
                         <div class="bk-field">
                             <label class="bk-label">Gender</label>
-                            <select class="bk-input" @bind="_model.Gender">
+                            <InputSelect class="bk-input" @bind-Value="_model.Gender">
                                 <option value="">Select gender</option>
                                 <option value="Male">Male</option>
                                 <option value="Female">Female</option>
                                 <option value="Other">Other</option>
-                            </select>
+                            </InputSelect>
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Marital Status</label>
-                            <select class="bk-input" @bind="_model.MaritalStatus">
+                            <InputSelect class="bk-input" @bind-Value="_model.MaritalStatus">
                                 <option value="">Select status</option>
                                 <option value="Single">Single</option>
                                 <option value="Married">Married</option>
                                 <option value="Divorced">Divorced</option>
                                 <option value="Widowed">Widowed</option>
-                            </select>
+                            </InputSelect>
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Date of Birth</label>
-                            <input type="date" class="bk-input" @bind="_model.DateOfBirth" />
+                            <InputDate class="bk-input" @bind-Value="_model.DateOfBirth" />
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Nationality</label>
-                            <select class="bk-input" @bind="_model.Nationality">
+                            <InputSelect class="bk-input" @bind-Value="_model.Nationality">
                                 <option value="">Select nationality</option>
                                 <option value="Zambian">Zambian</option>
                                 <option value="Tanzanian">Tanzanian</option>
                                 <option value="Malawian">Malawian</option>
                                 <option value="South African">South African</option>
                                 <option value="Kenyan">Kenyan</option>
-                            </select>
+                            </InputSelect>
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">National ID (NRC)</label>
@@ -217,7 +219,6 @@
                     </div>
                 </div>
             </div>
-        </EditForm>
     }
 
     @* ──────────────────────────────── Step 1: Employment ──────────────────────────────── *@
@@ -243,29 +244,25 @@
                         <InputText class="bk-input" @bind-Value="_model.Department" placeholder="e.g. Engineering" />
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Employment Status</label>
-                        <select class="bk-input" @bind="_model.Status">
-                            <option value="@EmploymentStatus.Active">Active</option>
-                            <option value="@EmploymentStatus.Probation">Probation</option>
-                            <option value="@EmploymentStatus.Inactive">Inactive</option>
-                            <option value="@EmploymentStatus.Terminated">Terminated</option>
-                        </select>
+                        <label class="bk-label">Employment Status</label>                            <InputSelect class="bk-input" @bind-Value="_model.Status">
+                                <option value="@EmploymentStatus.Active">Active</option>
+                                <option value="@EmploymentStatus.Probation">Probation</option>
+                                <option value="@EmploymentStatus.Inactive">Inactive</option>
+                                <option value="@EmploymentStatus.Terminated">Terminated</option>
+                            </InputSelect>
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Contract Type</label>
-                        <select class="bk-input" @bind="_model.ContractType">
-                            <option value="Permanent">Permanent</option>
-                            <option value="Fixed Term">Fixed Term</option>
-                            <option value="Contract">Contract</option>
-                        </select>
+                        <label class="bk-label">Contract Type</label>                            <InputSelect class="bk-input" @bind-Value="_model.ContractType">
+                                <option value="Permanent">Permanent</option>
+                                <option value="Fixed Term">Fixed Term</option>
+                                <option value="Contract">Contract</option>
+                            </InputSelect>
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Joining Date *</label>
-                        <input type="date" class="bk-input" @bind="_model.JoiningDate" />
+                        <label class="bk-label">Joining Date *</label>                            <InputDate class="bk-input" @bind-Value="_model.JoiningDate" />
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Contract End Date</label>
-                        <input type="date" class="bk-input" @bind="_model.ContractEndDate" />
+                        <label class="bk-label">Contract End Date</label>                            <InputDate class="bk-input" @bind-Value="_model.ContractEndDate" />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Reporting Manager</label>
@@ -327,13 +324,12 @@
                         <small style="color:var(--bk-ink-3);font-size:11px;">Auto-calculated if blank</small>
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Currency</label>
-                        <select class="bk-input" @bind="_model.Currency">
-                            <option value="ZMW">ZMW — Zambian Kwacha</option>
-                            <option value="USD">USD — US Dollar</option>
-                            <option value="TZS">TZS — Tanzanian Shilling</option>
-                            <option value="MWK">MWK — Malawian Kwacha</option>
-                        </select>
+                        <label class="bk-label">Currency</label>                            <InputSelect class="bk-input" @bind-Value="_model.Currency">
+                                <option value="ZMW">ZMW — Zambian Kwacha</option>
+                                <option value="USD">USD — US Dollar</option>
+                                <option value="TZS">TZS — Tanzanian Shilling</option>
+                                <option value="MWK">MWK — Malawian Kwacha</option>
+                            </InputSelect>
                     </div>
                 </div>
 
@@ -372,10 +368,10 @@
                                 </div>
                                 <div class="bk-field" style="margin:0;">
                                     <label class="bk-label" style="font-size:10px;">Type</label>
-                                    <select class="bk-input" @bind="allowance.Type">
+                                    <InputSelect class="bk-input" @bind-Value="allowance.Type">
                                         <option value="@AllowanceType.Fixed">Fixed</option>
                                         <option value="@AllowanceType.Percentage">%</option>
-                                    </select>
+                                    </InputSelect>
                                 </div>
                                 <div class="bk-field" style="margin:0;">
                                     <label class="bk-label" style="font-size:10px;">Taxable</label>
@@ -514,7 +510,7 @@
     @* ───── Navigation buttons ───── *@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
         <div>
-            <a href="/employees" class="bk-btn bk-btn-secondary">
+            <a href="/employees" class="bk-btn bk-btn-secondary" style="text-decoration:none;">
                 <span class="material-icons-round" style="font-size:16px;">close</span>
                 Cancel
             </a>
@@ -536,13 +532,14 @@
             }
             else
             {
-                <button type="button" class="bk-btn bk-btn-primary" @onclick="Save" disabled="@_isSaving" style="background:linear-gradient(135deg,var(--bk-success),#16A34A);">
+                <button type="submit" class="bk-btn bk-btn-primary" disabled="@_isSaving" style="background:linear-gradient(135deg,var(--bk-success),#16A34A);">
                     <span class="material-icons-round" style="font-size:16px;">@(_isSaving ? "sync" : "check")</span>
                     @(_isSaving ? "Saving…" : (_isEdit ? "Save Changes" : "Create Employee"))
                 </button>
             }
         </div>
     </div>
+    </EditForm>
 </div>
 
 @code {
