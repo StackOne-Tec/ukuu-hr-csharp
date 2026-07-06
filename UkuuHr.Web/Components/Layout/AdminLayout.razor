@@ -1,5 +1,6 @@
 @inject NavigationManager Nav
 @inject IHttpContextAccessor HttpAccessor
+@inject CurrentUserService CurrentUser
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -8,8 +9,9 @@
     private bool _collapsed = false;
     private bool _mobileOpen = false;
     private string _currentUrl = string.Empty;
-    private string _userName = "Chungu Chama";
-    private string _userRole = "Super Admin";
+    private string _userName = "Administrator";
+    private string _userRole = "Admin";
+    private string _userInitials = "A";
     private bool _isDark = false;
 
     protected override void OnInitialized()
@@ -26,11 +28,51 @@
             {
                 var theme = await JS.InvokeAsync<string>("ukuuGetTheme");
                 _isDark = theme == "dark";
-                StateHasChanged();
             }
             catch { }
+
+            // Resolve the actual signed-in user's display name from the auth cookie.
+            // Falls back to "Administrator" if the user is not signed in or the
+            // name claim is missing (e.g. clean DB, hardcoded admin fallback).
+            try
+            {
+                var httpCtx = HttpAccessor.HttpContext;
+                var nameClaim = httpCtx?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+                if (!string.IsNullOrWhiteSpace(nameClaim))
+                {
+                    _userName = nameClaim;
+                    _userInitials = GetInitials(nameClaim);
+                }
+                var roleClaim = httpCtx?.User?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                if (!string.IsNullOrWhiteSpace(roleClaim))
+                {
+                    _userRole = RoleDisplayName(roleClaim);
+                }
+            }
+            catch { }
+
+            StateHasChanged();
         }
     }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "U";
+        if (parts.Length == 1) return parts[0][..1].ToUpper();
+        return $"{parts[0][..1]}{parts[^1][..1]}".ToUpper();
+    }
+
+    private static string RoleDisplayName(string role) => role switch
+    {
+        "super_admin" => "Super Admin",
+        "hr_admin" => "HR Admin",
+        "finance_payroll_admin" => "Finance & Payroll Admin",
+        "hr_operator" => "HR Operator",
+        "finance_payroll" => "Finance & Payroll",
+        "employee" => "Employee",
+        _ => role
+    };
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
@@ -196,7 +238,7 @@
             }
 
             <a href="/settings" class="bk-admin-sidebar-user" style="margin-bottom:4px;">
-                <div class="bk-admin-sidebar-user-avatar">CC</div>
+                <div class="bk-admin-sidebar-user-avatar">@_userInitials</div>
                 @if (!_collapsed)
                 {
                     <div style="overflow:hidden;flex:1;min-width:0;">
@@ -257,7 +299,7 @@
             <a href="/settings" class="bk-admin-topbar-icon-btn bk-desktop-only" title="Help" aria-label="Help">
                 <span class="material-icons-round" style="font-size:18px;">help_outline</span>
             </a>
-            <a href="/settings" class="bk-admin-topbar-avatar" aria-label="Profile">CC</a>
+            <a href="/settings" class="bk-admin-topbar-avatar" aria-label="Profile">@_userInitials</a>
         </header>
 
         @if (_mobileOpen)

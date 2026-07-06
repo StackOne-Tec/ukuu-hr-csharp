@@ -27,38 +27,30 @@
         <div class="bk-admin-kpi-card">
             <div class="bk-admin-kpi-card-top">
                 <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">groups</span></div>
-                <span class="bk-admin-kpi-delta up">↑ 12%</span>
             </div>
             <div class="bk-admin-kpi-value">@_totalEmps</div>
             <div class="bk-admin-kpi-label">Total Headcount</div>
-            <div class="bk-admin-kpi-sub" style="color:var(--bk-accent-3);">↑ 12% vs last quarter</div>
         </div>
         <div class="bk-admin-kpi-card">
             <div class="bk-admin-kpi-card-top">
                 <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">payments</span></div>
-                <span class="bk-admin-kpi-delta up">↑ 4%</span>
             </div>
-            <div class="bk-admin-kpi-value">ZMW @_avgSalary.ToString("N0")</div>
+            <div class="bk-admin-kpi-value">@if (_avgSalary > 0) { <text>ZMW @_avgSalary.ToString("N0")</text> } else { <text>—</text> }</div>
             <div class="bk-admin-kpi-label">Avg Salary</div>
-            <div class="bk-admin-kpi-sub" style="color:var(--bk-accent);">↑ 4% inflation-adjusted</div>
         </div>
         <div class="bk-admin-kpi-card">
             <div class="bk-admin-kpi-card-top">
                 <div class="bk-admin-kpi-icon green"><span class="material-icons-round">check_circle</span></div>
-                <span class="bk-admin-kpi-delta up">↑ 2.3%</span>
             </div>
-            <div class="bk-admin-kpi-value">@_avgAttendance.ToString("0.0")%</div>
+            <div class="bk-admin-kpi-value">@if (_avgAttendance > 0) { @_avgAttendance.ToString("0.0")<text>%</text> } else { <text>—</text> }</div>
             <div class="bk-admin-kpi-label">Avg Attendance</div>
-            <div class="bk-admin-kpi-sub" style="color:var(--bk-accent-3);">↑ 2.3% MoM</div>
         </div>
         <div class="bk-admin-kpi-card">
             <div class="bk-admin-kpi-card-top">
                 <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">event_available</span></div>
-                <span class="bk-admin-kpi-delta neutral">— stable</span>
             </div>
-            <div class="bk-admin-kpi-value">@_leaveUtil.ToString("0.0")%</div>
+            <div class="bk-admin-kpi-value">@if (_leaveUtil > 0) { @_leaveUtil.ToString("0.0")<text>%</text> } else { <text>—</text> }</div>
             <div class="bk-admin-kpi-label">Leave Utilization</div>
-            <div class="bk-admin-kpi-sub" style="color:var(--bk-ink-3);">— stable</div>
         </div>
     </div>
 
@@ -71,12 +63,17 @@
             </div>
         </div>
         <div class="bk-admin-card-content">
-            <svg viewBox="0 0 800 240" style="width:100%;height:240px;">
-                @{
-                    var data = new[] { 4, 5, 5, 6, 6, 7, 7, 7, 7, 8, 8, _totalEmps };
-                    var maxData = data.Max();
-                    var w = 800.0; var h = 200.0;
-                    var padding = 40;
+            @if (_totalEmps > 0)
+            {
+                <svg viewBox="0 0 800 240" style="width:100%;height:240px;">
+                    @{
+                        // Use the actual current headcount for the trend — historical
+                        // data would come from an Employees.CreatedAt time-series query.
+                        // For now we draw a flat line at the current value (no phantom history).
+                        var data = Enumerable.Repeat(_totalEmps, 12).ToArray();
+                        var maxData = Math.Max(1, data.Max());
+                        var w = 800.0; var h = 200.0;
+                        var padding = 40;
                 }
                 @for (int i = 0; i <= 4; i++)
                 {
@@ -98,6 +95,15 @@
                     </linearGradient>
                 </defs>
             </svg>
+            }
+            else
+            {
+                <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                    <span class="material-icons-round" style="font-size:48px;opacity:0.4;">show_chart</span>
+                    <h3 style="margin-top:12px;font-size:16px;color:var(--bk-ink-2);">No headcount data yet</h3>
+                    <p style="font-size:13px;margin-top:4px;">Add employees to see headcount growth trends.</p>
+                </div>
+            }
         </div>
     </div>
 
@@ -164,17 +170,22 @@
                 </div>
             </div>
             <div class="bk-admin-card-content">
-                <svg viewBox="0 0 400 200" style="width:100%;height:200px;">
-                    @{
-                        var bars = new[] { 85.0, 92, 98, 102, 108, 115 };
-                        var maxBar = bars.Max();
-                    }
-                    @for (int i = 0; i < bars.Length; i++)
-                    {
-                        var barH = (bars[i] / maxBar) * 140;
-                        var x = 40 + i * 60;
-                        <rect x="@x" y="@(180-barH)" width="40" height="@barH" fill="url(#barGradient)" rx="6" />
-                    }
+                @if (_avgSalary > 0)
+                {
+                    <svg viewBox="0 0 400 200" style="width:100%;height:200px;">
+                        @{
+                            // No historical payroll data in the DB — draw a flat bar
+                            // at the current average salary (no phantom trend).
+                            var currentBar = Math.Round(_avgSalary / 1000, 1);
+                            var bars = Enumerable.Repeat(currentBar, 6).ToArray();
+                            var maxBar = Math.Max(1.0, bars.Max());
+                        }
+                        @for (int i = 0; i < bars.Length; i++)
+                        {
+                            var barH = (bars[i] / maxBar) * 140;
+                            var x = 40 + i * 60;
+                            <rect x="@x" y="@(180-barH)" width="40" height="@barH" fill="url(#barGradient)" rx="6" />
+                        }
                     <defs>
                         <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="#d89c11" />
@@ -182,6 +193,15 @@
                         </linearGradient>
                     </defs>
                 </svg>
+                }
+                else
+                {
+                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                        <span class="material-icons-round" style="font-size:48px;opacity:0.4;">bar_chart</span>
+                        <h3 style="margin-top:12px;font-size:16px;color:var(--bk-ink-2);">No payroll data yet</h3>
+                        <p style="font-size:13px;margin-top:4px;">Add employees with salaries to see payroll trends.</p>
+                    </div>
+                }
             </div>
         </div>
     </div>

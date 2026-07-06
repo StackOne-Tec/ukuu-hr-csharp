@@ -1,6 +1,7 @@
 @page "/settings"
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
+@inject IHttpContextAccessor HttpAccessor
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -38,35 +39,35 @@
                                 <label class="bk-label">First Name</label>
                                 <div class="bk-input-wrap">
                                     <span class="material-icons-round bk-input-icon">person</span>
-                                    <input type="text" class="bk-input" value="Chungu" />
+                                    <input type="text" class="bk-input" value="@_profileFirstName" placeholder="First name" />
                                 </div>
                             </div>
                             <div class="bk-field">
                                 <label class="bk-label">Last Name</label>
                                 <div class="bk-input-wrap">
                                     <span class="material-icons-round bk-input-icon">person</span>
-                                    <input type="text" class="bk-input" value="Chama" />
+                                    <input type="text" class="bk-input" value="@_profileLastName" placeholder="Last name" />
                                 </div>
                             </div>
                             <div class="bk-field">
                                 <label class="bk-label">Email</label>
                                 <div class="bk-input-wrap">
                                     <span class="material-icons-round bk-input-icon">mail</span>
-                                    <input type="email" class="bk-input" value="admin@ukuuhr.demo" />
+                                    <input type="email" class="bk-input" value="@_profileEmail" placeholder="you@company.com" />
                                 </div>
                             </div>
                             <div class="bk-field">
                                 <label class="bk-label">Phone</label>
                                 <div class="bk-input-wrap">
                                     <span class="material-icons-round bk-input-icon">phone</span>
-                                    <input type="tel" class="bk-input" value="+260 97 123 4567" />
+                                    <input type="tel" class="bk-input" value="" placeholder="+260 97 123 4567" />
                                 </div>
                             </div>
                             <div class="bk-field">
                                 <label class="bk-label">Job Title</label>
                                 <div class="bk-input-wrap">
                                     <span class="material-icons-round bk-input-icon">work</span>
-                                    <input type="text" class="bk-input" value="Chief Executive Officer" />
+                                    <input type="text" class="bk-input" value="" placeholder="Job title" />
                                 </div>
                             </div>
                             <div class="bk-field">
@@ -295,16 +296,31 @@
     protected override async Task OnInitializedAsync()
     {
         var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
         _org = org;
-        _leaveTypes = await Db.LeaveTypes.Where(l => l.OrganizationId == org.Id).OrderBy(l => l.Name).ToListAsync();
-        _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == org.Id).OrderBy(u => u.FirstName).ToListAsync();
-
-        if (!_userAccounts.Any())
+        if (org != null)
         {
-            _userAccounts.Add(new UserAccount { FirstName = "Chungu", LastName = "Chama", Email = "admin@ukuuhr.demo", Role = UserRole.SuperAdmin, Status = AccountStatus.Active, UserType = "owner", OrganizationId = org.Id });
-            _userAccounts.Add(new UserAccount { FirstName = "Thandiwe", LastName = "Banda", Email = "thandiwe.banda@ukuuhr.demo", Role = UserRole.HrAdmin, Status = AccountStatus.Active, OrganizationId = org.Id });
-            _userAccounts.Add(new UserAccount { FirstName = "Grace", LastName = "Mwape", Email = "grace.mwape@ukuuhr.demo", Role = UserRole.FinancePayrollAdmin, Status = AccountStatus.Active, OrganizationId = org.Id });
+            _leaveTypes = await Db.LeaveTypes.Where(l => l.OrganizationId == org.Id).OrderBy(l => l.Name).ToListAsync();
+            _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == org.Id).OrderBy(u => u.FirstName).ToListAsync();
         }
+
+        // Resolve the signed-in user's profile from the auth cookie.
+        // When the DB is empty (production mode), the hardcoded admin fallback
+        // in AuthService issues a cookie with name="Administrator" + email="admin@ukuuhr.demo"
+        // — those are placeholder claims, not real DB rows. The Profile form shows
+        // them so the user can update their name/email going forward.
+        var httpCtx = HttpAccessor.HttpContext;
+        var nameClaim = httpCtx?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+        var emailClaim = httpCtx?.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        if (!string.IsNullOrWhiteSpace(nameClaim))
+        {
+            var parts = nameClaim.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            _profileFirstName = parts.Length > 0 ? parts[0] : "";
+            _profileLastName = parts.Length > 1 ? parts[1] : "";
+        }
+        if (!string.IsNullOrWhiteSpace(emailClaim)) _profileEmail = emailClaim;
     }
+
+    private string _profileFirstName = "";
+    private string _profileLastName = "";
+    private string _profileEmail = "";
 }

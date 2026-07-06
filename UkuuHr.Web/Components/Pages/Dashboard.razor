@@ -6,12 +6,13 @@
 @inject LeaveService LeaveSvc
 @inject PayrollService PayrollSvc
 @inject UkuuHrDbContext Db
+@inject IHttpContextAccessor HttpAccessor
 
 <div class="bk-admin-fade-in">
     @* ───── Mobile hero (visible only < 1024px) — replaces the desktop greeting ───── *@
     <div class="bk-mobile-hero bk-dashboard-mobile-hero">
-        <div class="bk-mobile-hero-greeting">@GetGreeting() · @_orgName</div>
-        <div class="bk-mobile-hero-name">Welcome, Chungu</div>
+        <div class="bk-mobile-hero-greeting">@GetGreeting() · @(_orgName ?? "No organization")</div>
+        <div class="bk-mobile-hero-name">Welcome@(string.IsNullOrEmpty(_userFirstName) ? "" : $", {_userFirstName}")</div>
         <div class="bk-mobile-hero-sub">@_presentToday present today · @_pendingLeave leave requests pending · @_pendingPayroll payroll awaiting approval</div>
         <div class="bk-mobile-hero-stats">
             <div>
@@ -31,9 +32,9 @@
 
     <div class="bk-admin-section-header bk-hide-on-mobile">
         <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Good morning, Chungu · All systems operational</div>
+            <div class="bk-admin-greeting">@GetGreeting()@(string.IsNullOrEmpty(_userFirstName) ? "" : $", {_userFirstName}") · @(_hasOrg ? "All systems operational" : "Set up your organization to begin")</div>
             <h1 class="bk-admin-h1">Workspace Overview</h1>
-            <p class="bk-admin-sub">Here's what's happening across @_orgName today.</p>
+            <p class="bk-admin-sub">@if (_hasOrg) { <text>Here's what's happening across @_orgName today.</text> } else { <text>Welcome to Ukuu HR. Add your organization in Settings to start managing employees.</text> }</p>
         </div>
         <div class="bk-admin-actions">
             <button class="bk-btn bk-btn-secondary" onclick="window.print()">
@@ -370,13 +371,25 @@
     private Dictionary<AttendanceStatus, int> _attendanceBreakdown = new();
     private List<Employee> _recentEmployees = new();
     private PayrollMonthlyStats? _stats;
-    private string _orgName = "UkuuHR Demo Ltd";
+    private string? _orgName = null;
+    private bool _hasOrg = false;
+    private string? _userFirstName = null;
 
     protected override async Task OnInitializedAsync()
     {
         var org = await Db.Organizations.FirstOrDefaultAsync();
+        _hasOrg = org != null;
+        _orgName = org?.Name;
+
+        // Resolve the signed-in user's first name from the auth cookie.
+        var nameClaim = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+        if (!string.IsNullOrWhiteSpace(nameClaim))
+        {
+            var parts = nameClaim.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            _userFirstName = parts.Length > 0 ? parts[0] : nameClaim;
+        }
+
         if (org == null) return;
-        _orgName = org.Name;
         var today = DateTime.Today;
 
         _totalEmployees = await EmployeeSvc.CountAsync(org.Id);

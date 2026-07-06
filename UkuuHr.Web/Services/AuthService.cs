@@ -17,7 +17,7 @@ public class AuthService
 {
     public const string AdminEmail = "admin@ukuuhr.demo";
     public const string AdminPassword = "Admin@2025";
-    public const string AdminDisplayName = "Chungu Chama";
+    public const string AdminDisplayName = "Administrator";
 
     private readonly IHttpContextAccessor _http;
     private readonly UkuuHrDbContext _db;
