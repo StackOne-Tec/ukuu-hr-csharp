@@ -25,10 +25,7 @@
                 <div class="bk-mobile-hero-stat-value">@_attendancePct.ToString("0")%</div>
                 <div class="bk-mobile-hero-stat-label">Attendance</div>
             </div>
-            <div>
-                <div class="bk-mobile-hero-stat-value">ZMW @(_monthlyPayroll / 1000).ToString("N0")K</div>
-                <div class="bk-mobile-hero-stat-label">Payroll</div>
-            </div>
+
         </div>
     </div>
 
@@ -97,20 +94,6 @@
             <div class="bk-admin-kpi-sub">@_approvedThisMonth approved this month</div>
         </div>
 
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon pink">
-                    <span class="material-icons-round">payments</span>
-                </div>
-                <span class="bk-admin-kpi-delta up">
-                    <span class="material-icons-round" style="font-size:14px;">trending_up</span>
-                    +8%
-                </span>
-            </div>
-            <div class="bk-admin-kpi-value">ZMW @(_monthlyPayroll.ToString("N0"))</div>
-            <div class="bk-admin-kpi-label">Monthly Payroll</div>
-            <div class="bk-admin-kpi-sub">@_pendingPayroll pending approval</div>
-        </div>
     </div>
 
     <!-- MAIN GRID -->
