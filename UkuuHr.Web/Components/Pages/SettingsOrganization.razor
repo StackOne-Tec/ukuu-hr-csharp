@@ -3,6 +3,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 @using System.Text.Json
 
 <div class="bk-admin-fade-in">
@@ -23,11 +24,32 @@
         </div>
     </div>
 
-    @if (_org == null)
+    @if (!_loaded)
     {
         <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
             <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">business</span>
             <h3 style="margin-top:16px;">Loading organization…</h3>
+        </div>
+    }
+    else if (_org == null)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-warning);opacity:0.7;">error_outline</span>
+            <h3 style="margin-top:16px;">No Organization Found</h3>
+            <p style="color:var(--bk-ink-3);max-width:420px;margin:8px auto 0;font-size:14px;">
+                Your workspace has no organization record. This usually happens when the database
+                hasn't been seeded. Contact your system administrator or run the database seeder.
+            </p>
+            <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;">
+                <a href="/" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">home</span>
+                    Dashboard
+                </a>
+                <button type="button" class="bk-btn bk-btn-primary" @onclick="SeedOrg">
+                    <span class="material-icons-round" style="font-size:16px;">add_business</span>
+                    Create Default Organization
+                </button>
+            </div>
         </div>
     }
     else
@@ -153,21 +175,65 @@
 
 @code {
     private Organization? _org;
+    private bool _loaded;
     private string _timezone = "Africa/Lusaka";
     private int _employeeCount;
     private int _userCount;
     private int _leaveTypeCount;
     private int _shiftCount;
+    private bool _seeding;
 
     protected override async Task OnInitializedAsync()
     {
-        _org = await Db.Organizations.FirstOrDefaultAsync();
-        if (_org != null)
+        try
         {
-            _employeeCount = await Db.Employees.CountAsync(e => e.OrganizationId == _org.Id);
-            _userCount = await Db.UserAccounts.CountAsync(u => u.OrganizationId == _org.Id);
-            _leaveTypeCount = await Db.LeaveTypes.CountAsync(l => l.OrganizationId == _org.Id);
-            _shiftCount = await Db.Shifts.CountAsync(s => s.OrganizationId == _org.Id && s.IsActive);
+            _org = await Db.Organizations.FirstOrDefaultAsync();
+            if (_org != null)
+            {
+                _employeeCount = await Db.Employees.CountAsync(e => e.OrganizationId == _org.Id);
+                _userCount = await Db.UserAccounts.CountAsync(u => u.OrganizationId == _org.Id);
+                _leaveTypeCount = await Db.LeaveTypes.CountAsync(l => l.OrganizationId == _org.Id);
+                _shiftCount = await Db.Shifts.CountAsync(s => s.OrganizationId == _org.Id && s.IsActive);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[SettingsOrganization] Failed to load: {ex.Message}");
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+
+    private async Task SeedOrg()
+    {
+        if (_seeding) return;
+        _seeding = true;
+        try
+        {
+            var org = new Organization
+            {
+                Name = "My Organization",
+                Country = "Zambia",
+                Currency = "ZMW",
+                Industry = "Human Resources",
+                OwnerUserId = "system",
+                CreatedAt = DateTime.UtcNow
+            };
+            Db.Organizations.Add(org);
+            await Db.SaveChangesAsync();
+
+            Snackbar.Add("Default organization created. Refreshing…", Severity.Success);
+            Nav.NavigateTo("/settings/organization", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to create organization: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _seeding = false;
         }
     }
 
