@@ -404,6 +404,34 @@ curl -X POST -H "Authorization: Bearer $PRISMA_SERVICE_TOKEN" \
      https://api.prisma.io/v1/databases
 ```
 
+### Production mode — no demo data (SEED_DEMO_DATA=false)
+
+By default, `DbSeeder.SeedAsync` inserts demo data on first run (8 fictional employees, 7 demo vendor devices, 30 days of attendance, sample payroll/leave/holidays). This is great for evaluation but **not** what you want in production.
+
+Set the `SEED_DEMO_DATA=false` env var to skip all demo seeding. The schema is still created via `EnsureCreatedAsync`, but zero rows are inserted. Login still works via the hardcoded admin fallback in `AuthService` (`admin@ukuuhr.demo` / `Admin@2025`).
+
+```bash
+export POSTGRES_CONNECTION_STRING="Host=db.prisma.io;..."
+export SEED_DEMO_DATA=false
+cd UkuuHr.Web && dotnet run
+```
+
+To wipe an already-seeded database back to a clean state:
+
+```sql
+-- Run via psql or any Postgres client against your Prisma Postgres instance
+TRUNCATE TABLE 
+  "AttendanceDevices", "AttendanceTolerances", "Attendances", "AuditLogs",
+  "DepartmentShifts", "EmployeeDocuments", "EmployeeShiftAssignments", "Employees",
+  "ExpenseRequests", "HikvisionClockEvents", "HikvisionDevices", "HrConversations",
+  "HrMessages", "HrPolicies", "LeaveBalances", "LeaveHolidays", "LeaveRequests",
+  "LeaveTypes", "LicenseCodes", "Organizations", "OvertimeRecords", "PayrollRuns",
+  "PendingRegistrations", "Shifts", "UnifiedClockEvents", "UserAccounts"
+RESTART IDENTITY CASCADE;
+```
+
+This preserves the schema (tables, indexes, constraints) but removes all rows and resets identity sequences back to 1.
+
 ## ⚠️ Notes
 
 - The original Dart project uses Firebase; this C# rebuild uses EF Core + SQLite for simplicity and zero external service dependencies.

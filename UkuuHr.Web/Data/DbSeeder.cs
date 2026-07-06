@@ -7,12 +7,29 @@ namespace UkuuHr.Data;
 /// <summary>
 /// Seeds the database with default demo data on first run.
 /// Creates a demo organization with sample employees, leave types, attendance, payroll.
+///
+/// Set the SEED_DEMO_DATA env var to "false" (or "0") to skip all demo seeding —
+/// only the schema is created via EnsureCreatedAsync. This is the production mode:
+/// a clean database with zero phantom/demo rows. Login still works via the
+/// hardcoded admin fallback in AuthService (admin@ukuuhr.demo / Admin@2025).
 /// </summary>
 public static class DbSeeder
 {
+    /// <summary>True when SEED_DEMO_DATA env var is explicitly set to "false" or "0".</summary>
+    public static bool SkipDemoData =>
+        Environment.GetEnvironmentVariable("SEED_DEMO_DATA") is string v
+        && (v.Equals("false", StringComparison.OrdinalIgnoreCase) || v == "0");
+
     public static async Task SeedAsync(UkuuHrDbContext db)
     {
         await db.Database.EnsureCreatedAsync();
+
+        // Production mode: skip all demo seeding. Schema is created, no rows inserted.
+        // Login still works via AuthService hardcoded admin fallback.
+        if (SkipDemoData)
+        {
+            return;
+        }
 
         if (await db.Organizations.AnyAsync()) 
         {
