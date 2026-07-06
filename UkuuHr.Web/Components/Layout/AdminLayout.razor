@@ -166,19 +166,6 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">event</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Holidays</span> }
             </a>
-            <a href="/payroll" class="bk-admin-sidebar-item @(IsActive("payroll") && !IsActive("payroll/pending") ? "active" : "")">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">payments</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Payroll</span> }
-            </a>
-            <a href="/payroll/pending" class="bk-admin-sidebar-item @(IsActive("payroll/pending") ? "active" : "")" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">pending_actions</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Pending Approvals</span> }
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-badge">5</span> }
-            </a>
-            <a href="/payroll/calculator" class="bk-admin-sidebar-item" style="padding-left:@(_collapsed ? "0" : "44px");font-size:13px;">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:18px;">calculate</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Calculator</span> }
-            </a>
             <a href="/shifts" class="bk-admin-sidebar-item @(IsActive("shifts") && !IsActive("shifts/assignments") && !IsActive("shifts/tolerance") && !IsActive("shifts/coverage") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">calendar_month</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Shifts</span> }
@@ -372,11 +359,7 @@
                 <span>Leave</span>
                 <span class="bk-mobile-bottomnav-badge">3</span>
             </a>
-            <a href="/payroll" class="bk-mobile-bottomnav-item @(IsActive("payroll") ? "active" : "")" aria-label="Payroll">
-                <span class="material-icons-round">payments</span>
-                <span>Pay</span>
-                <span class="bk-mobile-bottomnav-badge">4</span>
-            </a>
+
         </div>
     </nav>
 </div>
