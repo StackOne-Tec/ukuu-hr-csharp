@@ -4673,3 +4673,181 @@ html[data-theme="dark"] .bk-mobile-bottomnav-item.active::before {
         gap: 12px !important;
     }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Phase 14: Dark mode overrides for AUTH pages (login, register, landing)
+   Previously the .bk-auth container, .bk-auth-form-side, .bk-auth-card, and
+   related elements used hardcoded light backgrounds (#fbfaf6, #ffffff) with
+   NO dark mode overrides — causing the login/register right panel to stay
+   white in dark mode.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Auth container background */
+html[data-theme="dark"] .bk-auth {
+    background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 72px),
+        linear-gradient(180deg, #0a0a0a 0%, #131313 54%, #0a0a0a 100%);
+    color: var(--bk-ink);
+}
+
+/* Form side panel (right side of login/register) */
+html[data-theme="dark"] .bk-auth-form-side {
+    background: #1C112F;
+}
+
+/* Auth card (the form container) */
+html[data-theme="dark"] .bk-auth-card {
+    background: transparent;
+}
+
+/* Mobile brand on auth pages */
+html[data-theme="dark"] .bk-auth-mobile-brand .bk-auth-brand-name {
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-auth-mobile-brand .bk-auth-brand-tag {
+    color: var(--bk-ink-3);
+}
+
+/* Auth header text */
+html[data-theme="dark"] .bk-auth-h1 {
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-auth-sub {
+    color: var(--bk-ink-2);
+}
+html[data-theme="dark"] .bk-auth-eyebrow {
+    color: var(--bk-ink-3);
+}
+html[data-theme="dark"] .bk-auth-eyebrow::before {
+    background: var(--bk-accent);
+}
+
+/* Auth form inputs */
+html[data-theme="dark"] .bk-auth .bk-input,
+html[data-theme="dark"] .bk-auth .bk-input-wrap {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-auth .bk-input::placeholder {
+    color: var(--bk-ink-3);
+}
+html[data-theme="dark"] .bk-auth .bk-input-icon {
+    color: var(--bk-ink-3);
+}
+html[data-theme="dark"] .bk-auth .bk-input-wrap:focus-within {
+    border-color: var(--bk-accent);
+    background: rgba(255, 255, 255, 0.06);
+}
+html[data-theme="dark"] .bk-auth .bk-label {
+    color: var(--bk-ink-2);
+}
+
+/* Auth submit button — keep gradient but ensure visibility */
+html[data-theme="dark"] .bk-auth-submit {
+    background: linear-gradient(135deg, var(--bk-accent) 0%, #b8810a 100%);
+    color: #0a0a0a;
+}
+
+/* Social login buttons */
+html[data-theme="dark"] .bk-social-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-social-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Demo credentials box */
+html[data-theme="dark"] .bk-demo-creds {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+html[data-theme="dark"] .bk-demo-creds-label {
+    color: var(--bk-ink-3);
+}
+html[data-theme="dark"] .bk-demo-creds-email,
+html[data-theme="dark"] .bk-demo-creds-pass {
+    color: var(--bk-ink);
+}
+
+/* Divider ("or continue with") */
+html[data-theme="dark"] .bk-divider {
+    color: var(--bk-ink-3);
+}
+html[data-theme="dark"] .bk-divider::before,
+html[data-theme="dark"] .bk-divider::after {
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* Auth footer */
+html[data-theme="dark"] .bk-auth-footer {
+    color: var(--bk-ink-2);
+}
+html[data-theme="dark"] .bk-auth-footer a {
+    color: var(--bk-accent);
+}
+
+/* Auth back link */
+html[data-theme="dark"] .bk-auth-back {
+    color: var(--bk-ink-3);
+}
+
+/* Checkbox row */
+html[data-theme="dark"] .bk-auth .bk-check-row {
+    color: var(--bk-ink-2);
+}
+html[data-theme="dark"] .bk-auth .bk-check {
+    accent-color: var(--bk-accent);
+}
+
+/* Auth link (forgot password, etc.) */
+html[data-theme="dark"] .bk-auth-link {
+    color: var(--bk-accent);
+}
+
+/* Landing page sections that need dark backgrounds */
+html[data-theme="dark"] .bk-hero {
+    background:
+        radial-gradient(ellipse 60% 40% at 20% 0%, rgba(244, 185, 66, 0.08) 0%, transparent 60%),
+        linear-gradient(180deg, #0a0a0a 0%, #131313 100%);
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-section {
+    background: #0d0d0d;
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-section-title {
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-feature-card,
+html[data-theme="dark"] .bk-pricing-card {
+    background: #1C112F;
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-cta-card {
+    background: linear-gradient(135deg, #1C112F 0%, #2A1B45 100%);
+    color: var(--bk-ink);
+}
+html[data-theme="dark"] .bk-footer {
+    background: #0a0a0a;
+    color: var(--bk-ink-2);
+}
+html[data-theme="dark"] .bk-footer a {
+    color: var(--bk-ink-3);
+}
+html[data-theme="dark"] .bk-footer a:hover {
+    color: var(--bk-ink);
+}
+
+/* Landing hero artboard (the mockup dashboard) */
+html[data-theme="dark"] .bk-artboard {
+    background: #1C112F;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+html[data-theme="dark"] .bk-artboard > div {
+    color: var(--bk-ink);
+}
