@@ -15,7 +15,7 @@
     <div class="bk-mobile-hero bk-dashboard-mobile-hero">
         <div class="bk-mobile-hero-greeting">@GetGreeting() · @(_orgName ?? "No organization")</div>
         <div class="bk-mobile-hero-name">Welcome@(string.IsNullOrEmpty(_userFirstName) ? "" : $", {_userFirstName}")</div>
-        <div class="bk-mobile-hero-sub">@_presentToday present today · @_pendingLeave leave requests pending · @_pendingPayroll payroll awaiting approval</div>
+        <div class="bk-mobile-hero-sub">@_presentToday present today · @_pendingLeave leave requests pending</div>
         <div class="bk-mobile-hero-stats">
             <div>
                 <div class="bk-mobile-hero-stat-value">@_totalEmployees</div>
@@ -101,116 +101,6 @@
         <!-- LEFT: Charts + tables -->
         <div style="display:flex;flex-direction:column;gap:24px;">
 
-            <!-- Workforce by department -->
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <div>
-                        <h3>Workforce Distribution</h3>
-                        <p>Headcount by department</p>
-                    </div>
-                    <a href="/reports" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View Report →</a>
-                </div>
-                <div class="bk-admin-card-content">
-                    @if (_deptCounts.Any())
-                    {
-                        <div style="display:flex;flex-direction:column;gap:14px;">
-                            @{
-                                var maxCount = _deptCounts.Values.Max();
-                            }
-                            @foreach (var dept in _deptCounts.OrderByDescending(d => d.Value))
-                            {
-                                var pct = (int)(dept.Value * 100.0 / maxCount);
-                                <div>
-                                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;">
-                                        <span style="font-weight:600;color:var(--bk-ink);">@dept.Key</span>
-                                        <span style="font-weight:700;color:var(--bk-ink);">@dept.Value employees</span>
-                                    </div>
-                                    <div class="bk-admin-progress">
-                                        <div class="bk-admin-progress-fill" style="width:@(pct)%;"></div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            </div>
-
-            <!-- Recent employees -->
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <div>
-                        <h3>Recent Hires</h3>
-                        <p>Newest members of your team</p>
-                    </div>
-                    <a href="/employees" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View All →</a>
-                </div>
-                <table class="bk-admin-table">
-                    <thead>
-                        <tr>
-                            <th>Employee</th>
-                            <th>Role</th>
-                            <th>Department</th>
-                            <th>Joined</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var emp in _recentEmployees)
-                        {
-                            <tr>
-                                <td>
-                                    <div style="display:flex;align-items:center;gap:12px;">
-                                        <div class="bk-admin-avatar gold">@emp.Initials</div>
-                                        <div>
-                                            <div style="font-weight:600;color:var(--bk-ink);font-size:13px;">@emp.FullName</div>
-                                            <div style="font-size:11px;color:var(--bk-ink-3);">@emp.Email</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td style="font-weight:500;">@emp.JobTitle</td>
-                                <td>@emp.Department</td>
-                                <td style="color:var(--bk-ink-3);font-size:12px;">@(emp.JoiningDate?.ToString("dd MMM yyyy") ?? "—")</td>
-                                <td>
-                                    <span class="bk-admin-pill @(emp.Status == EmploymentStatus.Active ? "active" : emp.Status == EmploymentStatus.Probation ? "probation" : "inactive")">
-                                        @emp.StatusDisplay
-                                    </span>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Payroll overview -->
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <div>
-                        <h3>Payroll Snapshot — @DateTime.Now.ToString("MMMM yyyy")</h3>
-                        <p>Gross-to-net summary for current pay period</p>
-                    </div>
-                    <a href="/payroll" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">Open Payroll →</a>
-                </div>
-                <div class="bk-admin-card-content">
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
-                        <div class="bk-admin-stat-box">
-                            <div class="bk-admin-stat-box-label">Gross</div>
-                            <div class="bk-admin-stat-box-value">@(_stats?.TotalGross.ToString("N0") ?? "0")</div>
-                        </div>
-                        <div class="bk-admin-stat-box">
-                            <div class="bk-admin-stat-box-label">PAYE</div>
-                            <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-4);">@(_stats?.TotalPaye.ToString("N0") ?? "0")</div>
-                        </div>
-                        <div class="bk-admin-stat-box">
-                            <div class="bk-admin-stat-box-label">NAPSA + NHIMA</div>
-                            <div class="bk-admin-stat-box-value" style="color:var(--bk-accent);">@( ((_stats?.TotalNapsa ?? 0) + (_stats?.TotalNhima ?? 0)).ToString("N0") )</div>
-                        </div>
-                        <div class="bk-admin-stat-box dark">
-                            <div class="bk-admin-stat-box-label">Net Pay</div>
-                            <div class="bk-admin-stat-box-value">@(_stats?.TotalNet.ToString("N0") ?? "0")</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- RIGHT: Side widgets -->
@@ -275,67 +165,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Pending approvals -->
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <div>
-                        <h3>Pending Approvals</h3>
-                        <p>Awaiting your review</p>
-                    </div>
-                    <span class="bk-admin-pill pending">@(_pendingLeave + _pendingPayroll)</span>
-                </div>
-                <div class="bk-admin-card-content" style="padding:8px;">
-                    <a href="/leave" style="display:flex;align-items:center;gap:12px;padding:12px;text-decoration:none;color:inherit;border-radius:8px;transition:background 0.15s;" onmouseover="this.style.background='var(--bk-muted)'" onmouseout="this.style.background='transparent'">
-                        <div class="bk-admin-kpi-icon gold" style="width:36px;height:36px;">
-                            <span class="material-icons-round" style="font-size:20px;">event_available</span>
-                        </div>
-                        <div style="flex:1;">
-                            <div style="font-size:13px;font-weight:600;color:var(--bk-ink);">Leave Requests</div>
-                            <div style="font-size:11px;color:var(--bk-ink-3);">@_pendingLeave awaiting approval</div>
-                        </div>
-                        <span class="material-icons-round" style="color:var(--bk-ink-3);font-size:20px;">chevron_right</span>
-                    </a>
-                    <a href="/payroll" style="display:flex;align-items:center;gap:12px;padding:12px;text-decoration:none;color:inherit;border-radius:8px;transition:background 0.15s;" onmouseover="this.style.background='var(--bk-muted)'" onmouseout="this.style.background='transparent'">
-                        <div class="bk-admin-kpi-icon pink" style="width:36px;height:36px;">
-                            <span class="material-icons-round" style="font-size:20px;">payments</span>
-                        </div>
-                        <div style="flex:1;">
-                            <div style="font-size:13px;font-weight:600;color:var(--bk-ink);">Payroll Runs</div>
-                            <div style="font-size:11px;color:var(--bk-ink-3);">@_pendingPayroll awaiting review</div>
-                        </div>
-                        <span class="material-icons-round" style="color:var(--bk-ink-3);font-size:20px;">chevron_right</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Quick actions -->
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <div>
-                        <h3>Quick Actions</h3>
-                        <p>Frequently used shortcuts</p>
-                    </div>
-                </div>
-                <div class="bk-admin-card-content" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <a href="/employees/add" class="bk-btn bk-btn-primary" style="font-size:12px;padding:10px 14px;min-height:40px;">
-                        <span class="material-icons-round" style="font-size:16px;">person_add</span>
-                        Add Employee
-                    </a>
-                    <a href="/attendance" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:10px 14px;min-height:40px;">
-                        <span class="material-icons-round" style="font-size:16px;">schedule</span>
-                        Clock In
-                    </a>
-                    <a href="/leave" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:10px 14px;min-height:40px;">
-                        <span class="material-icons-round" style="font-size:16px;">event</span>
-                        Request Leave
-                    </a>
-                    <a href="/payroll/calculator" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:10px 14px;min-height:40px;">
-                        <span class="material-icons-round" style="font-size:16px;">calculate</span>
-                        Payroll Calc
-                    </a>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -348,13 +177,9 @@
     private int _onLeaveToday;
     private int _pendingLeave;
     private int _approvedThisMonth;
-    private int _pendingPayroll;
     private double _attendanceToday;
     private double _attendancePct;
-    private Dictionary<string, int> _deptCounts = new();
     private Dictionary<AttendanceStatus, int> _attendanceBreakdown = new();
-    private List<Employee> _recentEmployees = new();
-    private PayrollMonthlyStats? _stats;
     private string? _orgName = null;
     private bool _hasOrg = false;
     private string? _userFirstName = null;
@@ -379,8 +204,6 @@
         _totalEmployees = await EmployeeSvc.CountAsync(org.Id);
         _activeEmployees = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Active);
         _onProbation = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Probation);
-        _deptCounts = await EmployeeSvc.ByDepartmentAsync(org.Id);
-
         _attendanceBreakdown = await AttendanceSvc.BreakdownAsync(org.Id, today);
         var total = _attendanceBreakdown.Values.Sum();
         var present = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Present);
@@ -394,16 +217,7 @@
         _pendingLeave = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Pending);
         _approvedThisMonth = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Approved && l.ReviewedAt?.Month == today.Month && l.ReviewedAt?.Year == today.Year);
 
-        var pendingPayroll = await PayrollSvc.PendingApprovalsAsync(org.Id);
-        _pendingPayroll = pendingPayroll.Count;
 
-        _stats = await PayrollSvc.GetMonthlyStatsAsync(org.Id, today.Month, today.Year);
-
-        _recentEmployees = await Db.Employees
-            .Where(e => e.OrganizationId == org.Id)
-            .OrderByDescending(e => e.CreatedAt)
-            .Take(5)
-            .ToListAsync();
     }
 
     private static string GetGreeting()
