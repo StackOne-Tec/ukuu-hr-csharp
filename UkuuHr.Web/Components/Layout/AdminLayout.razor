@@ -129,9 +129,9 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">calendar_month</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Shifts</span> }
             </a>
-            <a href="/hikvision" class="bk-admin-sidebar-item @(IsActive("hikvision") ? "active" : "")">
+            <a href="/devices" class="bk-admin-sidebar-item @(IsActive("devices") || IsActive("hikvision") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">fingerprint</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Hikvision</span> }
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Devices</span> }
             </a>
 
             @if (!_collapsed)

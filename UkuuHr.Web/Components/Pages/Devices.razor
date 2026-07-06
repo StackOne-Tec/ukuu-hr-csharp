@@ -1,0 +1,495 @@
+@page "/devices"
+@using Microsoft.EntityFrameworkCore
+@using UkuuHr.Services.Devices
+@inject DeviceSyncOrchestrator Orchestrator
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Device Integration · @_devices.Count devices · @_vendorsSupported vendors supported</div>
+            <h1 class="bk-admin-h1">Attendance Devices</h1>
+            <p class="bk-admin-sub">
+                Connect third-party time & attendance devices (FR-001). Supports 7 vendors × 4 integration modes
+                (REST API, SDK, TCP/IP, CSV file). Sync automatically or on-demand.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-secondary" @onclick="SyncAll">
+                <span class="material-icons-round" style="font-size:16px;">sync</span>
+                Sync All
+            </button>
+            <button class="bk-btn bk-btn-primary" @onclick="() => OpenDeviceDialog(null)">
+                <span class="material-icons-round" style="font-size:16px;">add</span>
+                Add Device
+            </button>
+        </div>
+    </div>
+
+    @* ───── Vendor matrix ───── *@
+    <div class="bk-admin-card" style="margin-bottom:24px;">
+        <div class="bk-admin-card-header">
+            <h3>Supported Vendors (FR-001)</h3>
+            <p>All 7 vendors × 4 integration modes. REST API + CSV are fully functional; SDK + TCP/IP require vendor binaries.</p>
+        </div>
+        <div class="bk-admin-card-content">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+                @foreach (var v in _vendorMatrix)
+                {
+                    <div style="padding:14px;border:1px solid var(--bk-line);border-radius:12px;background:@(v.HasDevices ? "rgba(37,22,63,0.02)" : "transparent");transition:all 0.15s ease;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <div style="width:8px;height:24px;border-radius:2px;background:@v.Color;"></div>
+                            <div style="font-weight:700;font-size:13px;color:var(--bk-ink);">@v.Name</div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:4px;font-size:11px;">
+                            @foreach (var m in v.Modes)
+                            {
+                                <div style="display:flex;align-items:center;gap:6px;color:var(--bk-ink-2);">
+                                    <span class="material-icons-round" style="font-size:12px;color:@(m.Supported ? "var(--bk-success)" : "var(--bk-ink-3)");">@(m.Supported ? "check_circle" : "radio_button_unchecked")</span>
+                                    <span style="@(m.Supported ? "" : "color:var(--bk-ink-3);")">@m.Name</span>
+                                </div>
+                            }
+                        </div>
+                        @if (v.HasDevices)
+                        {
+                            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bk-line);font-size:11px;color:var(--bk-accent);font-weight:600;">
+                                @v.DeviceCount device(s) connected
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ───── KPI cards ───── *@
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon"><span class="material-icons-round">devices</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_devices.Count</div>
+            <div class="bk-admin-kpi-label">Total Devices</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">cloud_done</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_devices.Count(d => d.LastSuccessfulSyncAt.HasValue)</div>
+            <div class="bk-admin-kpi-label">Online</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">sync</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_devices.Sum(d => d.TotalEventsSynced)</div>
+            <div class="bk-admin-kpi-label">Total Events Synced</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon pink"><span class="material-icons-round">error_outline</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_devices.Sum(d => d.TotalSyncErrors)</div>
+            <div class="bk-admin-kpi-label">Sync Errors</div>
+        </div>
+    </div>
+
+    @* ───── Devices list ───── *@
+    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr));">
+        @foreach (var d in _devices)
+        {
+            <div class="bk-admin-card bk-admin-card-hover">
+                <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                    <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
+                        <div style="width:36px;height:36px;border-radius:8px;background:@(d.VendorColor);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">
+                            @(d.Vendor.ToString()[..2].ToUpper())
+                        </div>
+                        <div style="min-width:0;flex:1;">
+                            <h3 style="font-size:14px;font-weight:700;color:var(--bk-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;">@d.Name</h3>
+                            <p style="font-size:11px;color:var(--bk-ink-3);margin:0;">@d.VendorDisplay · @d.ModeDisplay · @(d.Location ?? "No location")</p>
+                        </div>
+                    </div>
+                    <span class="bk-admin-pill @DeviceStatusClass(d)" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">
+                        @d.StatusDisplay
+                    </span>
+                </div>
+                <div class="bk-admin-card-content" style="padding-top:12px;">
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
+                        <span style="font-size:11px;color:var(--bk-ink-3);">Connection</span>
+                        <span style="font-size:12px;font-weight:600;font-family:var(--ukuu-font-mono);">@(d.IpAddress ?? "—")@($":{d.Port ?? 80}")</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
+                        <span style="font-size:11px;color:var(--bk-ink-3);">Last sync</span>
+                        <span style="font-size:12px;font-weight:600;">@d.LastSyncDisplay</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
+                        <span style="font-size:11px;color:var(--bk-ink-3);">Events synced</span>
+                        <span style="font-size:12px;font-weight:600;color:var(--bk-accent);">@d.TotalEventsSynced</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
+                        <span style="font-size:11px;color:var(--bk-ink-3);">Auto-sync</span>
+                        <span style="font-size:12px;font-weight:600;color:@(d.AutoSyncEnabled ? "var(--bk-success)" : "var(--bk-ink-3)");">@(d.AutoSyncEnabled ? $"Every {d.SyncIntervalMinutes} min" : "Off")</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(d.LastErrorMessage))
+                    {
+                        <div style="padding:8px 12px;margin-top:8px;background:rgba(220,38,38,0.06);border-radius:6px;font-size:11px;color:var(--bk-error);line-height:1.4;">
+                            <span class="material-icons-round" style="font-size:12px;vertical-align:middle;">error</span>
+                            @d.LastErrorMessage
+                        </div>
+                    }
+                    <div style="display:flex;gap:6px;margin-top:12px;">
+                        <button class="bk-btn bk-btn-secondary" style="flex:1;font-size:11px;padding:6px 10px;" @onclick="() => TestConnection(d)">
+                            <span class="material-icons-round" style="font-size:13px;">wifi_find</span>
+                            Test
+                        </button>
+                        <button class="bk-btn bk-btn-primary" style="flex:1;font-size:11px;padding:6px 10px;" @onclick="() => SyncDevice(d)">
+                            <span class="material-icons-round" style="font-size:13px;">sync</span>
+                            Sync
+                        </button>
+                        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;" @onclick="() => OpenDeviceDialog(d)">
+                            <span class="material-icons-round" style="font-size:13px;">edit</span>
+                        </button>
+                        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;color:var(--bk-error);" @onclick="() => DeleteDevice(d)">
+                            <span class="material-icons-round" style="font-size:13px;">delete</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (_devices.Count == 0)
+        {
+            <div class="bk-admin-card" style="grid-column:1/-1;text-align:center;padding:48px 24px;">
+                <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">devices</span>
+                <h3 style="margin-top:16px;">No devices configured yet</h3>
+                <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Add your first attendance device to start syncing clock events.</p>
+                <button class="bk-btn bk-btn-primary" @onclick="() => OpenDeviceDialog(null)">
+                    <span class="material-icons-round" style="font-size:16px;">add</span>
+                    Add First Device
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@* ───── Device create/edit dialog ───── *@
+@if (_showDeviceDialog)
+{
+    <div class="bk-modal-backdrop" @onclick="CloseDeviceDialog">
+        <div class="bk-modal" @onclick:stopPropagation style="max-width:640px;">
+            <div class="bk-modal-header">
+                <h3>@(_editingDevice?.Id > 0 ? "Edit Device" : "New Attendance Device")</h3>
+                <button class="bk-modal-close" @onclick="CloseDeviceDialog"><span class="material-icons-round">close</span></button>
+            </div>
+            <div class="bk-modal-body">
+                <EditForm Model="@_deviceForm" OnValidSubmit="SaveDevice">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Device Name *</label>
+                            <InputText class="bk-input" @bind-Value="_deviceForm.Name" placeholder="e.g. Main Entrance — Hikvision" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Vendor *</label>
+                            <InputSelect class="bk-input" @bind-Value="_deviceForm.Vendor">
+                                @foreach (var v in Enum.GetValues<DeviceVendor>())
+                                {
+                                    <option value="@v">@v</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Integration Mode *</label>
+                            <InputSelect class="bk-input" @bind-Value="_deviceForm.Mode">
+                                @foreach (var m in Enum.GetValues<DeviceIntegrationMode>())
+                                {
+                                    <option value="@m">@m</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        @if (_deviceForm.Mode != DeviceIntegrationMode.CsvFile)
+                        {
+                            <div class="bk-field">
+                                <label class="bk-label">IP Address</label>
+                                <InputText class="bk-input" @bind-Value="_deviceForm.IpAddress" placeholder="192.168.1.100" />
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Port</label>
+                                <InputNumber class="bk-input" @bind-Value="_deviceForm.Port" placeholder="80" />
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Username</label>
+                                <InputText class="bk-input" @bind-Value="_deviceForm.Username" placeholder="admin" />
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Password / API Key</label>
+                                <InputText class="bk-input" type="password" @bind-Value="_deviceForm.Password" placeholder="••••••••" />
+                            </div>
+                        }
+                        <div class="bk-field">
+                            <label class="bk-label">Device Serial</label>
+                            <InputText class="bk-input" @bind-Value="_deviceForm.DeviceSerial" placeholder="DS-K1T804MF-..." />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Location</label>
+                            <InputText class="bk-input" @bind-Value="_deviceForm.Location" placeholder="Main entrance, 2nd floor" />
+                        </div>
+                        @if (_deviceForm.Mode == DeviceIntegrationMode.CsvFile)
+                        {
+                            <div class="bk-field" style="grid-column:1/-1;">
+                                <label class="bk-label">CSV File Path (in ConnectionJson)</label>
+                                <InputText class="bk-input" @bind-Value="_csvFilePath" placeholder="/var/data/device-export.csv" />
+                                <small style="color:var(--bk-ink-3);font-size:11px;display:block;margin-top:4px;">
+                                    CSV format: <code style="font-family:var(--ukuu-font-mono);">EmployeeCode,EventTime,EventType,VerifyMode</code>
+                                </small>
+                            </div>
+                        }
+                        <div class="bk-field">
+                            <label class="bk-label">Auto-Sync Interval (minutes)</label>
+                            <InputNumber class="bk-input" @bind-Value="_deviceForm.SyncIntervalMinutes" />
+                        </div>
+                        <div class="bk-field" style="display:flex;align-items:center;gap:8px;padding-top:24px;">
+                            <InputCheckbox @bind-Value="_deviceForm.AutoSyncEnabled" id="autoSync" />
+                            <label for="autoSync" style="font-size:13px;color:var(--bk-ink-2);">Enable automatic sync</label>
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                        <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseDeviceDialog">Cancel</button>
+                        <button type="submit" class="bk-btn bk-btn-primary">
+                            <span class="material-icons-round" style="font-size:16px;">save</span>
+                            @(_editingDevice?.Id > 0 ? "Update Device" : "Add Device")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AttendanceDevice> _devices = new();
+    private int _orgId;
+    private const int _vendorsSupported = 7;
+
+    // Vendor matrix data (computed once).
+    private List<VendorMatrixItem> _vendorMatrix = new();
+
+    // Dialog state.
+    private bool _showDeviceDialog;
+    private AttendanceDevice? _editingDevice;
+    private AttendanceDevice _deviceForm = new();
+    private string _csvFilePath = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        await LoadData();
+        BuildVendorMatrix();
+    }
+
+    private async Task LoadData()
+    {
+        _devices = await Db.AttendanceDevices.Where(d => d.OrganizationId == _orgId).OrderByDescending(d => d.CreatedAt).ToListAsync();
+    }
+
+    private void BuildVendorMatrix()
+    {
+        var vendors = Enum.GetValues<DeviceVendor>();
+        var modes = Enum.GetValues<DeviceIntegrationMode>();
+        _vendorMatrix = vendors.Select(v => new VendorMatrixItem
+        {
+            Name = v.ToString(),
+            Color = GetVendorColor(v),
+            Modes = modes.Select(m => new ModeMatrixItem
+            {
+                Name = m switch
+                {
+                    DeviceIntegrationMode.RestApi => "REST API",
+                    DeviceIntegrationMode.Sdk => "SDK",
+                    DeviceIntegrationMode.TcpIp => "TCP/IP",
+                    DeviceIntegrationMode.CsvFile => "CSV File",
+                    _ => m.ToString()
+                },
+                Supported = m == DeviceIntegrationMode.RestApi || m == DeviceIntegrationMode.CsvFile
+            }).ToList(),
+            HasDevices = _devices.Any(d => d.Vendor == v),
+            DeviceCount = _devices.Count(d => d.Vendor == v)
+        }).ToList();
+    }
+
+    private static string GetVendorColor(DeviceVendor v) => v switch
+    {
+        DeviceVendor.Hikvision => "#D92136",
+        DeviceVendor.ZKTeco => "#0066B3",
+        DeviceVendor.Suprema => "#00A651",
+        DeviceVendor.Dahua => "#E2231A",
+        DeviceVendor.Anviz => "#0080FF",
+        DeviceVendor.Matrix => "#FF6600",
+        DeviceVendor.eSSL => "#6E5F92",
+        _ => "#6B7280"
+    };
+
+    private void OpenDeviceDialog(AttendanceDevice? existing)
+    {
+        _editingDevice = existing;
+        if (existing != null)
+        {
+            _deviceForm = new AttendanceDevice
+            {
+                Id = existing.Id,
+                Name = existing.Name,
+                Vendor = existing.Vendor,
+                Mode = existing.Mode,
+                IpAddress = existing.IpAddress,
+                Port = existing.Port,
+                Username = existing.Username,
+                Password = existing.Password,
+                DeviceSerial = existing.DeviceSerial,
+                Location = existing.Location,
+                AutoSyncEnabled = existing.AutoSyncEnabled,
+                SyncIntervalMinutes = existing.SyncIntervalMinutes,
+                IsActive = existing.IsActive,
+                ConnectionJson = existing.ConnectionJson
+            };
+            // Try to extract CSV path from ConnectionJson.
+            if (!string.IsNullOrEmpty(existing.ConnectionJson))
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(existing.ConnectionJson);
+                    _csvFilePath = doc.RootElement.TryGetProperty("filePath", out var p) ? p.GetString() ?? "" : "";
+                }
+                catch { _csvFilePath = ""; }
+            }
+        }
+        else
+        {
+            _deviceForm = new AttendanceDevice
+            {
+                Vendor = DeviceVendor.Hikvision,
+                Mode = DeviceIntegrationMode.RestApi,
+                Username = "admin",
+                Port = 80,
+                AutoSyncEnabled = true,
+                SyncIntervalMinutes = 5,
+                IsActive = true
+            };
+            _csvFilePath = "";
+        }
+        _showDeviceDialog = true;
+    }
+
+    private void CloseDeviceDialog() => _showDeviceDialog = false;
+
+    private async Task SaveDevice()
+    {
+        try
+        {
+            // For CSV mode, store the file path in ConnectionJson.
+            if (_deviceForm.Mode == DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(_csvFilePath))
+            {
+                _deviceForm.ConnectionJson = $"{{\"filePath\":\"{_csvFilePath}\"}}";
+            }
+
+            if (_editingDevice != null && _editingDevice.Id > 0)
+            {
+                var existing = await Db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == _editingDevice.Id);
+                if (existing != null)
+                {
+                    existing.Name = _deviceForm.Name;
+                    existing.Vendor = _deviceForm.Vendor;
+                    existing.Mode = _deviceForm.Mode;
+                    existing.IpAddress = _deviceForm.IpAddress;
+                    existing.Port = _deviceForm.Port;
+                    existing.Username = _deviceForm.Username;
+                    existing.Password = _deviceForm.Password;
+                    existing.DeviceSerial = _deviceForm.DeviceSerial;
+                    existing.Location = _deviceForm.Location;
+                    existing.ConnectionJson = _deviceForm.ConnectionJson;
+                    existing.AutoSyncEnabled = _deviceForm.AutoSyncEnabled;
+                    existing.SyncIntervalMinutes = _deviceForm.SyncIntervalMinutes;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                }
+                Snackbar.Add($"Device '{_deviceForm.Name}' updated.", Severity.Success);
+            }
+            else
+            {
+                _deviceForm.OrganizationId = _orgId;
+                _deviceForm.CreatedAt = DateTime.UtcNow;
+                _deviceForm.CreatedByEmail = "admin@ukuuhr.demo";
+                Db.AttendanceDevices.Add(_deviceForm);
+                Snackbar.Add($"Device '{_deviceForm.Name}' added.", Severity.Success);
+            }
+            await Db.SaveChangesAsync();
+            _showDeviceDialog = false;
+            await LoadData();
+            BuildVendorMatrix();
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task DeleteDevice(AttendanceDevice d)
+    {
+        Db.AttendanceDevices.Remove(d);
+        await Db.SaveChangesAsync();
+        Snackbar.Add($"Device '{d.Name}' removed.", Severity.Info);
+        await LoadData();
+        BuildVendorMatrix();
+    }
+
+    private async Task TestConnection(AttendanceDevice d)
+    {
+        Snackbar.Add($"Testing connection to {d.Name}...", Severity.Info);
+        var (reachable, error) = await Orchestrator.PingAsync(_orgId, d.Id);
+        if (reachable)
+            Snackbar.Add($"✓ {d.Name} is reachable.", Severity.Success);
+        else
+            Snackbar.Add($"✗ {d.Name}: {error}", Severity.Error);
+    }
+
+    private async Task SyncDevice(AttendanceDevice d)
+    {
+        Snackbar.Add($"Syncing {d.Name}...", Severity.Info);
+        var result = await Orchestrator.SyncDeviceAsync(_orgId, d.Id);
+        if (result.Success)
+            Snackbar.Add($"✓ {d.Name}: {result.EventsFetched} fetched, {result.EventsImported} imported, {result.DuplicatesSkipped} duplicates.", Severity.Success);
+        else
+            Snackbar.Add($"✗ {d.Name}: {result.ErrorMessage}", Severity.Error);
+        await LoadData();
+        BuildVendorMatrix();
+    }
+
+    private async Task SyncAll()
+    {
+        Snackbar.Add($"Syncing all active devices...", Severity.Info);
+        var results = await Orchestrator.SyncAllDevicesAsync(_orgId);
+        var ok = results.Count(r => r.Success);
+        var fail = results.Count - ok;
+        Snackbar.Add($"Sync complete: {ok} succeeded, {fail} failed.", ok > 0 ? Severity.Success : Severity.Warning);
+        await LoadData();
+    }
+
+    private static string DeviceStatusClass(AttendanceDevice d) => d.StatusDisplay switch
+    {
+        "Online" => "approved",
+        "Error" => "rejected",
+        "Disabled" => "inactive",
+        _ => "pending"
+    };
+
+    // ───── Helper classes ─────
+    private sealed class VendorMatrixItem
+    {
+        public string Name { get; set; } = "";
+        public string Color { get; set; } = "#6B7280";
+        public List<ModeMatrixItem> Modes { get; set; } = new();
+        public bool HasDevices { get; set; }
+        public int DeviceCount { get; set; }
+    }
+    private sealed class ModeMatrixItem
+    {
+        public string Name { get; set; } = "";
+        public bool Supported { get; set; }
+    }
+}

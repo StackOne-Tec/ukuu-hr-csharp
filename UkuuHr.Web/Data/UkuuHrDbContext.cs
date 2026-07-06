@@ -37,6 +37,10 @@ public class UkuuHrDbContext : DbContext
     public DbSet<Shift> Shifts => Set<Shift>();
     public DbSet<EmployeeShiftAssignment> EmployeeShiftAssignments => Set<EmployeeShiftAssignment>();
 
+    // ───── Phase 3 additions (FR-001 — multi-vendor device integration) ─────
+    public DbSet<AttendanceDevice> AttendanceDevices => Set<AttendanceDevice>();
+    public DbSet<UnifiedClockEvent> UnifiedClockEvents => Set<UnifiedClockEvent>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
@@ -268,6 +272,42 @@ public class UkuuHrDbContext : DbContext
             e.HasIndex(a => new { a.OrganizationId, a.ShiftId });
             e.HasIndex(a => new { a.EmployeeId, a.IsActive });
             e.Ignore(a => a.EffectiveDaysMask);
+        });
+
+        // ───── Phase 3: FR-001 — Multi-vendor devices ─────
+
+        // AttendanceDevice
+        b.Entity<AttendanceDevice>(e =>
+        {
+            e.HasIndex(d => new { d.OrganizationId, d.IsActive });
+            e.HasIndex(d => new { d.OrganizationId, d.Vendor });
+            e.HasIndex(d => new { d.OrganizationId, d.IpAddress });
+            e.Property(d => d.Vendor).HasConversion<string>();
+            e.Property(d => d.Mode).HasConversion<string>();
+            e.Property(d => d.IsActive).HasDefaultValue(true);
+            e.Property(d => d.AutoSyncEnabled).HasDefaultValue(true);
+            // Ignore computed display helpers.
+            e.Ignore(d => d.VendorDisplay);
+            e.Ignore(d => d.ModeDisplay);
+            e.Ignore(d => d.StatusDisplay);
+            e.Ignore(d => d.LastSyncDisplay);
+            e.Ignore(d => d.LastSuccessfulSyncDisplay);
+            e.Ignore(d => d.VendorColor);
+        });
+
+        // UnifiedClockEvent
+        b.Entity<UnifiedClockEvent>(e =>
+        {
+            e.HasIndex(c => new { c.OrganizationId, c.EventTime });
+            e.HasIndex(c => new { c.OrganizationId, c.Vendor });
+            e.HasIndex(c => new { c.DeviceId, c.EventTime });
+            e.HasIndex(c => new { c.EmployeeId, c.EventTime });
+            e.HasIndex(c => c.IsProcessed);
+            e.Property(c => c.Vendor).HasConversion<string>();
+            e.Property(c => c.EventType).HasConversion<string>();
+            e.Ignore(c => c.EventTimeDisplay);
+            e.Ignore(c => c.EventTypeDisplay);
+            e.Ignore(c => c.VendorDisplay);
         });
     }
 }

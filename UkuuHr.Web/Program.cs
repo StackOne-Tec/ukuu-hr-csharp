@@ -136,6 +136,64 @@ builder.Services.AddScoped<ShiftService>();
 // ───── Phase 2: FR-006 / FR-007 / FR-008 — Overtime & Holidays ─────
 builder.Services.AddScoped<HolidayService>();
 
+// ───── Phase 3: FR-001 — Multi-vendor device integration ─────
+// Register all 7 vendor REST connectors + the shared CSV connector + SDK/TCP stubs.
+builder.Services.AddScoped<UkuuHr.Services.Devices.HikvisionRestConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.ZKTecoRestConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.SupremaRestConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.DahuaRestConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.AnvizRestConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.MatrixRestConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.EsslRestConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.CsvConnector>();
+// SDK + TCP stubs (return clear "install vendor SDK" error until overridden).
+builder.Services.AddScoped<UkuuHr.Services.Devices.ZKTecoSdkConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.SupremaSdkConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.AnvizSdkConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.MatrixSdkConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.EsslSdkConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.DahuaSdkConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.SupremaTcpConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.MatrixTcpConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.EsslTcpConnector>();
+builder.Services.AddScoped<UkuuHr.Services.Devices.AnvizTcpConnector>();
+
+// Register the connector registry + orchestrator as singletons.
+builder.Services.AddSingleton<UkuuHr.Services.Devices.IDeviceConnectorRegistry>(sp =>
+{
+    var connectors = new List<UkuuHr.Services.Devices.IDeviceConnector>();
+    // The CsvConnector is vendor-agnostic — register it for ALL vendors under the CsvFile mode.
+    var csv = sp.GetRequiredService<UkuuHr.Services.Devices.CsvConnector>();
+    foreach (var vendor in Enum.GetValues<UkuuHr.Models.DeviceVendor>())
+    {
+        // Create a vendor-specific wrapper.
+        connectors.Add(new UkuuHr.Services.Devices.VendorSpecificCsvAdapter(csv, vendor));
+    }
+    // REST connectors — one per vendor.
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.HikvisionRestConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.ZKTecoRestConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.SupremaRestConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.DahuaRestConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.AnvizRestConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.MatrixRestConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.EsslRestConnector>());
+    // SDK stubs.
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.ZKTecoSdkConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.SupremaSdkConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.AnvizSdkConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.MatrixSdkConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.EsslSdkConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.DahuaSdkConnector>());
+    // TCP stubs.
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.SupremaTcpConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.MatrixTcpConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.EsslTcpConnector>());
+    connectors.Add(sp.GetRequiredService<UkuuHr.Services.Devices.AnvizTcpConnector>());
+
+    return new UkuuHr.Services.Devices.DeviceConnectorRegistry(connectors);
+});
+builder.Services.AddScoped<UkuuHr.Services.Devices.DeviceSyncOrchestrator>();
+
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();
 

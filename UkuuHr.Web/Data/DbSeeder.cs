@@ -16,9 +16,10 @@ public static class DbSeeder
 
         if (await db.Organizations.AnyAsync()) 
         {
-            // Main seed already ran — make sure Phase 1 + Phase 2 additions are present too.
+            // Main seed already ran — make sure Phase 1 + Phase 2 + Phase 3 additions are present too.
             await Phase1Seeder.SeedAsync(db);
             await Phase2Seeder.SeedAsync(db);
+            await Phase3Seeder.SeedAsync(db);
             return;
         }
 
@@ -679,5 +680,8 @@ public static class DbSeeder
 
         // ───── Phase 2: FR-006 / FR-007 / FR-008 — Holiday calendar ─────
         await Phase2Seeder.SeedAsync(db);
+
+        // ───── Phase 3: FR-001 — Multi-vendor device integration ─────
+        await Phase3Seeder.SeedAsync(db);
     }
 }

@@ -218,6 +218,70 @@ cd UkuuHr.Tests
 dotnet test  # 27 tests covering tolerance, overnight, rotation, duplicates, validation
 ```
 
+## 🆕 Phase 2 — FR-006 / FR-007 / FR-008 (Overtime & Holidays)
+
+| FRS Requirement | Module | Files |
+|---|---|---|
+| **FR-006** Overtime Management | Existing OvertimeService with approval workflow | `Services/HikvisionSyncService.cs` |
+| **FR-007** Overtime Classification | Weekday / Weekend / Public Holiday rate-type cards on /overtime | `Components/Pages/Overtime.razor` |
+| **FR-008** Holiday Management | CRUD + CSV import + Zambia holiday seeder | `Services/HolidayService.cs`, `Components/Pages/Holidays.razor`, `Data/Phase2Seeder.cs` |
+
+## 🆕 Phase 3 — FR-001 Third-Party Device Integration
+
+| Vendor | REST API | SDK | TCP/IP | CSV File |
+|---|---|---|---|---|
+| Hikvision | ✓ (ISAPI) | stub | stub | ✓ |
+| ZKTeco | ✓ (HTTP API) | stub | stub | ✓ |
+| Suprema | ✓ (BioStar 2) | stub | stub | ✓ |
+| Dahua | ✓ (recordFinder) | stub | stub | ✓ |
+| Anviz | ✓ (Cloud v2) | stub | stub | ✓ |
+| Matrix | ✓ (COSEC) | stub | stub | ✓ |
+| eSSL | ✓ (getdata.cgi) | stub | stub | ✓ |
+
+### Architecture
+
+```
+AttendanceDevice (DB) ─┐
+                       ├─→ DeviceSyncOrchestrator ─→ IDeviceConnectorRegistry
+                       │                                  ├─→ HikvisionRestConnector
+UnifiedClockEvent (DB) ┘                                  ├─→ ZKTecoRestConnector
+                                                          ├─→ SupremaRestConnector
+                                                          ├─→ DahuaRestConnector
+                                                          ├─→ AnvizRestConnector
+                                                          ├─→ MatrixRestConnector
+                                                          ├─→ EsslRestConnector
+                                                          ├─→ VendorSpecificCsvAdapter (×7)
+                                                          ├─→ *SdkConnector (×6 stubs)
+                                                          └─→ *TcpConnector (×4 stubs)
+```
+
+### Vendor Connector Contract
+
+```csharp
+public interface IDeviceConnector {
+    DeviceVendor Vendor { get; }
+    DeviceIntegrationMode Mode { get; }
+    Task<(bool reachable, string? error)> PingAsync(AttendanceDevice device, CancellationToken ct = default);
+    Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default);
+}
+```
+
+Each REST connector parses vendor-specific payloads (XML/JSON/key=value) into `NormalizedClockEvent` records. The orchestrator persists events into `UnifiedClockEvent` with duplicate detection (same employee + type + 60-second window).
+
+### Phase 3 Routes
+
+| Path | Page |
+|---|---|
+| `/devices` | Unified device management — vendor matrix, device cards, sync/test/edit/delete |
+
+### Phase 3 Tests
+
+44 total tests (27 Phase 1 + 17 Phase 3) covering all 7 vendor parsers + CSV connector + registry + SDK/TCP stubs.
+
+```bash
+cd UkuuHr.Tests && dotnet test
+```
+
 ## ⚠️ Notes
 
 - The original Dart project uses Firebase; this C# rebuild uses EF Core + SQLite for simplicity and zero external service dependencies.
