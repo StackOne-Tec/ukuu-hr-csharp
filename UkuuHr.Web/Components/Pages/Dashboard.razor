@@ -349,7 +349,6 @@
     private int _pendingLeave;
     private int _approvedThisMonth;
     private int _pendingPayroll;
-    private double _monthlyPayroll;
     private double _attendanceToday;
     private double _attendancePct;
     private Dictionary<string, int> _deptCounts = new();
@@ -380,7 +379,6 @@
         _totalEmployees = await EmployeeSvc.CountAsync(org.Id);
         _activeEmployees = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Active);
         _onProbation = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Probation);
-        _monthlyPayroll = await EmployeeSvc.TotalPayrollAsync(org.Id);
         _deptCounts = await EmployeeSvc.ByDepartmentAsync(org.Id);
 
         _attendanceBreakdown = await AttendanceSvc.BreakdownAsync(org.Id, today);
