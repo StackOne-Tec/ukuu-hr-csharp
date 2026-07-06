@@ -1,0 +1,559 @@
+@page "/signup"
+@layout UkuuHr.Components.Layout.PublicLayout
+@attribute [AllowAnonymous]
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<div class="bk-auth">
+    @* ─────────── LEFT: Visual panel ─────────── *@
+    <aside class="bk-auth-visual">
+        <div class="bk-auth-visual-bg"></div>
+        <a href="/landing" class="bk-auth-brand" style="text-decoration:none;color:inherit;">
+            <div class="bk-auth-brand-logo">U</div>
+            <div>
+                <div class="bk-auth-brand-name">UKUU HR</div>
+                <div class="bk-auth-brand-tag">HRMS Platform</div>
+            </div>
+        </a>
+
+        <div class="bk-auth-visual-mid">
+            <span class="bk-auth-visual-eyebrow">Create your workspace · Free to start</span>
+            <h1>Your workforce, <span class="bk-word-outline">unified</span> in one platform.</h1>
+            <p class="bk-auth-visual-lead">
+                Get a complete HR platform — employees, attendance, leave, payroll, and statutory compliance.
+                Set up your organization in minutes, not weeks.
+            </p>
+            <div class="bk-auth-visual-stats" style="margin-top:32px;">
+                <div><strong>7</strong><span>User roles</span></div>
+                <div><strong>13</strong><span>Workspace modules</span></div>
+                <div><strong>3</strong><span>Country payrolls</span></div>
+                <div><strong>99.9%</strong><span>Uptime SLA</span></div>
+            </div>
+        </div>
+
+        <div class="bk-auth-visual-foot">
+            <div class="bk-auth-quote">
+                <p>"The onboarding wizard alone saved us a week. New hires are added with banking and statutory details in 4 steps — payroll preview included."</p>
+                <div class="bk-auth-quote-foot">
+                    <div class="bk-auth-quote-avatar">U</div>
+                    <div>
+                        <strong>Ukuu HR</strong>
+                        <div>HRMS Platform</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bk-auth-testimonial-row">
+                <div class="bk-auth-testimonial-dot"></div>
+                <div class="bk-auth-testimonial-dot active"></div>
+                <div class="bk-auth-testimonial-dot"></div>
+            </div>
+        </div>
+    </aside>
+
+    @* ─────────── RIGHT: Form panel ─────────── *@
+    <main class="bk-auth-form-side">
+        <a href="/landing" class="bk-auth-back">
+            <span class="material-icons-round" style="font-size:14px;">arrow_back</span>
+            Back to home
+        </a>
+
+        <div class="bk-auth-card bk-fade-in" style="max-width:520px;">
+
+            @* Mobile brand *@
+            <a href="/landing" class="bk-auth-mobile-brand">
+                <div class="bk-auth-brand-logo">U</div>
+                <div>
+                    <div class="bk-auth-brand-name" style="color:var(--bk-ink);">UKUU HR</div>
+                    <div class="bk-auth-brand-tag">HRMS Platform</div>
+                </div>
+            </a>
+
+            @* Header *@
+            <div class="bk-auth-header">
+                <span class="bk-auth-eyebrow">Get started free</span>
+                <h1 class="bk-auth-h1">Create your account</h1>
+                <p class="bk-auth-sub">Set up your HR workspace. Already have one? <a href="/login" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">Sign in</a></p>
+            </div>
+
+            @* Error messages *@
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div style="margin-bottom:16px;padding:12px 16px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:10px;color:#991b1b;font-size:13px;display:flex;align-items:flex-start;gap:10px;animation:bk-slide-up 0.3s ease;">
+                    <span class="material-icons-round" style="font-size:18px;flex-shrink:0;margin-top:1px;">error_outline</span>
+                    <span>@_error</span>
+                </div>
+            }
+
+            <EditForm Model="@_form" OnValidSubmit="@HandleSignUp">
+                <DataAnnotationsValidator />
+
+                @* Name row *@
+                <div class="bk-field-group" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div class="bk-field">
+                        <label class="bk-label" for="firstName">First name <span style="color:var(--bk-error);">*</span></label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon" style="font-size:18px;">person_outline</span>
+                            <InputText id="firstName" class="bk-input" style="padding-left:36px;" @bind-Value="_form.FirstName" placeholder="James" />
+                        </div>
+                        <ValidationMessage For="@(() => _form.FirstName)" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label" for="lastName">Last name <span style="color:var(--bk-error);">*</span></label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon" style="font-size:18px;">person_outline</span>
+                            <InputText id="lastName" class="bk-input" style="padding-left:36px;" @bind-Value="_form.LastName" placeholder="Mwale" />
+                        </div>
+                        <ValidationMessage For="@(() => _form.LastName)" />
+                    </div>
+                </div>
+
+                @* Email *@
+                <div class="bk-field">
+                    <label class="bk-label" for="email">Work email <span style="color:var(--bk-error);">*</span></label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">mail_outline</span>
+                        <InputText id="email" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Email" placeholder="you@company.com" />
+                    </div>
+                    <ValidationMessage For="@(() => _form.Email)" />
+                </div>
+
+                @* Phone *@
+                <div class="bk-field">
+                    <label class="bk-label" for="phone">Phone number</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">phone</span>
+                        <InputText id="phone" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Phone" placeholder="+260 97 123 4567" />
+                    </div>
+                </div>
+
+                @* Organization *@
+                <div class="bk-field">
+                    <label class="bk-label" for="orgName">Organization name <span style="color:var(--bk-error);">*</span></label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">business</span>
+                        <InputText id="orgName" class="bk-input" style="padding-left:36px;" @bind-Value="_form.OrganizationName" placeholder="Acme Ltd" />
+                    </div>
+                    <ValidationMessage For="@(() => _form.OrganizationName)" />
+                </div>
+
+                @* Country & Industry *@
+                <div class="bk-field-group" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div class="bk-field">
+                        <label class="bk-label" for="country">Country <span style="color:var(--bk-error);">*</span></label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon" style="font-size:18px;">public</span>
+                            <InputSelect id="country" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Country">
+                                <option value="">Select country</option>
+                                <option value="Zambia">Zambia</option>
+                                <option value="Tanzania">Tanzania</option>
+                                <option value="Malawi">Malawi</option>
+                                <option value="Kenya">Kenya</option>
+                                <option value="South Africa">South Africa</option>
+                                <option value="Nigeria">Nigeria</option>
+                                <option value="Uganda">Uganda</option>
+                                <option value="Ghana">Ghana</option>
+                            </InputSelect>
+                        </div>
+                        <ValidationMessage For="@(() => _form.Country)" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label" for="industry">Industry</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon" style="font-size:18px;">factory</span>
+                            <InputSelect id="industry" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Industry">
+                                <option value="">Select industry</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Finance & Banking">Finance & Banking</option>
+                                <option value="Healthcare">Healthcare</option>
+                                <option value="Education">Education</option>
+                                <option value="Manufacturing">Manufacturing</option>
+                                <option value="Retail & E-commerce">Retail & E-commerce</option>
+                                <option value="Agriculture">Agriculture</option>
+                                <option value="Non-profit">Non-profit</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                @* Employee count *@
+                <div class="bk-field">
+                    <label class="bk-label" for="empCount">Number of employees</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">groups</span>
+                        <InputSelect id="empCount" class="bk-input" style="padding-left:36px;" @bind-Value="_form.EmployeeCount">
+                            <option value="1-10">1–10 employees</option>
+                            <option value="11-50">11–50 employees</option>
+                            <option value="51-200">51–200 employees</option>
+                            <option value="201-500">201–500 employees</option>
+                            <option value="500+">500+ employees</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                @* Password with strength indicator *@
+                <div class="bk-field">
+                    <label class="bk-label" for="password">Create password <span style="color:var(--bk-error);">*</span></label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">lock_outline</span>
+                        <InputText id="password" type="password" class="bk-input" style="padding-left:36px;padding-right:48px;" @bind-Value="_form.Password" placeholder="Create a strong password" />
+                        <button type="button" class="bk-input-toggle" @onclick="TogglePasswordVisibility" aria-label="Toggle password visibility" style="cursor:pointer;">
+                            <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">@(_showPassword ? "visibility_off" : "visibility")</span>
+                        </button>
+                    </div>
+                    @* Password strength bar *@
+                    <div style="margin-top:8px;display:flex;gap:6px;">
+                        @for (int i = 0; i < 4; i++)
+                        {
+                            <div style="flex:1;height:4px;border-radius:4px;background:var(--bk-line);overflow:hidden;transition:all 0.3s ease;">
+                                <div style="height:100%;width:100%;border-radius:4px;background:@(_passwordStrength > i ? _passwordStrengthColor : "transparent");transition:all 0.3s ease;"></div>
+                            </div>
+                        }
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+                        <small style="color:var(--bk-ink-3);font-size:11px;">@_passwordHint</small>
+                        @if (_passwordStrength > 0)
+                        {
+                            <small style="font-size:11px;font-weight:600;color:@_passwordStrengthColor;">@_passwordLabel</small>
+                        }
+                    </div>
+                    <ValidationMessage For="@(() => _form.Password)" />
+                </div>
+
+                @* Confirm password *@
+                <div class="bk-field">
+                    <label class="bk-label" for="confirmPassword">Confirm password <span style="color:var(--bk-error);">*</span></label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">lock_outline</span>
+                        <InputText id="confirmPassword" type="password" class="bk-input" style="padding-left:36px;" @bind-Value="_form.ConfirmPassword" placeholder="Repeat your password" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(_form.ConfirmPassword) && _form.Password != _form.ConfirmPassword)
+                    {
+                        <small style="color:var(--bk-error);font-size:11px;margin-top:4px;display:block;">
+                            <span class="material-icons-round" style="font-size:12px;vertical-align:middle;">error</span>
+                            Passwords do not match
+                        </small>
+                    }
+                </div>
+
+                @* Terms checkbox *@
+                <label class="bk-check-row" style="margin-top:16px;align-items:flex-start;">
+                    <input type="checkbox" @bind="_agreed" class="bk-check" style="margin-top:2px;" />
+                    <span class="bk-check-label" style="font-size:13px;">
+                        I agree to the <a href="#" class="bk-auth-link">Terms of Service</a> and
+                        <a href="#" class="bk-auth-link">Privacy Policy</a>. I understand that my
+                        workspace will be set up immediately upon registration.
+                    </span>
+                </label>
+                @if (_showTermsError)
+                {
+                    <small style="color:var(--bk-error);font-size:11px;display:block;margin-top:4px;">
+                        <span class="material-icons-round" style="font-size:12px;vertical-align:middle;">error</span>
+                        You must agree to the terms to continue
+                    </small>
+                }
+
+                @* Submit button *@
+                <button type="submit" class="bk-auth-submit" disabled="@_isSubmitting" style="margin-top:20px;@(_isSubmitting ? "opacity:0.7;cursor:not-allowed;" : "")">
+                    @if (_isSubmitting)
+                    {
+                        <span class="material-icons-round" style="font-size:18px;animation:bk-spin 1s linear infinite;">sync</span>
+                        <span>Creating your workspace…</span>
+                    }
+                    else
+                    {
+                        <span>Create your workspace</span>
+                        <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
+                    }
+                </button>
+            </EditForm>
+
+            @* Divider *@
+            <div class="bk-divider"><span>or continue with</span></div>
+
+            @* Social buttons *@
+            <div class="bk-social-grid">
+                <button type="button" class="bk-social-btn" @onclick="() => Snackbar.Add(\"Google sign-up coming soon.\", Severity.Info)">
+                    <span class="bk-social-icon bk-social-icon-google"></span>
+                    Google
+                </button>
+                <button type="button" class="bk-social-btn" @onclick="() => Snackbar.Add(\"Microsoft sign-up coming soon.\", Severity.Info)">
+                    <span class="bk-social-icon bk-social-icon-ms">
+                        <span></span><span></span><span></span><span></span>
+                    </span>
+                    Microsoft
+                </button>
+                <button type="button" class="bk-social-btn" @onclick="() => Snackbar.Add(\"GitHub sign-up coming soon.\", Severity.Info)">
+                    <span class="bk-social-icon" style="background:#24292e;color:white;font-size:14px;font-weight:700;border-radius:50%;display:flex;align-items:center;justify-content:center;">G</span>
+                    GitHub
+                </button>
+            </div>
+
+            @* Feature highlights *@
+            <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--bk-ink-2);">
+                    <span class="material-icons-round" style="font-size:16px;color:var(--bk-success);">check_circle</span>
+                    Free 14-day trial
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--bk-ink-2);">
+                    <span class="material-icons-round" style="font-size:16px;color:var(--bk-success);">check_circle</span>
+                    No credit card required
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--bk-ink-2);">
+                    <span class="material-icons-round" style="font-size:16px;color:var(--bk-success);">check_circle</span>
+                    Workspace ready in 2 minutes
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--bk-ink-2);">
+                    <span class="material-icons-round" style="font-size:16px;color:var(--bk-success);">check_circle</span>
+                    Cancel anytime
+                </div>
+            </div>
+
+            @* Footer *@
+            <div class="bk-auth-footer" style="margin-top:16px;">
+                Already have an account? <a href="/login" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">Sign in</a>
+            </div>
+        </div>
+    </main>
+</div>
+
+@* Inline styles + keyframes *@
+<style>
+    .bk-auth { min-height: 100vh; display: flex; }
+    .bk-auth-visual {
+        flex: 0 0 480px; position: relative;
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 30%, #25163F 60%, #4A3C68 100%);
+        display: flex; flex-direction: column; padding: 36px 40px; overflow: hidden;
+    }
+    .bk-auth-visual::before {
+        content: ''; position: absolute; inset: 0;
+        background: radial-gradient(ellipse at 20% 30%, rgba(108,99,255,0.15) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 80%, rgba(216,156,17,0.08) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    .bk-auth-visual::after {
+        content: ''; position: absolute; inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        pointer-events: none; opacity: 0.5;
+    }
+    .bk-auth-visual-brand { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; margin-bottom: auto; }
+    .bk-auth-visual-mid { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .bk-auth-visual-mid h1 { font-size: 32px; font-weight: 800; color: #FCFBFF; line-height: 1.2; margin: 12px 0 16px; }
+    .bk-auth-visual-mid .bk-auth-visual-lead { font-size: 14px; color: rgba(252,251,255,0.65); line-height: 1.6; max-width: 400px; }
+    .bk-auth-visual-foot { position: relative; z-index: 1; margin-top: auto; }
+    .bk-auth-visual-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .bk-auth-visual-stats div { background: rgba(252,251,255,0.06); border: 1px solid rgba(252,251,255,0.08); border-radius: 10px; padding: 14px; text-align: center; }
+    .bk-auth-visual-stats strong { display: block; font-size: 22px; font-weight: 800; color: #FCFBFF; }
+    .bk-auth-visual-stats span { font-size: 11px; color: rgba(252,251,255,0.5); display: block; margin-top: 2px; }
+    .bk-auth-testimonial-row { display: flex; gap: 8px; margin-top: 16px; justify-content: center; }
+    .bk-auth-testimonial-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(252,251,255,0.2); transition: all 0.3s ease; }
+    .bk-auth-testimonial-dot.active { background: rgba(252,251,255,0.7); width: 24px; border-radius: 4px; }
+    .bk-fade-in { animation: bk-fade-in 0.6s ease-out; }
+    .bk-auth-back { display: inline-flex; align-items: center; gap: 6px; color: var(--bk-ink-3); font-size: 12px; font-weight: 600; text-decoration: none; padding: 8px 12px; border-radius: 8px; transition: all 0.2s ease; margin-bottom: 16px; }
+    .bk-auth-back:hover { background: var(--bk-muted); color: var(--bk-ink); }
+    .bk-auth-form-side { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 24px; background: var(--bk-bg); overflow-y: auto; }
+    .bk-auth-mobile-brand { display: none; align-items: center; gap: 12px; margin-bottom: 24px; text-decoration: none; }
+    .bk-auth-card { width: 100%; max-width: 480px; }
+    .bk-auth-header { margin-bottom: 24px; }
+    .bk-auth-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--bk-accent); }
+    .bk-auth-h1 { font-size: 26px; font-weight: 800; color: var(--bk-ink); margin: 8px 0 8px; }
+    .bk-auth-sub { font-size: 14px; color: var(--bk-ink-3); margin: 0; line-height: 1.5; }
+    .bk-field { margin-bottom: 16px; }
+    .bk-label { display: block; font-size: 12px; font-weight: 700; color: var(--bk-ink); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .bk-input-wrap { position: relative; }
+    .bk-input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--bk-ink-3); pointer-events: none; font-size: 16px; }
+    .bk-input-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; padding: 4px; display: flex; align-items: center; justify-content: center; }
+    .bk-input { width: 100%; height: 44px; border: 1.5px solid var(--bk-line); border-radius: 10px; background: var(--bk-card-bg); padding: 0 14px; font-family: inherit; font-size: 13px; color: var(--bk-ink); outline: none; transition: all 0.2s ease; }
+    .bk-input:focus { border-color: var(--bk-accent); box-shadow: 0 0 0 3px rgba(37,22,63,0.1); }
+    .bk-input-wrap select.bk-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    .bk-check-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .bk-check { width: 18px; height: 18px; accent-color: var(--bk-accent); border-radius: 4px; cursor: pointer; }
+    .bk-check-label { font-size: 13px; color: var(--bk-ink-2); line-height: 1.4; }
+    .bk-auth-submit { width: 100%; height: 48px; border: none; border-radius: 12px; background: linear-gradient(135deg, #25163F, #4A3C68); color: white; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; }
+    .bk-auth-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,22,63,0.25); }
+    .bk-auth-submit:active:not(:disabled) { transform: translateY(0); }
+    .bk-divider { display: flex; align-items: center; gap: 16px; margin: 24px 0; color: var(--bk-ink-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .bk-divider::before,
+    .bk-divider::after { content: ''; flex: 1; height: 1px; background: var(--bk-line); }
+    .bk-social-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .bk-social-btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border: 1.5px solid var(--bk-line); border-radius: 10px; background: var(--bk-card-bg); font-family: inherit; font-size: 12px; font-weight: 600; color: var(--bk-ink); cursor: pointer; transition: all 0.2s ease; }
+    .bk-social-btn:hover { border-color: var(--bk-accent); background: rgba(37,22,63,0.04); }
+    .bk-social-icon { width: 18px; height: 18px; flex-shrink: 0; }
+    .bk-social-icon-google { background: conic-gradient(from -45deg, #ea4335 0deg, #ea4335 90deg, #4285f4 90deg, #4285f4 180deg, #34a853 180deg, #34a853 270deg, #fbbc05 270deg, #fbbc05 360deg); border-radius: 50%; }
+    .bk-social-icon-ms { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f25022; }
+    .bk-social-icon-ms span { width: 8px; height: 8px; }
+    .bk-social-icon-ms span:nth-child(1) { background: #f25022; }
+    .bk-social-icon-ms span:nth-child(2) { background: #7fba00; }
+    .bk-social-icon-ms span:nth-child(3) { background: #00a4ef; }
+    .bk-social-icon-ms span:nth-child(4) { background: #ffb900; }
+    .bk-auth-link { color: var(--bk-accent); text-decoration: underline; text-underline-offset: 2px; }
+    .bk-auth-footer { text-align: center; font-size: 13px; color: var(--bk-ink-3); margin-top: 20px; }
+    .bk-auth-footer a { color: var(--bk-accent); font-weight: 600; text-decoration: none; }
+    @@keyframes bk-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @@keyframes bk-slide-up { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    @@keyframes bk-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .validation-message { color: var(--bk-error); font-size: 11px; margin-top: 4px; display: block; }
+    .bk-word-outline { color: transparent; -webkit-text-stroke: 1px rgba(252,251,255,0.6); font-weight: 800; }
+    .bk-auth-brand { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+    .bk-auth-brand-logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #FCFBFF, #e8e4f0); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #25163F; }
+    .bk-auth-brand-name { font-size: 15px; font-weight: 800; color: #FCFBFF; letter-spacing: -0.01em; }
+    .bk-auth-brand-tag { font-size: 10px; color: rgba(252,251,255,0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+    .bk-auth-quote { background: rgba(252,251,255,0.05); border: 1px solid rgba(252,251,255,0.08); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .bk-auth-quote p { font-size: 13px; color: rgba(252,251,255,0.7); line-height: 1.6; margin: 0 0 12px; font-style: italic; }
+    .bk-auth-quote-foot { display: flex; align-items: center; gap: 10px; }
+    .bk-auth-quote-avatar { width: 32px; height: 32px; border-radius: 8px; background: rgba(252,251,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #FCFBFF; }
+    .bk-auth-quote-foot strong { font-size: 12px; color: #FCFBFF; }
+    .bk-auth-quote-foot div div { font-size: 11px; color: rgba(252,251,255,0.4); }
+    .bk-auth-visual-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(252,251,255,0.4); }
+    .bk-auth-visual-mid .bk-auth-visual-lead { font-size: 14px; color: rgba(252,251,255,0.65); line-height: 1.6; max-width: 400px; }
+    .bk-auth-visual-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .bk-auth-visual-stats div { background: rgba(252,251,255,0.06); border: 1px solid rgba(252,251,255,0.08); border-radius: 10px; padding: 14px; text-align: center; }
+    .bk-auth-visual-stats strong { display: block; font-size: 22px; font-weight: 800; color: #FCFBFF; }
+    .bk-auth-visual-stats span { font-size: 11px; color: rgba(252,251,255,0.5); display: block; margin-top: 2px; }
+    @@media (max-width: 1024px) { .bk-auth-visual { display: none; } .bk-auth-mobile-brand { display: flex; } .bk-auth-form-side { padding: 32px 20px; } }
+    @@media (max-width: 640px) { .bk-social-grid { grid-template-columns: 1fr; } .bk-field-group { grid-template-columns: 1fr !important; } .bk-auth-h1 { font-size: 22px; } }
+</style>
+
+@code {
+    private SignUpForm _form = new();
+    private bool _agreed;
+    private bool _showTermsError;
+    private bool _isSubmitting;
+    private bool _showPassword;
+    private string _error = "";
+
+    private int _passwordStrength;
+    private string _passwordStrengthColor = "#6B7280";
+    private string _passwordLabel = "";
+    private string _passwordHint = "Use at least 8 characters with uppercase, lowercase, and numbers";
+
+    private void TogglePasswordVisibility() => _showPassword = !_showPassword;
+
+    private void ComputePasswordStrength()
+    {
+        var pw = _form.Password ?? "";
+        int score = 0;
+        if (pw.Length >= 8) score++;
+        if (pw.Length >= 12) score++;
+        if (Regex.IsMatch(pw, @"[A-Z]") && Regex.IsMatch(pw, @"[a-z]")) score++;
+        if (Regex.IsMatch(pw, @"[0-9]") && Regex.IsMatch(pw, @"[^a-zA-Z0-9]")) score++;
+
+        _passwordStrength = score > 4 ? 4 : score;
+
+        _passwordStrengthColor = score switch
+        {
+            0 => "#6B7280",
+            1 => "#DC2626",
+            2 => "#F59E0B",
+            3 => "#10B981",
+            4 => "#059669",
+            _ => "#6B7280"
+        };
+
+        _passwordLabel = score switch
+        {
+            0 => "",
+            1 => "Weak",
+            2 => "Fair",
+            3 => "Good",
+            4 => "Strong",
+            _ => ""
+        };
+
+        _passwordHint = score switch
+        {
+            0 => "Use at least 8 characters with uppercase, lowercase, and numbers",
+            1 => "Try adding uppercase, lowercase, and numbers",
+            2 => "Getting better — add a special character",
+            3 => "Almost there",
+            4 => "Strong password",
+            _ => ""
+        };
+    }
+
+    protected override void OnInitialized()
+    {
+        // Check if user came from a successful registration
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        if (query["registered"] == "1")
+        {
+            _error = "";
+            Snackbar.Add("Account created! Please sign in.", Severity.Success);
+        }
+    }
+
+    private async Task HandleSignUp()
+    {
+        _error = "";
+
+        if (!_agreed)
+        {
+            _showTermsError = true;
+            return;
+        }
+        _showTermsError = false;
+
+        if (_form.Password != _form.ConfirmPassword)
+        {
+            _error = "Passwords do not match.";
+            return;
+        }
+
+        if (_form.Password.Length < 8)
+        {
+            _error = "Password must be at least 8 characters.";
+            return;
+        }
+
+        _isSubmitting = true;
+
+        try
+        {
+            // In production, this would call a registration endpoint.
+            // For now, we simulate registration and redirect to login.
+            await Task.Delay(500); // Simulate network delay
+            Nav.NavigateTo("/login?registered=1", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Registration failed: {ex.Message}";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    public class SignUpForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "First name is required")]
+        public string FirstName { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Last name is required")]
+        public string LastName { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Enter a valid email address")]
+        public string Email { get; set; } = "";
+
+        public string Phone { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Organization name is required")]
+        public string OrganizationName { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Country is required")]
+        public string Country { get; set; } = "Zambia";
+
+        public string Industry { get; set; } = "";
+
+        public string EmployeeCount { get; set; } = "1-10";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
+        [System.ComponentModel.DataAnnotations.MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
+        public string Password { get; set; } = "";
+
+        public string ConfirmPassword { get; set; } = "";
+    }
+}
