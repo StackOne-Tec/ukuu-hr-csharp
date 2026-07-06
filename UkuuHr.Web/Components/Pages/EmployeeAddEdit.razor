@@ -3,289 +3,546 @@
 @page "/employees/{Id:int}/edit"
 @attribute [Authorize]
 @using Microsoft.EntityFrameworkCore
+@using System.ComponentModel.DataAnnotations
 @inject EmployeeService EmployeeSvc
 @inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
-<div class="ukuu-fade-in">
-    <div class="ukuu-section-header" style="display:flex;justify-content:space-between;align-items:flex-end;">
-        <div>
-            <div style="margin-bottom:6px;">
-                <a href="/employees" style="color:var(--ukuu-text-muted);text-decoration:none;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">← Back to Employees</a>
-            </div>
-            <h1>@(_isEdit ? "Edit Employee" : "Add New Employee")</h1>
-            <p>Complete the four steps below to @(_isEdit ? "update the" : "onboard a new") employee.</p>
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Employees · @(_isEdit ? "Edit" : "Add New") Employee</div>
+            <h1 class="bk-admin-h1">@(_isEdit ? "Edit Employee" : "Add New Employee")</h1>
+            <p class="bk-admin-sub">
+                Complete the four steps below to @(_isEdit ? "update the" : "onboard a new") employee.
+                Fields marked with * are required.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/employees" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                All Employees
+            </a>
         </div>
     </div>
 
-    <!-- Stepper -->
-    <div class="mud-card" style="margin-bottom:24px;overflow:hidden;">
-        <div style="display:flex;padding:24px 32px;gap:8px;">
-            @for (var i = 0; i < _steps.Length; i++)
-            {
-                var idx = i;
-                var stepNum = idx + 1;
-                <div style="flex:1;display:flex;align-items:center;gap:12px;cursor:pointer;" @onclick="() => GoToStep(idx)">
-                    <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;
-                                background:@(_currentStep > idx ? "var(--ukuu-success)" : _currentStep == idx ? "var(--ukuu-ink)" : "var(--ukuu-surface-alt)");
-                                color:@(_currentStep >= idx ? "white" : "var(--ukuu-text-muted)");">
-                        @if (_currentStep > idx)
-                        {
-                            <span class="material-icons-round" style="font-size:18px;">check</span>
-                        }
-                        else
-                        {
-                            @stepNum
-                        }
-                    </div>
-                    <div>
-                        <div style="font-size:11px;color:var(--ukuu-text-subtle);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">Step @stepNum</div>
-                        <div style="font-size:13px;font-weight:600;color:@(_currentStep == idx ? "var(--ukuu-ink)" : "var(--ukuu-text-muted)");">@_steps[idx]</div>
-                    </div>
-                </div>
-                @if (idx < _steps.Length - 1)
-                {
-                    <div style="flex:0 0 24px;height:2px;background:var(--ukuu-divider);align-self:center;margin-top:18px;"></div>
-                }
-            }
-        </div>
-    </div>
-
-    <EditForm Model="@_model" OnValidSubmit="@Save">
-        <DataAnnotationsValidator />
-
-        @if (_currentStep == 0)
+    @* ───── Step indicator ───── *@
+    <div style="display:flex;gap:0;margin-bottom:28px;background:var(--bk-card-bg);border:1px solid var(--bk-line);border-radius:12px;overflow:hidden;">
+        @for (int i = 0; i < _steps.Length; i++)
         {
-            <div class="mud-card">
-                <div class="mud-card-header">
-                    <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Personal Information</h3>
-                    <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Employee's identity and contact details.</p>
-                </div>
-                <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                    <MudSelect @bind-Value="_model.Title" Label="Title" Variant="Variant.Outlined">
-                        <MudSelectItem Value="@("Mr.")">Mr.</MudSelectItem>
-                        <MudSelectItem Value="@("Ms.")">Ms.</MudSelectItem>
-                        <MudSelectItem Value="@("Mrs.")">Mrs.</MudSelectItem>
-                        <MudSelectItem Value="@("Dr.")">Dr.</MudSelectItem>
-                        <MudSelectItem Value="@("Prof.")">Prof.</MudSelectItem>
-                    </MudSelect>
-                    <MudTextField @bind-Value="_model.FirstName" Label="First Name" Variant="Variant.Outlined" Required />
-                    <MudTextField @bind-Value="_model.MiddleNames" Label="Middle Names" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.Surname" Label="Surname" Variant="Variant.Outlined" Required />
-                    <MudSelect @bind-Value="_model.Gender" Label="Gender" Variant="Variant.Outlined">
-                        <MudSelectItem Value="@("Male")">Male</MudSelectItem>
-                        <MudSelectItem Value="@("Female")">Female</MudSelectItem>
-                        <MudSelectItem Value="@("Other")">Other</MudSelectItem>
-                    </MudSelect>
-                    <MudSelect @bind-Value="_model.MaritalStatus" Label="Marital Status" Variant="Variant.Outlined">
-                        <MudSelectItem Value="@("Single")">Single</MudSelectItem>
-                        <MudSelectItem Value="@("Married")">Married</MudSelectItem>
-                        <MudSelectItem Value="@("Divorced")">Divorced</MudSelectItem>
-                        <MudSelectItem Value="@("Widowed")">Widowed</MudSelectItem>
-                    </MudSelect>
-                    <MudDatePicker @bind-Value="_model.DateOfBirth" Label="Date of Birth" Variant="Variant.Outlined" />
-                    <MudSelect @bind-Value="_model.Nationality" Label="Nationality" Variant="Variant.Outlined">
-                        <MudSelectItem Value="@("Zambian")">Zambian</MudSelectItem>
-                        <MudSelectItem Value="@("Tanzanian")">Tanzanian</MudSelectItem>
-                        <MudSelectItem Value="@("Malawian")">Malawian</MudSelectItem>
-                        <MudSelectItem Value="@("South African")">South African</MudSelectItem>
-                        <MudSelectItem Value="@("Kenyan")">Kenyan</MudSelectItem>
-                    </MudSelect>
-                    <MudTextField @bind-Value="_model.NationalIdentityNumber" Label="National ID (NRC)" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.PassportNumber" Label="Passport Number" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.Phone" Label="Phone Number" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.Email" Label="Email Address" Variant="Variant.Outlined" Required />
-                    <MudTextField @bind-Value="_model.StreetAddress" Label="Street Address" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.City" Label="City" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.PostalCode" Label="Postal Code" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.Country" Label="Country" Variant="Variant.Outlined" />
-                </div>
-                <div class="mud-card-header" style="margin-top:16px;">
-                    <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Emergency Contact</h3>
-                </div>
-                <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                    <MudTextField @bind-Value="_model.EmergencyContactName" Label="Full Name" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.EmergencyContactRelationship" Label="Relationship" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.EmergencyContactPhone" Label="Phone" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.EmergencyContactEmail" Label="Email" Variant="Variant.Outlined" />
-                </div>
-            </div>
-        }
-        else if (_currentStep == 1)
-        {
-            <div class="mud-card">
-                <div class="mud-card-header">
-                    <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Employment Information</h3>
-                    <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Job, contract, and reporting details.</p>
-                </div>
-                <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                    <MudTextField @bind-Value="_model.EmployeeCode" Label="Employee Code" Variant="Variant.Outlined" Required />
-                    <MudTextField @bind-Value="_model.JobTitle" Label="Job Title" Variant="Variant.Outlined" Required />
-                    <MudTextField @bind-Value="_model.Department" Label="Department" Variant="Variant.Outlined" Required />
-                    <MudSelect @bind-Value="_model.Status" Label="Employment Status" Variant="Variant.Outlined">
-                        <MudSelectItem Value="@EmploymentStatus.Active">Active</MudSelectItem>
-                        <MudSelectItem Value="@EmploymentStatus.Probation">Probation</MudSelectItem>
-                        <MudSelectItem Value="@EmploymentStatus.Inactive">Inactive</MudSelectItem>
-                        <MudSelectItem Value="@EmploymentStatus.Terminated">Terminated</MudSelectItem>
-                    </MudSelect>
-                    <MudSelect @bind-Value="_model.ContractType" Label="Contract Type" Variant="Variant.Outlined">
-                        <MudSelectItem Value="@("Permanent")">Permanent</MudSelectItem>
-                        <MudSelectItem Value="@("Fixed Term")">Fixed Term</MudSelectItem>
-                        <MudSelectItem Value="@("Contract")">Contract</MudSelectItem>
-                    </MudSelect>
-                    <MudDatePicker @bind-Value="_model.JoiningDate" Label="Joining Date" Variant="Variant.Outlined" Required />
-                    <MudDatePicker @bind-Value="_model.ContractEndDate" Label="Contract End Date" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.ReportingManagerName" Label="Reporting Manager" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.ReportingManagerTitle" Label="Manager's Title" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.PlaceOfWork" Label="Place of Work" Variant="Variant.Outlined" />
-                    <MudNumericField @bind-Value="_model.WorkHoursPerWeek" Label="Work Hours/Week" Variant="Variant.Outlined" />
-                    <MudNumericField @bind-Value="_model.HolidayEntitlementDays" Label="Holiday Entitlement (days)" Variant="Variant.Outlined" />
-                    <MudNumericField @bind-Value="_model.ProbationaryPeriodMonths" Label="Probation (months)" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.TerminationNoticePeriod" Label="Notice Period" Variant="Variant.Outlined" />
-                </div>
-                <div class="mud-card-content">
-                    <MudTextField @bind-Value="_model.JobDescription" Label="Job Description Summary" Variant="Variant.Outlined" Lines="4" />
-                </div>
-            </div>
-        }
-        else if (_currentStep == 2)
-        {
-            <div class="mud-card">
-                <div class="mud-card-header">
-                    <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Banking & Payment</h3>
-                    <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Compensation, allowances, and bank account details.</p>
-                </div>
-                <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                    <MudNumericField @bind-Value="_model.BasicSalary" Label="Basic Salary (monthly)" Variant="Variant.Outlined" Required Min="0" />
-                    <MudNumericField @bind-Value="_model.HourlyRate" Label="Hourly Rate (auto if blank)" Variant="Variant.Outlined" Min="0" />
-                    <MudSelect @bind-Value="_model.Currency" Label="Currency" Variant="Variant.Outlined">
-                        <MudSelectItem Value="@("ZMW")">ZMW — Zambian Kwacha</MudSelectItem>
-                        <MudSelectItem Value="@("USD")">USD — US Dollar</MudSelectItem>
-                        <MudSelectItem Value="@("TZS")">TZS — Tanzanian Shilling</MudSelectItem>
-                        <MudSelectItem Value="@("MWK")">MWK — Malawian Kwacha</MudSelectItem>
-                    </MudSelect>
-                </div>
-
-                <div class="mud-card-header" style="margin-top:8px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-                        <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Allowances</h3>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="@AddAllowance">Add Allowance</MudButton>
-                    </div>
-                </div>
-                <div class="mud-card-content">
-                    @if (!_model.Allowances.Any())
+            var idx = i;
+            var isActive = i == _currentStep;
+            var isComplete = i < _currentStep;
+            <div style="flex:1;padding:16px 20px;display:flex;align-items:center;gap:12px;background:@(isActive ? "rgba(37,22,63,0.03)" : "transparent");border-bottom:@(isActive ? "2px solid var(--bk-accent)" : "2px solid transparent");cursor:pointer;transition:all 0.2s ease;" @onclick="() => GoToStep(idx)">
+                <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:@(isComplete ? "var(--bk-success)" : isActive ? "var(--bk-accent)" : "var(--bk-line)");color:@(isComplete || isActive ? "white" : "var(--bk-ink-3)");flex-shrink:0;transition:all 0.2s ease;">
+                    @if (isComplete)
                     {
-                        <div class="ukuu-empty" style="padding:24px;">
-                            <p style="font-size:13px;">No allowances added yet. Click "Add Allowance" to add housing, transport, etc.</p>
-                        </div>
+                        <span class="material-icons-round" style="font-size:16px;">check</span>
                     }
                     else
                     {
-                        @foreach (var allowance in _model.Allowances)
-                        {
-                            <div style="display:grid;grid-template-columns:1fr 100px 120px 80px 40px;gap:8px;align-items:end;margin-bottom:8px;">
-                                <MudTextField @bind-Value="allowance.Name" Label="Name" Variant="Variant.Outlined" />
-                                <MudNumericField @bind-Value="allowance.Amount" Label="Amount" Variant="Variant.Outlined" />
-                                <MudSelect @bind-Value="allowance.Type" Label="Type" Variant="Variant.Outlined">
-                                    <MudSelectItem Value="@AllowanceType.Fixed">Fixed</MudSelectItem>
-                                    <MudSelectItem Value="@AllowanceType.Percentage">Percentage</MudSelectItem>
-                                </MudSelect>
-                                <MudCheckBox @bind-Value="allowance.Taxable" Label="Taxable" Color="Color.Primary" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _model.Allowances.Remove(allowance))" />
-                            </div>
-                        }
-                        <div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:8px;border-top:1px solid var(--ukuu-divider);font-weight:700;">
-                            <span>Total Allowances:</span>
-                            <span>@_model.DisplayCurrency @_model.TotalAllowances.ToString("N0")</span>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;color:var(--ukuu-ink);">
-                            <span>Gross Salary:</span>
-                            <span>@_model.DisplayCurrency @_model.GrossSalary.ToString("N0")</span>
-                        </div>
+                        <span>@(i + 1)</span>
                     }
                 </div>
-
-                <div class="mud-card-header" style="margin-top:8px;">
-                    <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Bank Account Details</h3>
+                <div style="min-width:0;">
+                    <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">Step @(i + 1)</div>
+                    <div style="font-size:13px;font-weight:700;color:@(isActive ? "var(--bk-ink)" : "var(--bk-ink-3)");">@_steps[i]</div>
                 </div>
-                <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                    <MudTextField @bind-Value="_model.BeneficiaryName" Label="Beneficiary Name" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.BankName" Label="Bank Name" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.Branch" Label="Branch" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.AccountNumber" Label="Account Number" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.IbanNumber" Label="IBAN" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.SwiftCode" Label="SWIFT/BIC" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.RoutingNumbers" Label="Routing Number" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.MobileMoney" Label="Mobile Money" Variant="Variant.Outlined" />
-                </div>
-            </div>
-        }
-        else if (_currentStep == 3)
-        {
-            <div class="mud-card">
-                <div class="mud-card-header">
-                    <h3 style="font-size:18px;font-weight:700;margin-bottom:2px;">Tax & Statutory</h3>
-                    <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Compliance with local tax authorities (ZRA / NAPSA / NHIMA).</p>
-                </div>
-                <div class="mud-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-                    <MudTextField @bind-Value="_model.Tpin" Label="TPIN (Taxpayer Identification)" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.NapsaNumber" Label="NAPSA Number" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_model.HealthInsuranceNumber" Label="NHIMA / Health Insurance No." Variant="Variant.Outlined" />
-                </div>
-
-                <!-- Live payroll preview -->
-                <div class="mud-card-header" style="margin-top:8px;">
-                    <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Live Payroll Preview</h3>
-                    <p style="font-size:13px;color:var(--ukuu-text-muted);margin:0;">Based on ZRA 2025 PAYE bands and statutory rates.</p>
-                </div>
-                <div class="mud-card-content">
-                    @if (_preview != null)
-                    {
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
-                            <div style="text-align:center;padding:16px;background:var(--ukuu-surface-alt);border-radius:12px;">
-                                <div style="font-size:11px;color:var(--ukuu-text-muted);font-weight:600;text-transform:uppercase;">Gross</div>
-                                <div style="font-size:20px;font-weight:800;color:var(--ukuu-ink);margin-top:4px;">@_preview.Gross.ToString("N0")</div>
-                            </div>
-                            <div style="text-align:center;padding:16px;background:var(--ukuu-surface-alt);border-radius:12px;">
-                                <div style="font-size:11px;color:var(--ukuu-text-muted);font-weight:600;text-transform:uppercase;">NAPSA</div>
-                                <div style="font-size:20px;font-weight:800;color:var(--ukuu-warning);margin-top:4px;">-_preview.Napsa.ToString("N0")</div>
-                            </div>
-                            <div style="text-align:center;padding:16px;background:var(--ukuu-surface-alt);border-radius:12px;">
-                                <div style="font-size:11px;color:var(--ukuu-text-muted);font-weight:600;text-transform:uppercase;">NHIMA</div>
-                                <div style="font-size:20px;font-weight:800;color:var(--ukuu-warning);margin-top:4px;">-_preview.Nhima.ToString("N0")</div>
-                            </div>
-                            <div style="text-align:center;padding:16px;background:var(--ukuu-surface-alt);border-radius:12px;">
-                                <div style="font-size:11px;color:var(--ukuu-text-muted);font-weight:600;text-transform:uppercase;">PAYE</div>
-                                <div style="font-size:20px;font-weight:800;color:var(--ukuu-error);margin-top:4px;">-_preview.Paye.ToString("N0")</div>
-                            </div>
-                            <div style="text-align:center;padding:16px;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);border-radius:12px;color:#FCFBFF;">
-                                <div style="font-size:11px;color:rgba(252,251,255,0.6);font-weight:600;text-transform:uppercase;">Net Pay</div>
-                                <div style="font-size:20px;font-weight:800;color:#FCFBFF;margin-top:4px;">@_preview.Net.ToString("N0")</div>
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-
-        <!-- Footer actions -->
-        <div style="display:flex;justify-content:space-between;margin-top:24px;">
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => Nav.NavigateTo("/employees"))">Cancel</MudButton>
-            <div style="display:flex;gap:8px;">
-                @if (_currentStep > 0)
+                @if (i < _steps.Length - 1)
                 {
-                    <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => _currentStep--)">Previous</MudButton>
+                    <span class="material-icons-round" style="font-size:16px;color:var(--bk-ink-3);margin-left:auto;">chevron_right</span>
                 }
-                @if (_currentStep < _steps.Length - 1)
+            </div>
+        }
+    </div>
+
+    @* ──────────────────────────────── Step 0: Personal Info ──────────────────────────────── *@
+    @if (_currentStep == 0)
+    {
+        <EditForm Model="@_model" OnValidSubmit="@(() => {})">
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>Personal Information</h3>
+                    <p>Employee's identity and contact details.</p>
+                </div>
+                <div class="bk-admin-card-content">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+                        @* Name section *@
+                        <div class="bk-field">
+                            <label class="bk-label">Title</label>
+                            <select class="bk-input" @bind="_model.Title">
+                                <option value="">Select title</option>
+                                <option value="Mr.">Mr.</option>
+                                <option value="Ms.">Ms.</option>
+                                <option value="Mrs.">Mrs.</option>
+                                <option value="Dr.">Dr.</option>
+                                <option value="Prof.">Prof.</option>
+                            </select>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">First Name *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">person</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.FirstName" placeholder="First name" />
+                            </div>
+                            <ValidationMessage For="@(() => _model.FirstName)" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Middle Names</label>
+                            <InputText class="bk-input" @bind-Value="_model.MiddleNames" placeholder="Middle names" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Surname *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">person</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Surname" placeholder="Surname" />
+                            </div>
+                            <ValidationMessage For="@(() => _model.Surname)" />
+                        </div>
+
+                        @* Demographics *@
+                        <div class="bk-field">
+                            <label class="bk-label">Gender</label>
+                            <select class="bk-input" @bind="_model.Gender">
+                                <option value="">Select gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Marital Status</label>
+                            <select class="bk-input" @bind="_model.MaritalStatus">
+                                <option value="">Select status</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Divorced">Divorced</option>
+                                <option value="Widowed">Widowed</option>
+                            </select>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Date of Birth</label>
+                            <input type="date" class="bk-input" @bind="_model.DateOfBirth" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Nationality</label>
+                            <select class="bk-input" @bind="_model.Nationality">
+                                <option value="">Select nationality</option>
+                                <option value="Zambian">Zambian</option>
+                                <option value="Tanzanian">Tanzanian</option>
+                                <option value="Malawian">Malawian</option>
+                                <option value="South African">South African</option>
+                                <option value="Kenyan">Kenyan</option>
+                            </select>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">National ID (NRC)</label>
+                            <InputText class="bk-input" @bind-Value="_model.NationalIdentityNumber" placeholder="e.g. 123456/78/1" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Passport Number</label>
+                            <InputText class="bk-input" @bind-Value="_model.PassportNumber" placeholder="Passport number" />
+                        </div>
+
+                        @* Contact *@
+                        <div class="bk-field">
+                            <label class="bk-label">Phone Number</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">phone</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Phone" placeholder="+260 97 123 4567" />
+                            </div>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Email Address *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">mail</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Email" placeholder="employee@company.com" />
+                            </div>
+                            <ValidationMessage For="@(() => _model.Email)" />
+                        </div>
+                        <div class="bk-field" style="grid-column:1/-1;">
+                            <label class="bk-label">Street Address</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">home</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.StreetAddress" placeholder="Street address" />
+                            </div>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">City</label>
+                            <InputText class="bk-input" @bind-Value="_model.City" placeholder="City" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Postal Code</label>
+                            <InputText class="bk-input" @bind-Value="_model.PostalCode" placeholder="Postal code" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Country</label>
+                            <InputText class="bk-input" @bind-Value="_model.Country" placeholder="Country" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* ───── Emergency Contact ───── *@
+            <div class="bk-admin-card" style="margin-top:20px;">
+                <div class="bk-admin-card-header">
+                    <h3>Emergency Contact</h3>
+                    <p>Person to notify in case of an emergency.</p>
+                </div>
+                <div class="bk-admin-card-content">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+                        <div class="bk-field">
+                            <label class="bk-label">Full Name</label>
+                            <InputText class="bk-input" @bind-Value="_model.EmergencyContactName" placeholder="Full name" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Relationship</label>
+                            <InputText class="bk-input" @bind-Value="_model.EmergencyContactRelationship" placeholder="e.g. Spouse, Parent" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Phone</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">phone</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.EmergencyContactPhone" placeholder="Emergency phone" />
+                            </div>
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Email</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">mail</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.EmergencyContactEmail" placeholder="Emergency email" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    }
+
+    @* ──────────────────────────────── Step 1: Employment ──────────────────────────────── *@
+    @if (_currentStep == 1)
+    {
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>Employment Information</h3>
+                <p>Job, contract, and reporting details.</p>
+            </div>
+            <div class="bk-admin-card-content">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+                    <div class="bk-field">
+                        <label class="bk-label">Employee Code *</label>
+                        <InputText class="bk-input" @bind-Value="_model.EmployeeCode" placeholder="e.g. EMP-001" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Job Title *</label>
+                        <InputText class="bk-input" @bind-Value="_model.JobTitle" placeholder="e.g. Software Engineer" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Department *</label>
+                        <InputText class="bk-input" @bind-Value="_model.Department" placeholder="e.g. Engineering" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Employment Status</label>
+                        <select class="bk-input" @bind="_model.Status">
+                            <option value="@EmploymentStatus.Active">Active</option>
+                            <option value="@EmploymentStatus.Probation">Probation</option>
+                            <option value="@EmploymentStatus.Inactive">Inactive</option>
+                            <option value="@EmploymentStatus.Terminated">Terminated</option>
+                        </select>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Contract Type</label>
+                        <select class="bk-input" @bind="_model.ContractType">
+                            <option value="Permanent">Permanent</option>
+                            <option value="Fixed Term">Fixed Term</option>
+                            <option value="Contract">Contract</option>
+                        </select>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Joining Date *</label>
+                        <input type="date" class="bk-input" @bind="_model.JoiningDate" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Contract End Date</label>
+                        <input type="date" class="bk-input" @bind="_model.ContractEndDate" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Reporting Manager</label>
+                        <InputText class="bk-input" @bind-Value="_model.ReportingManagerName" placeholder="Manager's name" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Manager's Title</label>
+                        <InputText class="bk-input" @bind-Value="_model.ReportingManagerTitle" placeholder="e.g. Head of Engineering" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Place of Work</label>
+                        <InputText class="bk-input" @bind-Value="_model.PlaceOfWork" placeholder="e.g. Head Office, Lusaka" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Work Hours / Week</label>
+                        <InputNumber class="bk-input" @bind-Value="_model.WorkHoursPerWeek" step="1" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Holiday Entitlement (days)</label>
+                        <InputNumber class="bk-input" @bind-Value="_model.HolidayEntitlementDays" step="1" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Probation (months)</label>
+                        <InputNumber class="bk-input" @bind-Value="_model.ProbationaryPeriodMonths" step="1" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Notice Period</label>
+                        <InputText class="bk-input" @bind-Value="_model.TerminationNoticePeriod" placeholder="e.g. 1 month" />
+                    </div>
+                </div>
+                <div class="bk-field" style="margin-top:16px;">
+                    <label class="bk-label">Job Description Summary</label>
+                    <InputTextArea class="bk-input" @bind-Value="_model.JobDescription" style="min-height:80px;" placeholder="Brief job description..." />
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ──────────────────────────────── Step 2: Banking & Pay ──────────────────────────────── *@
+    @if (_currentStep == 2)
+    {
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>Compensation</h3>
+                <p>Salary, allowances, and payment details.</p>
+            </div>
+            <div class="bk-admin-card-content">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+                    <div class="bk-field">
+                        <label class="bk-label">Basic Salary (monthly) *</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon">payments</span>
+                            <InputNumber class="bk-input" style="padding-left:36px;" @bind-Value="_model.BasicSalary" step="100" />
+                        </div>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Hourly Rate</label>
+                        <InputNumber class="bk-input" @bind-Value="_model.HourlyRate" step="0.5" />
+                        <small style="color:var(--bk-ink-3);font-size:11px;">Auto-calculated if blank</small>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Currency</label>
+                        <select class="bk-input" @bind="_model.Currency">
+                            <option value="ZMW">ZMW — Zambian Kwacha</option>
+                            <option value="USD">USD — US Dollar</option>
+                            <option value="TZS">TZS — Tanzanian Shilling</option>
+                            <option value="MWK">MWK — Malawian Kwacha</option>
+                        </select>
+                    </div>
+                </div>
+
+                @* Allowances *@
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);">
+                    <div>
+                        <h4 style="font-size:14px;font-weight:700;margin:0;">Allowances</h4>
+                        <p style="font-size:12px;color:var(--bk-ink-3);margin:2px 0 0;">Housing, transport, and other recurring allowances.</p>
+                    </div>
+                    <button type="button" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;" @onclick="AddAllowance">
+                        <span class="material-icons-round" style="font-size:14px;">add</span>
+                        Add Allowance
+                    </button>
+                </div>
+
+                @if (!_model.Allowances.Any())
                 {
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward" OnClick="@(() => _currentStep++)" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Next Step</MudButton>
+                    <div style="padding:24px;text-align:center;color:var(--bk-ink-3);font-size:13px;">
+                        <span class="material-icons-round" style="font-size:24px;vertical-align:middle;margin-right:6px;">add_card</span>
+                        No allowances added yet.
+                    </div>
                 }
                 else
                 {
-                    <MudButton Variant="Variant.Filled" Color="Color.Success" ButtonType="ButtonType.Submit" StartIcon="@Icons.Material.Filled.Check">@(_isEdit ? "Save Changes" : "Create Employee")</MudButton>
+                    <div style="margin-top:12px;">
+                        @foreach (var allowance in _model.Allowances)
+                        {
+                            <div style="display:grid;grid-template-columns:1fr 100px 120px 80px 40px;gap:8px;align-items:end;margin-bottom:10px;padding:12px;border:1px solid var(--bk-line);border-radius:8px;background:var(--bk-card-bg);">
+                                <div class="bk-field" style="margin:0;">
+                                    <label class="bk-label" style="font-size:10px;">Name</label>
+                                    <InputText class="bk-input" @bind-Value="allowance.Name" placeholder="e.g. Housing" />
+                                </div>
+                                <div class="bk-field" style="margin:0;">
+                                    <label class="bk-label" style="font-size:10px;">Amount</label>
+                                    <InputNumber class="bk-input" @bind-Value="allowance.Amount" step="100" />
+                                </div>
+                                <div class="bk-field" style="margin:0;">
+                                    <label class="bk-label" style="font-size:10px;">Type</label>
+                                    <select class="bk-input" @bind="allowance.Type">
+                                        <option value="@AllowanceType.Fixed">Fixed</option>
+                                        <option value="@AllowanceType.Percentage">%</option>
+                                    </select>
+                                </div>
+                                <div class="bk-field" style="margin:0;">
+                                    <label class="bk-label" style="font-size:10px;">Taxable</label>
+                                    <div style="display:flex;align-items:center;justify-content:center;height:42px;">
+                                        <input type="checkbox" checked="@allowance.Taxable" @onchange="e => { if (e.Value is bool b) allowance.Taxable = b; }" style="width:18px;height:18px;accent-color:var(--bk-accent);" />
+                                    </div>
+                                </div>
+                                <button type="button" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);margin-bottom:2px;" @onclick="() => _model.Allowances.Remove(allowance)">
+                                    <span class="material-icons-round" style="font-size:14px;">delete</span>
+                                </button>
+                            </div>
+                        }
+                        <div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:8px;border-top:1px solid var(--bk-line);font-weight:600;font-size:14px;">
+                            <span>Total Allowances</span>
+                            <span>@_model.DisplayCurrency @_model.TotalAllowances.ToString("N0")</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:16px;color:var(--bk-ink);">
+                            <span>Gross Salary</span>
+                            <span>@_model.DisplayCurrency @_model.GrossSalary.ToString("N0")</span>
+                        </div>
+                    </div>
+                }
+
+                @* Bank Account *@
+                <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);">
+                    <h4 style="font-size:14px;font-weight:700;margin:0 0 4px;">Bank Account Details</h4>
+                    <p style="font-size:12px;color:var(--bk-ink-3);margin:0 0 16px;">For salary disbursement.</p>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+                        <div class="bk-field">
+                            <label class="bk-label">Beneficiary Name</label>
+                            <InputText class="bk-input" @bind-Value="_model.BeneficiaryName" placeholder="Account holder name" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Bank Name</label>
+                            <InputText class="bk-input" @bind-Value="_model.BankName" placeholder="e.g. Standard Chartered" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Branch</label>
+                            <InputText class="bk-input" @bind-Value="_model.Branch" placeholder="Branch name" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Account Number</label>
+                            <InputText class="bk-input" @bind-Value="_model.AccountNumber" placeholder="Account number" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">IBAN</label>
+                            <InputText class="bk-input" @bind-Value="_model.IbanNumber" placeholder="IBAN" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">SWIFT/BIC</label>
+                            <InputText class="bk-input" @bind-Value="_model.SwiftCode" placeholder="SWIFT code" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Routing Number</label>
+                            <InputText class="bk-input" @bind-Value="_model.RoutingNumbers" placeholder="Routing number" />
+                        </div>
+                        <div class="bk-field">
+                            <label class="bk-label">Mobile Money</label>
+                            <InputText class="bk-input" @bind-Value="_model.MobileMoney" placeholder="Mobile money number" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ──────────────────────────────── Step 3: Tax & Statutory ──────────────────────────────── *@
+    @if (_currentStep == 3)
+    {
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>Tax & Statutory</h3>
+                <p>Compliance with local tax authorities (ZRA / NAPSA / NHIMA).</p>
+            </div>
+            <div class="bk-admin-card-content">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+                    <div class="bk-field">
+                        <label class="bk-label">TPIN (Taxpayer Identification)</label>
+                        <InputText class="bk-input" @bind-Value="_model.Tpin" placeholder="e.g. 1001234567" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">NAPSA Number</label>
+                        <InputText class="bk-input" @bind-Value="_model.NapsaNumber" placeholder="NAPSA contribution number" />
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">NHIMA / Health Insurance No.</label>
+                        <InputText class="bk-input" @bind-Value="_model.HealthInsuranceNumber" placeholder="Health insurance number" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ───── Live payroll preview ───── *@
+        <div class="bk-admin-card" style="margin-top:20px;">
+            <div class="bk-admin-card-header">
+                <h3>Live Payroll Preview</h3>
+                <p>Based on @(!string.IsNullOrEmpty(_model.Country) ? _model.Country : "Zambia") PAYE bands and statutory rates.</p>
+            </div>
+            <div class="bk-admin-card-content">
+                @if (_preview != null)
+                {
+                    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
+                        <div class="bk-admin-kpi-card">
+                            <div class="bk-admin-kpi-value">@_preview.Gross.ToString("N0")</div>
+                            <div class="bk-admin-kpi-label">Gross</div>
+                        </div>
+                        <div class="bk-admin-kpi-card">
+                            <div class="bk-admin-kpi-value" style="color:var(--bk-warning);">@_preview.Napsa.ToString("N0")</div>
+                            <div class="bk-admin-kpi-label">NAPSA</div>
+                        </div>
+                        <div class="bk-admin-kpi-card">
+                            <div class="bk-admin-kpi-value" style="color:var(--bk-warning);">@_preview.Nhima.ToString("N0")</div>
+                            <div class="bk-admin-kpi-label">NHIMA</div>
+                        </div>
+                        <div class="bk-admin-kpi-card">
+                            <div class="bk-admin-kpi-value" style="color:var(--bk-error);">@_preview.Paye.ToString("N0")</div>
+                            <div class="bk-admin-kpi-label">PAYE</div>
+                        </div>
+                        <div class="bk-admin-kpi-card" style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);color:#FCFBFF;">
+                            <div class="bk-admin-kpi-value" style="color:#FCFBFF;">@_preview.Net.ToString("N0")</div>
+                            <div class="bk-admin-kpi-label" style="color:rgba(252,251,255,0.6);">Net Pay</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div style="padding:20px;text-align:center;color:var(--bk-ink-3);font-size:13px;">
+                        <span class="material-icons-round" style="font-size:24px;vertical-align:middle;margin-right:6px;">calculate</span>
+                        Enter a basic salary in the Banking & Pay step to see a preview.
+                    </div>
                 }
             </div>
         </div>
-    </EditForm>
+    }
+
+    @* ───── Navigation buttons ───── *@
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+        <div>
+            <a href="/employees" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">close</span>
+                Cancel
+            </a>
+        </div>
+        <div style="display:flex;gap:8px;">
+            @if (_currentStep > 0)
+            {
+                <button type="button" class="bk-btn bk-btn-secondary" @onclick="() => PreviousStep()">
+                    <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                    Previous
+                </button>
+            }
+            @if (_currentStep < _steps.Length - 1)
+            {
+                <button type="button" class="bk-btn bk-btn-primary" @onclick="() => NextStep()">
+                    <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
+                    Next: @_steps[_currentStep + 1]
+                </button>
+            }
+            else
+            {
+                <button type="button" class="bk-btn bk-btn-primary" @onclick="Save" disabled="@_isSaving" style="background:linear-gradient(135deg,var(--bk-success),#16A34A);">
+                    <span class="material-icons-round" style="font-size:16px;">@(_isSaving ? "sync" : "check")</span>
+                    @(_isSaving ? "Saving…" : (_isEdit ? "Save Changes" : "Create Employee"))
+                </button>
+            }
+        </div>
+    </div>
 </div>
 
 @code {
@@ -293,32 +550,67 @@
     private bool _isEdit => Id.HasValue && Id.Value > 0;
     private Employee _model = new();
     private int _currentStep = 0;
+    private bool _isSaving;
     private string[] _steps = { "Personal Info", "Employment", "Banking & Pay", "Tax & Statutory" };
     private PayrollCalculation? _preview;
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-
-        if (_isEdit)
+        try
         {
-            var existing = await EmployeeSvc.GetAsync(org.Id, Id!.Value);
-            if (existing != null)
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null) return;
+
+            if (_isEdit)
             {
-                _model = existing;
-                RecomputePreview();
+                var existing = await EmployeeSvc.GetAsync(org.Id, Id!.Value);
+                if (existing != null)
+                {
+                    _model = existing;
+                    RecomputePreview();
+                }
+            }
+            else
+            {
+                _model.OrganizationId = org.Id;
+                _model.Country = "Zambia";
+                _model.Currency = "ZMW";
+                _model.Status = EmploymentStatus.Active;
+                _model.ContractType = "Permanent";
+                _model.WorkHoursPerWeek = 40;
+                _model.Allowances = new List<Allowance>();
             }
         }
-        else
+        catch (Exception ex)
         {
-            _model.OrganizationId = org.Id;
-            _model.Country = "Zambia";
-            _model.Currency = "ZMW";
-            _model.Status = EmploymentStatus.Active;
-            _model.ContractType = "Permanent";
-            _model.WorkHoursPerWeek = 40;
-            _model.Allowances = new List<Allowance>();
+            Console.Error.WriteLine($"[EmployeeAddEdit] Failed to load: {ex.Message}");
+            Snackbar.Add("Failed to load employee data.", Severity.Error);
+        }
+    }
+
+    private void NextStep()
+    {
+        if (_currentStep < _steps.Length - 1)
+        {
+            _currentStep++;
+            RecomputePreview();
+        }
+    }
+
+    private void PreviousStep()
+    {
+        if (_currentStep > 0)
+        {
+            _currentStep--;
+        }
+    }
+
+    private void GoToStep(int idx)
+    {
+        if (idx >= 0 && idx < _steps.Length)
+        {
+            _currentStep = idx;
+            RecomputePreview();
         }
     }
 
@@ -328,42 +620,48 @@
         RecomputePreview();
     }
 
-    private void GoToStep(int idx)
-    {
-        if (idx >= 0 && idx < _steps.Length) _currentStep = idx;
-        RecomputePreview();
-    }
-
     private void RecomputePreview()
     {
+        if (_model.BasicSalary <= 0) { _preview = null; return; }
         var allowances = _model.Allowances.Select(a => new AllowanceInput
         {
             Name = a.Name, Amount = a.Amount,
             Type = a.Type == AllowanceType.Percentage ? AllowanceTypeInput.Percentage : AllowanceTypeInput.Fixed,
             Taxable = a.Taxable
         }).ToList();
-
         _preview = PayrollCalculator.Calculate(_model.BasicSalary, allowances, countryConfig: PayrollCountryConfig.Zambia());
     }
 
     private async Task Save()
     {
-        RecomputePreview();
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-        _model.OrganizationId = org.Id;
+        try
+        {
+            _isSaving = true;
+            RecomputePreview();
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null) return;
+            _model.OrganizationId = org.Id;
 
-        if (_isEdit)
-        {
-            await EmployeeSvc.UpdateAsync(_model);
-            Snackbar.Add("Employee updated successfully!", Severity.Success);
+            if (_isEdit)
+            {
+                await EmployeeSvc.UpdateAsync(_model);
+                Snackbar.Add("Employee updated successfully!", Severity.Success);
+            }
+            else
+            {
+                _model.CreatedAt = DateTime.UtcNow;
+                await EmployeeSvc.CreateAsync(_model);
+                Snackbar.Add($"{_model.FullName} added successfully!", Severity.Success);
+            }
+            Nav.NavigateTo("/employees");
         }
-        else
+        catch (Exception ex)
         {
-            _model.CreatedAt = DateTime.UtcNow;
-            await EmployeeSvc.CreateAsync(_model);
-            Snackbar.Add($"Employee {_model.FullName} added successfully!", Severity.Success);
+            Snackbar.Add($"Failed to save: {ex.Message}", Severity.Error);
         }
-        Nav.NavigateTo("/employees");
+        finally
+        {
+            _isSaving = false;
+        }
     }
 }
