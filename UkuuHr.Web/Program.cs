@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor;
 using MudBlazor.Services;
+using Scalar.AspNetCore;
 using UkuuHr.Components;
 using UkuuHr.Data;
 using UkuuHr.Models;
@@ -128,6 +129,9 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.VisibleStateDuration = 4000;
     config.SnackbarConfiguration.MaxDisplayedSnackbars = 4;
 });
+
+// ───────────── OpenAPI / Swagger ─────────────
+builder.Services.AddOpenApi();
 
 // ───────────── App services ─────────────
 builder.Services.AddScoped<AuthService>();
@@ -1506,6 +1510,17 @@ app.MapGet("/api/system/metrics", (UkuuHrDbContext db) =>
     });
 }).WithName("SystemMetrics");
 
+// ───── OpenAPI: expose /openapi/v1.json + Scalar UI at /api-docs ─────
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference(options =>
+    {
+        options.WithTitle("UkuuHR API")
+               .WithTheme(ScalarTheme.Purple);
+    });
+}
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
@@ -1516,3 +1531,6 @@ public sealed record ModuleInfo(string Key, string Name, bool Implemented, strin
 
 // DTO for leave approval/rejection requests via the API
 public sealed record ApprovalBody(string? ReviewerEmail, string? Notes);
+
+// Exposed for integration tests via WebApplicationFactory<Program>
+public partial class Program { }
