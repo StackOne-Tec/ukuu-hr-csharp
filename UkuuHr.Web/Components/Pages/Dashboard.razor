@@ -8,11 +8,32 @@
 @inject UkuuHrDbContext Db
 
 <div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
+    @* ───── Mobile hero (visible only < 1024px) — replaces the desktop greeting ───── *@
+    <div class="bk-mobile-hero bk-dashboard-mobile-hero">
+        <div class="bk-mobile-hero-greeting">@GetGreeting() · @_orgName</div>
+        <div class="bk-mobile-hero-name">Welcome, Chungu</div>
+        <div class="bk-mobile-hero-sub">@_presentToday present today · @_pendingLeave leave requests pending · @_pendingPayroll payroll awaiting approval</div>
+        <div class="bk-mobile-hero-stats">
+            <div>
+                <div class="bk-mobile-hero-stat-value">@_totalEmployees</div>
+                <div class="bk-mobile-hero-stat-label">Employees</div>
+            </div>
+            <div>
+                <div class="bk-mobile-hero-stat-value">@_attendancePct.ToString("0")%</div>
+                <div class="bk-mobile-hero-stat-label">Attendance</div>
+            </div>
+            <div>
+                <div class="bk-mobile-hero-stat-value">ZMW @(_monthlyPayroll / 1000).ToString("N0")K</div>
+                <div class="bk-mobile-hero-stat-label">Payroll</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bk-admin-section-header bk-hide-on-mobile">
         <div class="bk-admin-section-header-left">
             <div class="bk-admin-greeting">Good morning, Chungu · All systems operational</div>
             <h1 class="bk-admin-h1">Workspace Overview</h1>
-            <p class="bk-admin-sub">Here's what's happening across UkuuHR Demo Ltd today.</p>
+            <p class="bk-admin-sub">Here's what's happening across @_orgName today.</p>
         </div>
         <div class="bk-admin-actions">
             <button class="bk-btn bk-btn-secondary" onclick="window.print()">
@@ -349,11 +370,13 @@
     private Dictionary<AttendanceStatus, int> _attendanceBreakdown = new();
     private List<Employee> _recentEmployees = new();
     private PayrollMonthlyStats? _stats;
+    private string _orgName = "UkuuHR Demo Ltd";
 
     protected override async Task OnInitializedAsync()
     {
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
+        _orgName = org.Name;
         var today = DateTime.Today;
 
         _totalEmployees = await EmployeeSvc.CountAsync(org.Id);
@@ -385,5 +408,13 @@
             .OrderByDescending(e => e.CreatedAt)
             .Take(5)
             .ToListAsync();
+    }
+
+    private static string GetGreeting()
+    {
+        var hour = DateTime.Now.Hour;
+        if (hour < 12) return "Good morning";
+        if (hour < 17) return "Good afternoon";
+        return "Good evening";
     }
 }

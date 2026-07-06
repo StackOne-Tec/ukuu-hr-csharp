@@ -3669,3 +3669,942 @@ html[data-theme="dark"] .bk-modal-close:hover {
     background: rgba(255, 255, 255, 0.08);
     color: #FCFBFF;
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PHASE 6 — MOBILE RESPONSIVE OVERHAUL
+   ════════════════════════════════════════════════════════════════════════════
+
+   Design philosophy:
+   - Mobile-first: every component defaults to mobile, then scales UP to desktop
+   - Touch targets: minimum 44×44px (iOS HIG) / 48×48px (Material 3)
+   - Bottom navigation for primary destinations (thumb-friendly zone)
+   - Drawer sidebar with backdrop overlay (replaces desktop sidebar < 1024px)
+   - Sticky compact topbar with hamburger + brand + avatar
+   - Card-based layouts collapse to single column with stacked KPIs
+   - Tables become horizontal-scroll cards on mobile (not hidden — data must
+     stay accessible)
+   - Modals become bottom sheets on mobile (drag-handle, slide-up animation)
+   - Forms stack labels above inputs (no side-by-side on mobile)
+   - Snackbars move to top on mobile (avoid bottom-nav overlap)
+
+   Breakpoints:
+   - xs: 0–479px   (small phones, portrait)
+   - sm: 480–767px (large phones, small tablets portrait)
+   - md: 768–1023px (tablets, small laptops)
+   - lg: 1024–1439px (laptops)
+   - xl: 1440px+    (desktops)
+
+   The existing project already had @media (max-width: 1024px) for the sidebar
+   drawer. This phase formalises and extends the system to ALL pages.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ───── Mobile CSS variables (override at < 768px) ───── */
+:root {
+    --ukuu-mobile-topbar-h: 56px;
+    --ukuu-mobile-bottomnav-h: 64px;
+    --ukuu-mobile-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --ukuu-mobile-safe-area-top: env(safe-area-inset-top, 0px);
+    --ukuu-mobile-touch-target: 44px;
+    --ukuu-mobile-radius: 16px;
+    --ukuu-mobile-card-padding: 16px;
+    --ukuu-mobile-content-padding: 16px;
+}
+
+/* ───── Base responsive typography ───── */
+@media (max-width: 767px) {
+    html, body {
+        font-size: 15px; /* slightly larger for readability on mobile */
+        -webkit-text-size-adjust: 100%; /* prevent iOS auto-zoom */
+    }
+    h1.bk-admin-h1 { font-size: 24px; line-height: 1.2; }
+    h2 { font-size: 20px; }
+    h3 { font-size: 17px; }
+    h4 { font-size: 15px; }
+    .bk-admin-greeting { font-size: 12px; }
+    .bk-admin-sub { font-size: 13px; line-height: 1.5; }
+}
+
+/* ───── Admin layout: mobile shell ───── */
+@media (max-width: 1023px) {
+    .bk-admin-body {
+        --ukuu-sidebar-w-expanded: 280px;
+    }
+
+    /* Sidebar becomes a drawer (off-canvas by default) */
+    .bk-admin-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        max-width: 85vw;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 1001;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
+    }
+    .bk-admin-sidebar.mobile-open { transform: translateX(0); }
+    .bk-admin-sidebar.collapsed { width: 280px; } /* always full width on mobile when open */
+
+    /* Main content takes full width */
+    .bk-admin-main,
+    .bk-admin-main.collapsed {
+        margin-left: 0 !important;
+        width: 100%;
+    }
+
+    /* Topbar becomes mobile-compact */
+    .bk-admin-topbar {
+        height: var(--ukuu-mobile-topbar-h);
+        padding: 0 12px;
+        gap: 8px;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: rgba(252, 251, 255, 0.92);
+        backdrop-filter: saturate(180%) blur(20px);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        border-bottom: 1px solid var(--ukuu-divider, rgba(37, 22, 63, 0.08));
+    }
+
+    /* Hide the search bar on mobile — replaced by a search icon that opens a sheet */
+    .bk-admin-topbar-search {
+        display: none;
+    }
+
+    /* Topbar buttons: keep icon-only, slightly larger touch targets */
+    .bk-admin-topbar-icon-btn {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bk-admin-topbar-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 12px;
+    }
+
+    /* Hamburger toggle: always visible on mobile */
+    .bk-admin-topbar-toggle {
+        display: flex !important;
+        width: 44px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: var(--ukuu-ink, #25163F);
+        cursor: pointer;
+        padding: 0;
+    }
+
+    /* Compact brand on mobile topbar */
+    .bk-admin-topbar-mobile-brand {
+        display: flex !important;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--ukuu-ink, #25163F);
+        text-decoration: none;
+    }
+    .bk-admin-topbar-mobile-brand .bk-admin-topbar-mobile-brand-logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #25163F 0%, #4A3C68 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    /* Content padding tighter on mobile */
+    .bk-admin-content {
+        padding: 16px 16px calc(var(--ukuu-mobile-bottomnav-h) + var(--ukuu-mobile-safe-area-bottom) + 16px);
+    }
+
+    /* Section header stacks vertically */
+    .bk-admin-section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .bk-admin-section-header-left {
+        width: 100%;
+    }
+    .bk-admin-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .bk-admin-actions .bk-btn {
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    .bk-admin-actions .bk-btn .material-icons-round {
+        font-size: 16px;
+    }
+
+    /* KPI grid: 2 columns on phones, 3 on landscape */
+    .bk-admin-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
+    }
+    .bk-admin-kpi-card {
+        padding: 12px 14px !important;
+    }
+    .bk-admin-kpi-value {
+        font-size: 22px !important;
+    }
+    .bk-admin-kpi-label {
+        font-size: 11px !important;
+    }
+    .bk-admin-kpi-sub {
+        font-size: 11px !important;
+    }
+    .bk-admin-kpi-icon {
+        width: 32px !important;
+        height: 32px !important;
+    }
+    .bk-admin-kpi-icon .material-icons-round {
+        font-size: 16px !important;
+    }
+    .bk-admin-kpi-delta {
+        font-size: 10px !important;
+    }
+
+    /* Cards: full width, tighter padding */
+    .bk-admin-card {
+        border-radius: var(--ukuu-mobile-radius);
+        margin-bottom: 12px;
+    }
+    .bk-admin-card-header {
+        padding: 14px 16px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .bk-admin-card-header h3 { font-size: 16px; }
+    .bk-admin-card-header p { font-size: 12px; }
+    .bk-admin-card-content {
+        padding: 14px 16px;
+    }
+
+    /* Tables: horizontal scroll wrapper (data stays accessible) */
+    .bk-admin-table {
+        font-size: 13px;
+    }
+    .bk-admin-table thead th {
+        padding: 10px 12px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+    }
+    .bk-admin-table tbody td {
+        padding: 10px 12px;
+        white-space: nowrap;
+    }
+    /* Wrap tables in horizontal scroll if not already wrapped */
+    .bk-admin-card > table,
+    .bk-admin-card > div > table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Buttons: minimum 44px touch target height */
+    .bk-btn {
+        min-height: 44px;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+    .bk-btn .material-icons-round { font-size: 18px; }
+
+    /* Pills: slightly larger for readability */
+    .bk-admin-pill {
+        padding: 4px 10px;
+        font-size: 11px;
+    }
+
+    /* Forms stack */
+    .bk-field {
+        width: 100%;
+        margin-bottom: 12px;
+    }
+    .bk-label {
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+    .bk-input,
+    .bk-input-wrap .bk-input {
+        height: 44px;
+        font-size: 15px; /* prevent iOS zoom by being ≥16px — 15 is acceptable with -webkit-text-size-adjust */
+    }
+    textarea.bk-input {
+        min-height: 88px;
+    }
+
+    /* Modals become bottom sheets */
+    .bk-modal-backdrop {
+        align-items: flex-end;
+        padding: 0;
+    }
+    .bk-modal {
+        max-width: 100% !important;
+        width: 100%;
+        max-height: 92vh;
+        border-radius: 20px 20px 0 0;
+        animation: bk-modal-slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .bk-modal-header {
+        border-radius: 20px 20px 0 0;
+        padding: 16px 20px 12px;
+        position: relative;
+    }
+    .bk-modal-header::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--ukuu-border-soft, #DDD7E8);
+    }
+    .bk-modal-body {
+        padding: 16px 20px 24px;
+    }
+    .bk-modal-body > div > [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ───── Phone-only (< 480px): even more compact ───── */
+@media (max-width: 479px) {
+    .bk-admin-content {
+        padding: 12px 12px calc(var(--ukuu-mobile-bottomnav-h) + var(--ukuu-mobile-safe-area-bottom) + 12px);
+    }
+    .bk-admin-kpi-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px;
+    }
+    /* On very small screens, show 2-col KPIs but more compact */
+    .bk-admin-kpi-grid[data-mobile-cols="2"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .bk-admin-actions {
+        gap: 6px;
+    }
+    .bk-admin-actions .bk-btn {
+        padding: 10px 10px;
+        font-size: 12px;
+    }
+    .bk-admin-actions .bk-btn span:not(.material-icons-round) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    /* Hide button text on phone-only when icon is present (icon-only buttons) */
+    .bk-admin-actions .bk-btn.bk-btn-icon-only span:not(.material-icons-round) {
+        display: none;
+    }
+}
+
+/* ───── Bottom navigation (mobile only, thumb-friendly) ───── */
+.bk-mobile-bottomnav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--ukuu-mobile-bottomnav-h) + var(--ukuu-mobile-safe-area-bottom));
+    padding-bottom: var(--ukuu-mobile-safe-area-bottom);
+    background: rgba(252, 251, 255, 0.96);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--ukuu-divider, rgba(37, 22, 63, 0.08));
+    z-index: 999;
+    box-shadow: 0 -4px 24px rgba(37, 22, 63, 0.06);
+}
+
+.bk-mobile-bottomnav-items {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    height: var(--ukuu-mobile-bottomnav-h);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.bk-mobile-bottomnav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    text-decoration: none;
+    color: var(--ukuu-text-muted, #4A3C68);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 4px;
+    transition: color 0.15s ease;
+    position: relative;
+}
+
+.bk-mobile-bottomnav-item .material-icons-round {
+    font-size: 22px;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bk-mobile-bottomnav-item.active {
+    color: var(--ukuu-ink, #25163F);
+}
+
+.bk-mobile-bottomnav-item.active .material-icons-round {
+    transform: translateY(-2px) scale(1.1);
+}
+
+.bk-mobile-bottomnav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 28px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--ukuu-ink, #25163F);
+}
+
+.bk-mobile-bottomnav-item .bk-mobile-bottomnav-badge {
+    position: absolute;
+    top: 4px;
+    right: 50%;
+    margin-right: -16px;
+    background: var(--ukuu-error, #DC2626);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--ukuu-surface, #FCFBFF);
+}
+
+/* Show bottom nav only on mobile */
+@media (max-width: 1023px) {
+    .bk-mobile-bottomnav { display: block; }
+}
+
+/* ───── Mobile FAB (Floating Action Button) for primary action ───── */
+.bk-mobile-fab {
+    display: none;
+    position: fixed;
+    bottom: calc(var(--ukuu-mobile-bottomnav-h) + var(--ukuu-mobile-safe-area-bottom) + 16px);
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #25163F 0%, #4A3C68 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 8px 24px rgba(37, 22, 63, 0.32);
+    cursor: pointer;
+    z-index: 998;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bk-mobile-fab:active {
+    transform: scale(0.92);
+}
+
+.bk-mobile-fab .material-icons-round {
+    font-size: 24px;
+}
+
+@media (max-width: 1023px) {
+    .bk-mobile-fab { display: flex; }
+}
+
+/* ───── Mobile hero section (greeting + quick actions) ───── */
+.bk-mobile-hero {
+    display: none;
+    background: linear-gradient(135deg, #25163F 0%, #4A3C68 60%, #5E4B85 100%);
+    color: #FCFBFF;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.bk-mobile-hero::after {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 140px;
+    height: 140px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.bk-mobile-hero-greeting {
+    font-size: 12px;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+}
+
+.bk-mobile-hero-name {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+}
+
+.bk-mobile-hero-sub {
+    font-size: 13px;
+    opacity: 0.85;
+    line-height: 1.4;
+}
+
+.bk-mobile-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.bk-mobile-hero-stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.bk-mobile-hero-stat-label {
+    font-size: 10px;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+}
+
+@media (max-width: 1023px) {
+    .bk-mobile-hero { display: block; }
+}
+
+/* ───── Mobile: hide desktop-only elements ───── */
+@media (max-width: 1023px) {
+    .bk-desktop-only {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    .bk-mobile-only {
+        display: none !important;
+    }
+}
+
+/* ───── Dark mode adjustments for mobile ───── */
+html[data-theme="dark"] .bk-admin-topbar {
+    background: rgba(26, 15, 48, 0.92);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .bk-mobile-bottomnav {
+    background: rgba(26, 15, 48, 0.96);
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .bk-mobile-bottomnav-item {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+html[data-theme="dark"] .bk-mobile-bottomnav-item.active {
+    color: #FCFBFF;
+}
+
+html[data-theme="dark"] .bk-mobile-bottomnav-item.active::before {
+    background: #9C8FB8;
+}
+
+/* ───── Mobile snackbar position (top, avoid bottom nav) ───── */
+@media (max-width: 1023px) {
+    .mud-snackbarContainer {
+        top: calc(var(--ukuu-mobile-topbar-h) + 8px) !important;
+        bottom: auto !important;
+        left: 12px !important;
+        right: 12px !important;
+        align-items: stretch !important;
+    }
+    .mud-snackbar {
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+}
+
+/* ───── Mobile: improved table card view (for narrow tables) ───── */
+@media (max-width: 639px) {
+    /* When a table has the .bk-mobile-card-view class, render rows as stacked cards */
+    table.bk-mobile-card-view {
+        display: block;
+    }
+    table.bk-mobile-card-view thead {
+        display: none;
+    }
+    table.bk-mobile-card-view tbody,
+    table.bk-mobile-card-view tr {
+        display: block;
+        width: 100%;
+    }
+    table.bk-mobile-card-view tr {
+        background: var(--ukuu-surface, #FCFBFF);
+        border: 1px solid var(--ukuu-border-soft, #DDD7E8);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        padding: 12px;
+    }
+    table.bk-mobile-card-view td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border: none;
+        white-space: normal;
+        text-align: right;
+    }
+    table.bk-mobile-card-view td::before {
+        content: attr(data-label);
+        font-size: 11px;
+        color: var(--ukuu-text-subtle, #6E5F92);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 600;
+        text-align: left;
+        padding-right: 12px;
+    }
+}
+
+/* ───── Mobile: stat box grid ───── */
+@media (max-width: 767px) {
+    .bk-admin-stat-box {
+        padding: 10px 12px;
+    }
+    .bk-admin-stat-box-label {
+        font-size: 10px !important;
+    }
+    .bk-admin-stat-box-value {
+        font-size: 18px !important;
+    }
+}
+
+/* ───── Mobile: improved MudBlazor component overrides ───── */
+@media (max-width: 767px) {
+    .mud-card-header {
+        padding: 12px 16px !important;
+    }
+    .mud-card-content {
+        padding: 12px 16px !important;
+    }
+    .mud-table {
+        font-size: 13px !important;
+    }
+    .mud-table-cell {
+        padding: 8px 12px !important;
+    }
+    .mud-table-head-cell {
+        padding: 10px 12px !important;
+        font-size: 11px !important;
+    }
+    .mud-button {
+        min-height: 44px;
+    }
+    .mud-input-control {
+        margin-bottom: 8px;
+    }
+    .mud-input {
+        font-size: 15px !important;
+    }
+}
+
+/* ───── Mobile: avatar sizing ───── */
+@media (max-width: 767px) {
+    .bk-admin-avatar {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 12px !important;
+    }
+    .bk-admin-avatar-sm {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 10px !important;
+    }
+}
+
+/* ───── Mobile: prevent layout shift on input focus (iOS zoom) ───── */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 767px) {
+        .bk-input,
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        input[type="tel"],
+        input[type="search"],
+        textarea,
+        select {
+            font-size: 16px !important;
+        }
+    }
+}
+
+/* ───── Mobile: improve tap highlight color ───── */
+@media (max-width: 1023px) {
+    .bk-btn,
+    .bk-admin-sidebar-item,
+    .bk-mobile-bottomnav-item,
+    .bk-admin-card-hover {
+        -webkit-tap-highlight-color: rgba(37, 22, 63, 0.08);
+    }
+}
+
+/* ───── Mobile: smooth scrolling ───── */
+@media (max-width: 1023px) {
+    html {
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+    }
+    body {
+        overscroll-behavior-y: none; /* prevent pull-to-refresh from triggering on inner scrolls */
+    }
+}
+
+/* ───── Mobile: hide print-only elements always, show desktop print on mobile too ───── */
+@media (max-width: 1023px) {
+    .bk-admin-actions .bk-btn[onclick="window.print()"] {
+        display: none;
+    }
+}
+
+
+/* ───── Phase 6: Login + Register mobile polish ───── */
+@media (max-width: 600px) {
+    .bk-auth-form-side {
+        padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .bk-auth-card {
+        max-width: 100% !important;
+        padding: 24px 20px;
+        border-radius: 20px;
+    }
+    .bk-auth-mobile-brand {
+        margin-bottom: 24px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--ukuu-divider, rgba(37, 22, 63, 0.08));
+    }
+    .bk-auth-h1 {
+        font-size: 26px !important;
+        line-height: 1.2 !important;
+    }
+    .bk-auth-sub {
+        font-size: 14px !important;
+    }
+    .bk-auth-submit {
+        height: 52px;
+        font-size: 15px;
+        width: 100%;
+    }
+    .bk-social-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .bk-social-btn {
+        height: 48px;
+        font-size: 13px;
+        justify-content: center;
+    }
+    .bk-demo-creds {
+        padding: 12px 14px;
+    }
+    .bk-demo-creds-row {
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+    }
+    .bk-demo-creds-sep { display: none; }
+    .bk-auth-footer {
+        font-size: 13px;
+        text-align: center;
+        padding-top: 16px;
+    }
+    .bk-auth-back {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        font-size: 12px;
+    }
+}
+
+/* ───── Phase 6: Landing page mobile polish ───── */
+@media (max-width: 767px) {
+    .bk-hero {
+        padding: 48px 20px 40px !important;
+        min-height: auto;
+    }
+    .bk-hero h1 {
+        font-size: 32px !important;
+        line-height: 1.15 !important;
+    }
+    .bk-hero .bk-lead {
+        font-size: 15px !important;
+    }
+    .bk-hero-cta {
+        flex-direction: column;
+        width: 100%;
+    }
+    .bk-hero-cta .bk-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    .bk-hero-stats {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 16px !important;
+    }
+    .bk-hero-stats > div:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+    .bk-section {
+        padding: 48px 20px !important;
+    }
+    .bk-section-title {
+        font-size: 26px !important;
+    }
+    .bk-feature-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .bk-pricing-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .bk-footer {
+        padding: 40px 20px !important;
+    }
+    .bk-footer-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 24px !important;
+    }
+}
+
+/* ───── Phase 6: Dashboard mobile hero (visible only on mobile) ───── */
+.bk-dashboard-mobile-hero {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .bk-dashboard-mobile-hero {
+        display: block;
+    }
+    /* Hide the desktop section header on mobile when hero is shown */
+    .bk-admin-section-header.bk-hide-on-mobile {
+        display: none;
+    }
+}
+
+/* ───── Phase 6: Employee cards grid (mobile-friendly) ───── */
+@media (max-width: 767px) {
+    .bk-employees-grid,
+    .bk-admin-kpi-grid[style*="repeat(auto-fit,minmax(360px,1fr))"],
+    .bk-admin-kpi-grid[style*="repeat(auto-fit,minmax(380px,1fr))"] {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    .bk-employee-card {
+        padding: 14px;
+    }
+    .bk-employee-card-header {
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+    }
+    .bk-employee-card-actions {
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 12px;
+    }
+    .bk-employee-card-actions .bk-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ───── Phase 6: Settings page mobile (vertical tabs) ───── */
+@media (max-width: 767px) {
+    .bk-settings-layout,
+    div[style*="grid-template-columns:240px 1fr"] {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .bk-settings-nav {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 4px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--ukuu-divider, rgba(37, 22, 63, 0.08));
+        position: sticky;
+        top: var(--ukuu-mobile-topbar-h);
+        background: var(--ukuu-surface, #FCFBFF);
+        z-index: 10;
+    }
+    .bk-settings-nav-item {
+        flex-shrink: 0;
+        white-space: nowrap;
+        padding: 10px 14px !important;
+        border-left: none !important;
+        border-bottom: 2px solid transparent;
+        font-size: 13px;
+    }
+    .bk-settings-nav-item.active {
+        border-left: none !important;
+        border-bottom: 2px solid var(--ukuu-ink, #25163F);
+        background: transparent !important;
+    }
+}
+
+/* ───── Phase 6: Modal form fields stack on mobile (already handled, but force grid layouts) ───── */
+@media (max-width: 767px) {
+    .bk-modal-body [style*="grid-template-columns:1fr 1fr"],
+    .bk-modal-body [style*="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"],
+    .bk-modal-body [style*="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))"],
+    .bk-modal-body [style*="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"],
+    .bk-modal-body [style*="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))"] {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+}

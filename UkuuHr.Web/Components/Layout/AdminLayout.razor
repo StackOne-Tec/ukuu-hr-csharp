@@ -228,11 +228,17 @@
 
     <div class="bk-admin-main @(_collapsed ? "collapsed" : "")">
         <header class="bk-admin-topbar">
-            <button class="bk-admin-topbar-toggle" @onclick="ToggleSidebar">
+            <button class="bk-admin-topbar-toggle" @onclick="ToggleSidebar" aria-label="Open menu">
                 <MudIcon Icon="@Icons.Material.Filled.Menu" Size="Size.Medium" />
             </button>
 
-            <div class="bk-admin-topbar-search">
+            @* Mobile brand (visible < 1024px) — replaces the desktop search bar *@
+            <a href="/dashboard" class="bk-admin-topbar-mobile-brand bk-mobile-only">
+                <div class="bk-admin-topbar-mobile-brand-logo">U</div>
+                <span>UKUU HR</span>
+            </a>
+
+            <div class="bk-admin-topbar-search bk-desktop-only">
                 <span class="bk-admin-topbar-search-icon">
                     <span class="material-icons-round" style="font-size:20px;">search</span>
                 </span>
@@ -241,26 +247,54 @@
 
             <div style="flex:1"></div>
 
-            <a href="/health" class="bk-admin-topbar-icon-btn" title="System status">
+            <a href="/health" class="bk-admin-topbar-icon-btn" title="System status" aria-label="System status">
                 <span class="material-icons-round" style="font-size:18px;">cloud_done</span>
             </a>
-            <button class="bk-admin-topbar-icon-btn" title="Notifications">
+            <button class="bk-admin-topbar-icon-btn" title="Notifications" aria-label="Notifications">
                 <span class="material-icons-round" style="font-size:18px;">notifications</span>
                 <span class="bk-dot"></span>
             </button>
-            <a href="/settings" class="bk-admin-topbar-icon-btn" title="Help">
+            <a href="/settings" class="bk-admin-topbar-icon-btn bk-desktop-only" title="Help" aria-label="Help">
                 <span class="material-icons-round" style="font-size:18px;">help_outline</span>
             </a>
-            <a href="/settings" class="bk-admin-topbar-avatar">CC</a>
+            <a href="/settings" class="bk-admin-topbar-avatar" aria-label="Profile">CC</a>
         </header>
 
         @if (_mobileOpen)
         {
-            <div @onclick="CloseMobile" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;"></div>
+            <div @onclick="CloseMobile" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);"></div>
         }
 
         <main class="bk-admin-content bk-admin-fade-in">
             @Body
         </main>
     </div>
+
+    @* ───── Mobile bottom navigation (thumb-friendly zone) ───── *@
+    <nav class="bk-mobile-bottomnav" aria-label="Primary navigation">
+        <div class="bk-mobile-bottomnav-items">
+            <a href="/dashboard" class="bk-mobile-bottomnav-item @(IsActive("dashboard") ? "active" : "")" aria-label="Dashboard">
+                <span class="material-icons-round">dashboard</span>
+                <span>Home</span>
+            </a>
+            <a href="/employees" class="bk-mobile-bottomnav-item @(IsActive("employees") ? "active" : "")" aria-label="Employees">
+                <span class="material-icons-round">groups</span>
+                <span>Team</span>
+            </a>
+            <a href="/attendance" class="bk-mobile-bottomnav-item @(IsActive("attendance") && !IsActive("attendance/search") ? "active" : "")" aria-label="Attendance">
+                <span class="material-icons-round">schedule</span>
+                <span>Clock</span>
+            </a>
+            <a href="/leave" class="bk-mobile-bottomnav-item @(IsActive("leave") ? "active" : "")" aria-label="Leave">
+                <span class="material-icons-round">event_available</span>
+                <span>Leave</span>
+                <span class="bk-mobile-bottomnav-badge">3</span>
+            </a>
+            <a href="/payroll" class="bk-mobile-bottomnav-item @(IsActive("payroll") ? "active" : "")" aria-label="Payroll">
+                <span class="material-icons-round">payments</span>
+                <span>Pay</span>
+                <span class="bk-mobile-bottomnav-badge">4</span>
+            </a>
+        </div>
+    </nav>
 </div>
