@@ -15,6 +15,8 @@ public class KeepAliveService : BackgroundService
     private readonly IHostEnvironment _env;
     private readonly ILogger<KeepAliveService> _logger;
 
+    private bool IsDevelopment => _env.IsDevelopment();
+
     public KeepAliveService(IHttpClientFactory httpClientFactory, IHostEnvironment env, ILogger<KeepAliveService> logger)
     {
         _httpClientFactory = httpClientFactory;
@@ -45,12 +47,18 @@ public class KeepAliveService : BackgroundService
                 }
                 else
                 {
-                    _logger.LogWarning("KeepAlive ping returned {Status}", (int)response.StatusCode);
+                    if (IsDevelopment)
+                        _logger.LogDebug("KeepAlive ping returned {Status}", (int)response.StatusCode);
+                    else
+                        _logger.LogWarning("KeepAlive ping returned {Status}", (int)response.StatusCode);
                 }
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogWarning(ex, "KeepAlive ping failed — will retry in 5 min");
+                if (IsDevelopment)
+                    _logger.LogDebug(ex, "KeepAlive ping failed — will retry in 5 min");
+                else
+                    _logger.LogWarning(ex, "KeepAlive ping failed — will retry in 5 min");
             }
 
             try

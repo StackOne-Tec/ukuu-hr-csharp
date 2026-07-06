@@ -19,12 +19,16 @@ namespace UkuuHr.Services;
 public class DeviceAutoSyncService : BackgroundService
 {
     private readonly IServiceProvider _services;
+    private readonly IHostEnvironment _env;
     private readonly ILogger<DeviceAutoSyncService> _logger;
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(60);
 
-    public DeviceAutoSyncService(IServiceProvider services, ILogger<DeviceAutoSyncService> logger)
+    private bool IsDevelopment => _env.IsDevelopment();
+
+    public DeviceAutoSyncService(IServiceProvider services, IHostEnvironment env, ILogger<DeviceAutoSyncService> logger)
     {
         _services = services;
+        _env = env;
         _logger = logger;
     }
 
@@ -76,11 +80,19 @@ public class DeviceAutoSyncService : BackgroundService
                     _logger.LogInformation("Auto-sync OK: {DeviceName} — fetched {Fetched}, imported {Imported}, dupes {Dupes}",
                         device.Name, result.EventsFetched, result.EventsImported, result.DuplicatesSkipped);
                 else
-                    _logger.LogWarning("Auto-sync FAIL: {DeviceName} — {Error}", device.Name, result.ErrorMessage);
+                {
+                    if (IsDevelopment)
+                        _logger.LogDebug("Auto-sync FAIL: {DeviceName} — {Error}", device.Name, result.ErrorMessage);
+                    else
+                        _logger.LogWarning("Auto-sync FAIL: {DeviceName} — {Error}", device.Name, result.ErrorMessage);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Auto-sync threw for device {DeviceName}", device.Name);
+                if (IsDevelopment)
+                    _logger.LogDebug(ex, "Auto-sync threw for device {DeviceName}", device.Name);
+                else
+                    _logger.LogError(ex, "Auto-sync threw for device {DeviceName}", device.Name);
             }
         }
     }
