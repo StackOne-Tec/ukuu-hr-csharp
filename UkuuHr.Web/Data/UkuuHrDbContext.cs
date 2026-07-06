@@ -32,6 +32,11 @@ public class UkuuHrDbContext : DbContext
     public DbSet<HikvisionClockEvent> HikvisionClockEvents => Set<HikvisionClockEvent>();
     public DbSet<OvertimeRecord> OvertimeRecords => Set<OvertimeRecord>();
 
+    // ───── Phase 1 additions (FR-003 / FR-004 / FR-005) ─────
+    public DbSet<AttendanceTolerance> AttendanceTolerances => Set<AttendanceTolerance>();
+    public DbSet<Shift> Shifts => Set<Shift>();
+    public DbSet<EmployeeShiftAssignment> EmployeeShiftAssignments => Set<EmployeeShiftAssignment>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
@@ -227,6 +232,42 @@ public class UkuuHrDbContext : DbContext
             e.HasIndex(lb => new { lb.OrganizationId, lb.EmployeeId, lb.Year });
             e.HasIndex(lb => new { lb.EmployeeId, lb.LeaveTypeId, lb.Year }).IsUnique();
             e.Ignore(lb => lb.RemainingDays);
+        });
+
+        // ───── Phase 1: FR-003 / FR-004 / FR-005 ─────
+
+        // AttendanceTolerance — one row per org.
+        b.Entity<AttendanceTolerance>(e =>
+        {
+            e.HasIndex(t => t.OrganizationId).IsUnique();
+            e.Property(t => t.UpdatedByEmail).HasDefaultValue("");
+        });
+
+        // Shift
+        b.Entity<Shift>(e =>
+        {
+            e.HasIndex(s => new { s.OrganizationId, s.Name });
+            e.HasIndex(s => new { s.OrganizationId, s.IsActive });
+            e.Property(s => s.Kind).HasConversion<string>();
+            e.Property(s => s.Color).HasDefaultValue("#25163F");
+            // Computed/ignored helpers
+            e.Ignore(s => s.IsOvernight);
+            e.Ignore(s => s.StartTime);
+            e.Ignore(s => s.EndTime);
+            e.Ignore(s => s.PlannedHours);
+            e.Ignore(s => s.PlannedWorkedHours);
+            e.Ignore(s => s.TimeWindow);
+            e.Ignore(s => s.KindDisplay);
+            e.Ignore(s => s.DaysDisplay);
+        });
+
+        // EmployeeShiftAssignment
+        b.Entity<EmployeeShiftAssignment>(e =>
+        {
+            e.HasIndex(a => new { a.OrganizationId, a.EmployeeId });
+            e.HasIndex(a => new { a.OrganizationId, a.ShiftId });
+            e.HasIndex(a => new { a.EmployeeId, a.IsActive });
+            e.Ignore(a => a.EffectiveDaysMask);
         });
     }
 }

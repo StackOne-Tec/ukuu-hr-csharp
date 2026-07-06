@@ -14,7 +14,12 @@ public static class DbSeeder
     {
         await db.Database.EnsureCreatedAsync();
 
-        if (await db.Organizations.AnyAsync()) return;
+        if (await db.Organizations.AnyAsync()) 
+        {
+            // Main seed already ran — make sure Phase 1 additions are present too.
+            await Phase1Seeder.SeedAsync(db);
+            return;
+        }
 
         // ───── Organization ─────
         var org = new Organization
@@ -667,5 +672,8 @@ public static class DbSeeder
             }
         }
         await db.SaveChangesAsync();
+
+        // ───── Phase 1: FR-003 / FR-004 / FR-005 — Tolerance + Shifts + Assignments ─────
+        await Phase1Seeder.SeedAsync(db);
     }
 }

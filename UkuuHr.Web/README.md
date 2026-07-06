@@ -176,6 +176,48 @@ On first launch the SQLite database (`ukuuhr.db`) is created automatically and s
 | `firebase_auth` + `cloud_firestore` | Cookie auth + EF Core + SQLite |
 | `shared_preferences` | Server-side session (cookie) |
 
+## 🆕 Phase 1 — FR-003 / FR-004 / FR-005 (Shifts & Tolerance)
+
+Phase 1 delivers the foundation for accurate attendance computation:
+
+| FRS Requirement | Module | Files |
+|---|---|---|
+| **FR-003** Attendance Tolerance | Org-level policy: late/early/half-day/absent thresholds + grace periods | `Models/Shift.cs` → `AttendanceTolerance`, `Services/ShiftEngine.cs`, `Services/ShiftService.cs` |
+| **FR-004** Shift Management | CRUD for Fixed / Rotating / Flexible / Overnight shifts | `Models/Shift.cs` → `Shift`, `Components/Pages/Shifts.razor` |
+| **FR-005** Multiple Shift Assignment | M:N assignments with rotation slots, effective windows, primary flag | `Models/Shift.cs` → `EmployeeShiftAssignment`, `Services/ShiftEngine.cs` |
+
+### ShiftEngine (pure business logic)
+
+The `ShiftEngine` is a static class with zero dependencies — it takes POCOs in and returns computed results. This keeps it trivially unit-testable.
+
+```csharp
+// Resolve the applicable shift for an employee on a date.
+var resolution = ShiftEngine.Resolve(date, fallbackShift, assignments);
+
+// Compute the AttendanceStatus from a check-in/check-out pair.
+var computation = ShiftEngine.ComputeStatus(resolution, tolerance, checkIn, checkOut, date);
+
+// Detect duplicate clock events (FR-002).
+var isDup = ShiftEngine.IsDuplicate(empId, eventType, eventTime, existingEvents);
+
+// Resolve cross-day (overnight) attendance date.
+var attDate = ShiftEngine.ResolveAttendanceDate(shift, eventTime);
+```
+
+### Phase 1 Routes
+
+| Path | Page |
+|---|---|
+| `/shifts` (also `/scheduling`) | Shift management with 4 tabs: Shifts / Assignments / Tolerance / Weekly Coverage |
+| `/attendance` | Enhanced with shift column, late/early minutes, recomputation button, tolerance summary |
+
+### Phase 1 Tests
+
+```bash
+cd UkuuHr.Tests
+dotnet test  # 27 tests covering tolerance, overnight, rotation, duplicates, validation
+```
+
 ## ⚠️ Notes
 
 - The original Dart project uses Firebase; this C# rebuild uses EF Core + SQLite for simplicity and zero external service dependencies.

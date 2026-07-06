@@ -3512,3 +3512,160 @@ html[data-theme="dark"] .bk-theme-toggle:hover {
     background: rgba(255, 255, 255, 0.05);
     color: #FCFBFF;
 }
+
+
+/* ──────────────────────────────────────────────────────────────────
+   Phase 1 additions — Shifts page modals, hover cards, avatars
+   ────────────────────────────────────────────────────────────────── */
+
+/* Modal backdrop + dialog */
+.bk-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(24, 13, 46, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: bk-modal-fade-in 0.18s ease;
+}
+
+.bk-modal {
+    background: var(--ukuu-surface, #FCFBFF);
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(37, 22, 63, 0.32);
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: bk-modal-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bk-modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--ukuu-divider, rgba(37, 22, 63, 0.08));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: inherit;
+    border-radius: 16px 16px 0 0;
+    z-index: 1;
+}
+
+.bk-modal-header h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ukuu-text, #25163F);
+    margin: 0;
+}
+
+.bk-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--ukuu-text-muted, #4A3C68);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bk-modal-close:hover {
+    background: var(--ukuu-surface-alt, #F3F1F6);
+    color: var(--ukuu-text, #25163F);
+}
+
+.bk-modal-body {
+    padding: 20px 24px 8px;
+}
+
+@keyframes bk-modal-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes bk-modal-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Small avatar for table rows */
+.bk-admin-avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #25163F 0%, #4A3C68 100%);
+    color: #FCFBFF;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+
+/* Hover-lift card */
+.bk-admin-card-hover {
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.bk-admin-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(37, 22, 63, 0.14);
+}
+
+.bk-admin-card-hover::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, var(--ukuu-accent-violet, #5E4B85) 50%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    border-radius: 16px 16px 0 0;
+}
+
+.bk-admin-card-hover:hover::before {
+    opacity: 1;
+}
+
+/* Additional pill colors */
+.bk-admin-pill.info {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--ukuu-info, #2563EB);
+}
+
+html[data-theme="dark"] .bk-admin-pill.info {
+    background: rgba(96, 165, 250, 0.15);
+    color: #93C5FD;
+}
+
+/* Dark mode modal adjustments */
+html[data-theme="dark"] .bk-modal {
+    background: #1A0F30;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] .bk-modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .bk-modal-close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #FCFBFF;
+}

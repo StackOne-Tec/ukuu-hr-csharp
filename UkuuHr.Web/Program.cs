@@ -14,26 +14,48 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ───────────── Database (PostgreSQL only) ─────────────
-// Priority: explicit Npgsql connection string env var > DATABASE_URL (Render) > appsettings.json
+// ───────────── Database (PostgreSQL in prod, SQLite fallback for local dev) ─────────────
+// Priority: explicit Npgsql connection string env var > DATABASE_URL (Render) > SQLite local file
 // When running in our Docker container, entrypoint.sh exports POSTGRES_CONNECTION_STRING pointing to localhost.
+// When running locally without env vars set, falls back to a SQLite file in the project root.
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var explicitConnStr = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING")
     ?? Environment.GetEnvironmentVariable("ConnectionString")
     ?? Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING");
 
 string connectionString;
+bool useSqlite;
 if (!string.IsNullOrWhiteSpace(explicitConnStr))
+{
     connectionString = explicitConnStr;
+    useSqlite = false;
+}
 else if (!string.IsNullOrWhiteSpace(databaseUrl))
+{
     connectionString = ConvertRenderDatabaseUrlToNpgsql(databaseUrl);
+    useSqlite = false;
+}
 else
-    connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? "Host=localhost;Port=5432;Database=ukuuhr;Username=postgres;Password=postgres";
+{
+    // Local development fallback — SQLite file next to the project.
+    // PostgreSQL is unavailable in some dev environments (e.g. sandboxed CI).
+    var sqlitePath = builder.Configuration.GetConnectionString("SqlitePath") ?? "ukuuhr.db";
+    connectionString = $"Data Source={sqlitePath}";
+    useSqlite = true;
+}
 
-builder.Services.AddDbContext<UkuuHrDbContext>(options =>
-    options.UseNpgsql(connectionString)
-           .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
+if (useSqlite)
+{
+    builder.Services.AddDbContext<UkuuHrDbContext>(options =>
+        options.UseSqlite(connectionString)
+               .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
+}
+else
+{
+    builder.Services.AddDbContext<UkuuHrDbContext>(options =>
+        options.UseNpgsql(connectionString)
+               .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
+}
 
 static string ConvertRenderDatabaseUrlToNpgsql(string url)
 {
@@ -107,6 +129,9 @@ builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<HikvisionSyncService>();
 builder.Services.AddScoped<OvertimeService>();
 builder.Services.AddHttpClient("KeepAlive");
+
+// ───── Phase 1: FR-003 / FR-004 / FR-005 — Shifts & Tolerance ─────
+builder.Services.AddScoped<ShiftService>();
 
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();

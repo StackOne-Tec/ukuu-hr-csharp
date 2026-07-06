@@ -121,9 +121,9 @@
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Payroll</span> }
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-badge">4</span> }
             </a>
-            <a href="/scheduling" class="bk-admin-sidebar-item @(IsActive("scheduling") ? "active" : "")">
+            <a href="/shifts" class="bk-admin-sidebar-item @(IsActive("shifts") || IsActive("scheduling") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">calendar_month</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Scheduling</span> }
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Shifts</span> }
             </a>
             <a href="/hikvision" class="bk-admin-sidebar-item @(IsActive("hikvision") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">fingerprint</span></span>

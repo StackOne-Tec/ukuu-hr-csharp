@@ -1,22 +1,27 @@
 @page "/attendance"
 @using Microsoft.EntityFrameworkCore
 @inject AttendanceService AttendanceSvc
+@inject ShiftService ShiftSvc
 @inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
         <div class="bk-admin-section-header-left">
             <div class="bk-admin-greeting">Time & Attendance · @_selectedDate.ToString("dd MMMM yyyy")</div>
             <h1 class="bk-admin-h1">Time & Attendance</h1>
-            <p class="bk-admin-sub">Track daily attendance, clock-in/out, and review timesheets for @_selectedDate.ToString("dd MMMM yyyy").</p>
+            <p class="bk-admin-sub">
+                Track daily attendance, clock-in/out, and review timesheets for @_selectedDate.ToString("dd MMMM yyyy").
+                Status is computed by the ShiftEngine against each employee's assigned shift and the org's tolerance policy.
+            </p>
         </div>
         <div class="bk-admin-actions">
             <input type="date" @bind="_selectedDate" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
-            <button class="bk-btn bk-btn-secondary">
-                <span class="material-icons-round" style="font-size:16px;">upload</span>
-                Import
+            <button class="bk-btn bk-btn-secondary" @onclick="RecomputeStatuses">
+                <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                Recompute Status
             </button>
-            <button class="bk-btn bk-btn-primary">
+            <button class="bk-btn bk-btn-primary" @onclick="ClockInAll">
                 <span class="material-icons-round" style="font-size:16px;">fingerprint</span>
                 Clock In/Out
             </button>
@@ -50,6 +55,11 @@
             <div class="bk-admin-kpi-value" style="font-size:24px;margin-top:8px;">@_remote</div>
             <div class="bk-admin-kpi-label">Remote</div>
         </div>
+        <div class="bk-admin-kpi-card" style="padding:16px 20px;">
+            <div class="bk-admin-kpi-icon" style="width:36px;height:36px;background:rgba(110,95,146,0.12);"><span class="material-icons-round" style="font-size:18px;">timer</span></div>
+            <div class="bk-admin-kpi-value" style="font-size:24px;margin-top:8px;">@(_records.Sum(r => r.WorkedHours).ToString("0.0"))h</div>
+            <div class="bk-admin-kpi-label">Total Hours</div>
+        </div>
     </div>
 
     <!-- Filter chips -->
@@ -69,29 +79,65 @@
                 <tr>
                     <th>Employee</th>
                     <th>Department</th>
+                    <th>Assigned Shift</th>
                     <th>Check In</th>
                     <th>Check Out</th>
                     <th>Hours</th>
+                    <th>Late / Early</th>
                     <th>Status</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var a in _filtered)
+                @foreach (var row in _filtered)
                 {
                     <tr>
                         <td>
                             <div style="display:flex;align-items:center;gap:10px;">
-                                <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@GetInitials(a.EmployeeName)</div>
-                                <div style="font-weight:600;font-size:13px;">@a.EmployeeName</div>
+                                <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@GetInitials(row.Attendance.EmployeeName)</div>
+                                <div style="font-weight:600;font-size:13px;">@row.Attendance.EmployeeName</div>
                             </div>
                         </td>
-                        <td>@GetDept(a.EmployeeId)</td>
-                        <td>@a.CheckInLabel</td>
-                        <td>@a.CheckOutLabel</td>
-                        <td style="font-weight:600;">@(a.WorkedHours > 0 ? a.WorkedHours.ToString("0.0") + "h" : "—")</td>
+                        <td>@GetDept(row.Attendance.EmployeeId)</td>
                         <td>
-                            <span class="bk-admin-pill @(a.Status == AttendanceStatus.Present ? "active" : a.Status == AttendanceStatus.Late ? "probation" : a.Status == AttendanceStatus.Absent ? "inactive" : "pending")">
-                                @a.Status
+                            @if (row.Resolution.Shift != null)
+                            {
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="width:5px;height:20px;border-radius:2px;background:@(row.Resolution.Shift.Color);"></div>
+                                    <div>
+                                        <div style="font-size:12px;font-weight:600;color:var(--bk-ink);">@row.Resolution.Shift.Name</div>
+                                        <div style="font-size:10px;color:var(--bk-ink-3);font-family:var(--ukuu-font-mono);">@row.Resolution.Shift.TimeWindow</div>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <span style="font-size:11px;color:var(--bk-ink-3);">@row.Resolution.Reason</span>
+                            }
+                        </td>
+                        <td>@row.Attendance.CheckInLabel</td>
+                        <td>@row.Attendance.CheckOutLabel</td>
+                        <td style="font-weight:600;">@(row.Attendance.WorkedHours > 0 ? row.Attendance.WorkedHours.ToString("0.0") + "h" : "—")</td>
+                        <td>
+                            @if (row.Computation.LateMinutes > 0)
+                            {
+                                <span style="font-size:11px;color:var(--bk-warning);font-weight:600;">+@row.Computation.LateMinutes min late</span>
+                            }
+                            else if (row.Computation.EarlyMinutes > 0)
+                            {
+                                <span style="font-size:11px;color:var(--bk-error);font-weight:600;">-@row.Computation.EarlyMinutes min early</span>
+                            }
+                            else if (row.Attendance.CheckIn.HasValue)
+                            {
+                                <span style="font-size:11px;color:var(--bk-success);font-weight:600;">On time</span>
+                            }
+                            else
+                            {
+                                <span style="font-size:11px;color:var(--bk-ink-3);">—</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="bk-admin-pill @(row.Attendance.Status == AttendanceStatus.Present ? "active" : row.Attendance.Status == AttendanceStatus.Late ? "probation" : row.Attendance.Status == AttendanceStatus.Absent ? "inactive" : row.Attendance.Status == AttendanceStatus.HalfDay ? "pending" : "info")">
+                                @row.Attendance.Status
                             </span>
                         </td>
                     </tr>
@@ -108,6 +154,42 @@
             </div>
         }
     </div>
+
+    @if (_tolerance != null)
+    {
+        <div class="bk-admin-card" style="margin-top:24px;">
+            <div class="bk-admin-card-header">
+                <h3>Active Tolerance Policy</h3>
+                <p>The ShiftEngine applies these thresholds when computing each attendance status.</p>
+            </div>
+            <div class="bk-admin-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+                <div class="bk-admin-stat-box">
+                    <div class="bk-admin-stat-box-label">Late tolerance</div>
+                    <div class="bk-admin-stat-box-value" style="color:var(--bk-warning);">@_tolerance.LateCheckInToleranceMinutes min</div>
+                </div>
+                <div class="bk-admin-stat-box">
+                    <div class="bk-admin-stat-box-label">Very-late threshold</div>
+                    <div class="bk-admin-stat-box-value" style="color:var(--bk-error);">@_tolerance.VeryLateThresholdMinutes min</div>
+                </div>
+                <div class="bk-admin-stat-box">
+                    <div class="bk-admin-stat-box-label">Early check-out</div>
+                    <div class="bk-admin-stat-box-value" style="color:var(--bk-warning);">@_tolerance.EarlyCheckOutToleranceMinutes min</div>
+                </div>
+                <div class="bk-admin-stat-box">
+                    <div class="bk-admin-stat-box-label">Absent threshold</div>
+                    <div class="bk-admin-stat-box-value" style="color:var(--bk-error);">@_tolerance.MinPresentMinutesForAttendance min</div>
+                </div>
+                <div class="bk-admin-stat-box">
+                    <div class="bk-admin-stat-box-label">Grace period</div>
+                    <div class="bk-admin-stat-box-value" style="color:var(--bk-info);">@_tolerance.GracePeriodMinutes min</div>
+                </div>
+                <div class="bk-admin-stat-box">
+                    <div class="bk-admin-stat-box-label">Default break</div>
+                    <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-2);">@_tolerance.DefaultBreakMinutes min</div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -115,17 +197,23 @@
     private string _filter = "all";
     private List<Attendance> _records = new();
     private List<Employee> _employees = new();
+    private AttendanceTolerance? _tolerance;
     private int _present, _late, _absent, _onLeave, _remote;
     private int _orgId;
 
-    private IEnumerable<Attendance> _filtered => _filter switch
+    /// <summary>Per-row payload: attendance record + engine resolution + computation.</summary>
+    private sealed record AttendanceRow(Attendance Attendance, ShiftResolution Resolution, AttendanceComputation Computation);
+
+    private List<AttendanceRow> _rows = new();
+
+    private IEnumerable<AttendanceRow> _filtered => _filter switch
     {
-        "present" => _records.Where(a => a.Status == AttendanceStatus.Present),
-        "late" => _records.Where(a => a.Status == AttendanceStatus.Late),
-        "absent" => _records.Where(a => a.Status == AttendanceStatus.Absent),
-        "onleave" => _records.Where(a => a.Status == AttendanceStatus.OnLeave),
-        "remote" => _records.Where(a => a.Status == AttendanceStatus.Remote),
-        _ => _records
+        "present" => _rows.Where(r => r.Attendance.Status == AttendanceStatus.Present),
+        "late" => _rows.Where(r => r.Attendance.Status == AttendanceStatus.Late),
+        "absent" => _rows.Where(r => r.Attendance.Status == AttendanceStatus.Absent),
+        "onleave" => _rows.Where(r => r.Attendance.Status == AttendanceStatus.OnLeave),
+        "remote" => _rows.Where(r => r.Attendance.Status == AttendanceStatus.Remote),
+        _ => _rows
     };
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -137,11 +225,53 @@
         _orgId = org.Id;
         _records = await AttendanceSvc.ForDateAsync(_orgId, _selectedDate);
         _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+        _tolerance = await ShiftSvc.GetOrCreateToleranceAsync(_orgId);
+
+        // For each record, resolve the shift + compute the status via ShiftEngine.
+        _rows.Clear();
+        foreach (var a in _records)
+        {
+            var resolution = await ShiftSvc.ResolveForEmployeeAsync(_orgId, a.EmployeeId, _selectedDate);
+            var computation = _tolerance != null
+                ? ShiftEngine.ComputeStatus(resolution, _tolerance, a.CheckIn, a.CheckOut, _selectedDate)
+                : new AttendanceComputation(a.Status, a.WorkedHours, 0, 0, a.BreakMinutes, null);
+            _rows.Add(new AttendanceRow(a, resolution, computation));
+        }
+
         _present = _records.Count(r => r.Status == AttendanceStatus.Present);
         _late = _records.Count(r => r.Status == AttendanceStatus.Late);
         _absent = _records.Count(r => r.Status == AttendanceStatus.Absent);
         _onLeave = _records.Count(r => r.Status == AttendanceStatus.OnLeave);
         _remote = _records.Count(r => r.Status == AttendanceStatus.Remote);
+    }
+
+    private async Task RecomputeStatuses()
+    {
+        try
+        {
+            if (_tolerance == null) { Snackbar.Add("No tolerance policy configured.", Severity.Warning); return; }
+            var updated = 0;
+            foreach (var row in _rows)
+            {
+                var newStatus = row.Computation.Status;
+                if (row.Attendance.Status != newStatus)
+                {
+                    row.Attendance.Status = newStatus;
+                    row.Attendance.Notes = row.Computation.Notes;
+                    updated++;
+                }
+            }
+            if (updated > 0) await Db.SaveChangesAsync();
+            Snackbar.Add($"Recomputed statuses for {_rows.Count} records ({updated} changed).", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task ClockInAll()
+    {
+        // Re-load to refresh.
+        await LoadAsync();
+        Snackbar.Add("Attendance refreshed.", Severity.Info);
     }
 
     private string GetInitials(string name)
