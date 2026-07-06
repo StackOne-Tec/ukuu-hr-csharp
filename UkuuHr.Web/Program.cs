@@ -384,6 +384,774 @@ app.MapPost("/auth/register", async (HttpContext ctx, ILogger<Program> logger) =
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Modular Architecture — REST API endpoints for the 8 core modules
+//
+// Employee Management | Attendance Management | Shift Management
+// Leave Management | Payroll Integration | Reporting
+// Notifications | API Services
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODULE 1: Employee Management
+// ═════════════════════════════════════════════════════════════════════════════
+
+// GET /api/employees — list all employees with optional filters
+app.MapGet("/api/employees", async (
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    int? orgId,
+    string? search,
+    string? department,
+    string? status) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    EmploymentStatus? statusFilter = status != null && Enum.TryParse<EmploymentStatus>(status, true, out var s)
+        ? s : null;
+
+    var employees = await svc.GetAllAsync(oid, search, department, statusFilter);
+    return Results.Ok(new
+    {
+        total = employees.Count,
+        organizationId = oid,
+        employees = employees.Select(e => new
+        {
+            e.Id,
+            e.EmployeeCode,
+            e.FirstName,
+            e.Surname,
+            fullName = e.FullName,
+            initials = e.Initials,
+            e.JobTitle,
+            e.Department,
+            e.Email,
+            e.Phone,
+            status = e.StatusDisplay,
+            e.Status,
+            e.EmploymentType,
+            e.BasicSalary,
+            e.Currency,
+            e.GrossSalary,
+            e.JoiningDate,
+            e.CreatedAt
+        })
+    });
+}).WithName("EmployeesList");
+
+// GET /api/employees/{id} — get a single employee
+app.MapGet("/api/employees/{id:int}", async (
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    int id,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var emp = await svc.GetAsync(oid, id);
+    if (emp == null) return Results.NotFound(new { error = "Employee not found." });
+    return Results.Ok(new
+    {
+        emp.Id,
+        emp.EmployeeCode,
+        emp.Title,
+        emp.FirstName,
+        emp.MiddleNames,
+        emp.Surname,
+        fullName = emp.FullName,
+        initials = emp.Initials,
+        emp.JobTitle,
+        emp.Department,
+        emp.Email,
+        emp.Phone,
+        status = emp.StatusDisplay,
+        emp.Status,
+        emp.EmploymentType,
+        emp.ContractType,
+        emp.DateOfBirth,
+        emp.Gender,
+        emp.Nationality,
+        emp.NationalIdentityNumber,
+        emp.PassportNumber,
+        emp.MaritalStatus,
+        emp.StreetAddress,
+        emp.City,
+        emp.Country,
+        emp.BasicSalary,
+        emp.Currency,
+        displayCurrency = emp.DisplayCurrency,
+        emp.GrossSalary,
+        emp.TotalAllowances,
+        emp.HourlyRate,
+        effectiveHourlyRate = emp.EffectiveHourlyRate,
+        emp.BankName,
+        emp.Branch,
+        emp.AccountNumber,
+        emp.MobileMoney,
+        emp.BeneficiaryName,
+        emp.Tpin,
+        emp.NapsaNumber,
+        emp.HealthInsuranceNumber,
+        emp.JoiningDate,
+        emp.ContractEndDate,
+        emp.ReportingManagerName,
+        emp.ProbationaryPeriodMonths,
+        emp.HolidayEntitlementDays,
+        emp.WorkHoursPerWeek,
+        emp.CreatedAt,
+        emp.UpdatedAt
+    });
+}).WithName("EmployeesGet");
+
+// POST /api/employees — create a new employee
+app.MapPost("/api/employees", async (
+    HttpContext ctx,
+    EmployeeService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<Employee>();
+    if (body == null) return Results.BadRequest(new { error = "Invalid request body." });
+
+    body.OrganizationId = oid;
+    var created = await svc.CreateAsync(body);
+    return Results.Created($"/api/employees/{created.Id}", new { id = created.Id, employeeCode = created.EmployeeCode });
+}).WithName("EmployeesCreate");
+
+// PUT /api/employees/{id} — update an existing employee
+app.MapPut("/api/employees/{id:int}", async (
+    HttpContext ctx,
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var existing = await svc.GetAsync(oid, id);
+    if (existing == null) return Results.NotFound(new { error = "Employee not found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<Employee>();
+    if (body == null) return Results.BadRequest(new { error = "Invalid request body." });
+
+    body.Id = id;
+    body.OrganizationId = oid;
+    var updated = await svc.UpdateAsync(body);
+    return Results.Ok(new { id = updated.Id, updatedAt = updated.UpdatedAt });
+}).WithName("EmployeesUpdate");
+
+// DELETE /api/employees/{id} — delete an employee
+app.MapDelete("/api/employees/{id:int}", async (
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var deleted = await svc.DeleteAsync(oid, id);
+    if (!deleted) return Results.NotFound(new { error = "Employee not found." });
+    return Results.Ok(new { status = "deleted" });
+}).WithName("EmployeesDelete");
+
+// GET /api/employees/stats — employee statistics
+app.MapGet("/api/employees/stats", async (
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var total = await svc.CountAsync(oid);
+    var active = await svc.CountByStatusAsync(oid, EmploymentStatus.Active);
+    var probation = await svc.CountByStatusAsync(oid, EmploymentStatus.Probation);
+    var inactive = await svc.CountByStatusAsync(oid, EmploymentStatus.Inactive);
+    var terminated = await svc.CountByStatusAsync(oid, EmploymentStatus.Terminated);
+    var totalPayroll = await svc.TotalPayrollAsync(oid);
+    var byDepartment = await svc.ByDepartmentAsync(oid);
+
+    return Results.Ok(new
+    {
+        total,
+        active,
+        probation,
+        inactive,
+        terminated,
+        totalPayroll,
+        byDepartment
+    });
+}).WithName("EmployeesStats");
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODULE 2: Attendance Management
+// ═════════════════════════════════════════════════════════════════════════════
+
+// GET /api/attendance — list attendance records for a date range
+app.MapGet("/api/attendance", async (
+    AttendanceService svc,
+    UkuuHrDbContext db,
+    int? orgId,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    DateTime? fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today;
+    DateTime? toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
+
+    var records = await svc.ForRangeAsync(oid, fromDate.Value, toDate.Value);
+    return Results.Ok(new
+    {
+        total = records.Count,
+        from = fromDate.Value.ToString("yyyy-MM-dd"),
+        to = toDate.Value.ToString("yyyy-MM-dd"),
+        records = records.Select(a => new
+        {
+            a.Id,
+            a.EmployeeId,
+            a.EmployeeName,
+            date = a.Date.ToString("yyyy-MM-dd"),
+            dateKey = a.DateKey,
+            a.CheckIn,
+            a.CheckOut,
+            checkInLabel = a.CheckInLabel,
+            checkOutLabel = a.CheckOutLabel,
+            a.Status,
+            a.Source,
+            a.WorkedHours,
+            a.Notes,
+            a.BreakMinutes
+        })
+    });
+}).WithName("AttendanceList");
+
+// GET /api/attendance/today — today's attendance
+app.MapGet("/api/attendance/today", async (
+    AttendanceService svc,
+    UkuuHrDbContext db,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var today = DateTime.Today;
+    var records = await svc.ForDateAsync(oid, today);
+    var breakdown = await svc.BreakdownAsync(oid, today);
+
+    return Results.Ok(new
+    {
+        date = today.ToString("yyyy-MM-dd"),
+        total = records.Count,
+        breakdown,
+        records = records.Select(a => new
+        {
+            a.Id,
+            a.EmployeeId,
+            a.EmployeeName,
+            checkInLabel = a.CheckInLabel,
+            checkOutLabel = a.CheckOutLabel,
+            a.Status,
+            a.WorkedHours,
+            a.Source
+        })
+    });
+}).WithName("AttendanceToday");
+
+// POST /api/attendance/clock-in — clock in an employee
+app.MapPost("/api/attendance/clock-in", async (
+    HttpContext ctx,
+    AttendanceService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var employeeIdStr = ctx.Request.Query["employeeId"].FirstOrDefault();
+    if (!int.TryParse(employeeIdStr, out var employeeId))
+        return Results.BadRequest(new { error = "Provide employeeId as a query parameter." });
+
+    var result = await svc.ClockAsync(oid, employeeId, clockIn: true);
+    if (result == null) return Results.NotFound(new { error = "Employee not found." });
+
+    return Results.Ok(new
+    {
+        status = "clocked_in",
+        employeeId,
+        checkIn = result.CheckIn,
+        dateKey = result.DateKey
+    });
+}).WithName("AttendanceClockIn");
+
+// POST /api/attendance/clock-out — clock out an employee
+app.MapPost("/api/attendance/clock-out", async (
+    HttpContext ctx,
+    AttendanceService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var employeeIdStr = ctx.Request.Query["employeeId"].FirstOrDefault();
+    if (!int.TryParse(employeeIdStr, out var employeeId))
+        return Results.BadRequest(new { error = "Provide employeeId as a query parameter." });
+
+    var result = await svc.ClockAsync(oid, employeeId, clockIn: false);
+    if (result == null) return Results.NotFound(new { error = "Employee not found." });
+
+    return Results.Ok(new
+    {
+        status = "clocked_out",
+        employeeId,
+        checkOut = result.CheckOut,
+        workedHours = result.WorkedHours,
+        dateKey = result.DateKey
+    });
+}).WithName("AttendanceClockOut");
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODULE 3: Shift Management
+// ═════════════════════════════════════════════════════════════════════════════
+
+// GET /api/shifts — list all shifts
+app.MapGet("/api/shifts", async (
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var shifts = await svc.GetAllShiftsAsync(oid, includeInactive: true);
+    return Results.Ok(new
+    {
+        total = shifts.Count,
+        shifts = shifts.Select(s => new
+        {
+            s.Id,
+            s.Name,
+            s.Description,
+            kind = s.KindDisplay,
+            s.Kind,
+            s.Color,
+            startTime = s.TimeWindow,
+            startMinutes = s.StartMinutes,
+            endMinutes = s.EndMinutes,
+            s.BreakMinutes,
+            plannedHours = s.PlannedHours,
+            plannedWorkedHours = s.PlannedWorkedHours,
+            s.IsOvernight,
+            daysDisplay = s.DaysDisplay,
+            s.IsActive,
+            s.RotationCycleDays,
+            s.RotationSlots,
+            s.CreatedAt
+        })
+    });
+}).WithName("ShiftsList");
+
+// GET /api/shifts/{id} — get a single shift
+app.MapGet("/api/shifts/{id:int}", async (
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int id,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var shift = await svc.GetShiftAsync(oid, id);
+    if (shift == null) return Results.NotFound(new { error = "Shift not found." });
+    return Results.Ok(new
+    {
+        shift.Id,
+        shift.Name,
+        shift.Description,
+        kind = shift.KindDisplay,
+        shift.Kind,
+        shift.Color,
+        startMinutes = shift.StartMinutes,
+        endMinutes = shift.EndMinutes,
+        timeWindow = shift.TimeWindow,
+        plannedHours = shift.PlannedHours,
+        plannedWorkedHours = shift.PlannedWorkedHours,
+        shift.IsOvernight,
+        shift.BreakMinutes,
+        daysDisplay = shift.DaysDisplay,
+        shift.DaysOfWeekMask,
+        shift.IsActive,
+        shift.RotationCycleDays,
+        shift.RotationSlots,
+        shift.FlexibleMinHours,
+        shift.FlexibleMaxHours,
+        shift.FlexibleCoreStartMinutes,
+        shift.FlexibleCoreEndMinutes
+    });
+}).WithName("ShiftsGet");
+
+// POST /api/shifts — create a new shift
+app.MapPost("/api/shifts", async (
+    HttpContext ctx,
+    ShiftService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<Shift>();
+    if (body == null) return Results.BadRequest(new { error = "Invalid request body." });
+
+    var created = await svc.CreateShiftAsync(oid, body, actorEmail: null);
+    return Results.Created($"/api/shifts/{created.Id}", new { id = created.Id, name = created.Name });
+}).WithName("ShiftsCreate");
+
+// PUT /api/shifts/{id} — update an existing shift
+app.MapPut("/api/shifts/{id:int}", async (
+    HttpContext ctx,
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<Shift>();
+    if (body == null) return Results.BadRequest(new { error = "Invalid request body." });
+
+    body.Id = id;
+    var updated = await svc.UpdateShiftAsync(oid, body, actorEmail: null);
+    return Results.Ok(new { id = updated.Id, updatedAt = updated.UpdatedAt });
+}).WithName("ShiftsUpdate");
+
+// DELETE /api/shifts/{id} — soft-delete (deactivate) a shift
+app.MapDelete("/api/shifts/{id:int}", async (
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var deleted = await svc.DeleteShiftAsync(oid, id, actorEmail: null);
+    if (!deleted) return Results.NotFound(new { error = "Shift not found." });
+    return Results.Ok(new { status = "deactivated" });
+}).WithName("ShiftsDelete");
+
+// GET /api/shifts/assignments — list shift assignments
+app.MapGet("/api/shifts/assignments", async (
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int? orgId,
+    int? employeeId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var assignments = await svc.GetAssignmentsAsync(oid, employeeId);
+    return Results.Ok(new
+    {
+        total = assignments.Count,
+        assignments = assignments.Select(a => new
+        {
+            a.Id,
+            a.EmployeeId,
+            employeeName = a.Employee?.FullName,
+            a.ShiftId,
+            shiftName = a.Shift?.Name,
+            shiftKind = a.Shift?.KindDisplay,
+            a.IsPrimary,
+            a.IsActive,
+            effectiveFrom = a.EffectiveFrom.ToString("yyyy-MM-dd"),
+            effectiveTo = a.EffectiveTo?.ToString("yyyy-MM-dd"),
+            a.RotationSlot,
+            a.CreatedAt
+        })
+    });
+}).WithName("ShiftsAssignmentsList");
+
+// POST /api/shifts/assignments — create a shift assignment
+app.MapPost("/api/shifts/assignments", async (
+    HttpContext ctx,
+    ShiftService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<EmployeeShiftAssignment>();
+    if (body == null) return Results.BadRequest(new { error = "Invalid request body." });
+
+    var created = await svc.AssignShiftAsync(oid, body, actorEmail: null);
+    return Results.Created($"/api/shifts/assignments/{created.Id}", new { id = created.Id });
+}).WithName("ShiftsAssignmentsCreate");
+
+// DELETE /api/shifts/assignments/{id} — remove a shift assignment
+app.MapDelete("/api/shifts/assignments/{id:int}", async (
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var deleted = await svc.UnassignShiftAsync(oid, id, actorEmail: null);
+    if (!deleted) return Results.NotFound(new { error = "Assignment not found." });
+    return Results.Ok(new { status = "removed" });
+}).WithName("ShiftsAssignmentsDelete");
+
+// GET /api/shifts/tolerance — get attendance tolerance config
+app.MapGet("/api/shifts/tolerance", async (
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var tolerance = await svc.GetOrCreateToleranceAsync(oid);
+    return Results.Ok(new
+    {
+        tolerance.Id,
+        lateCheckInToleranceMinutes = tolerance.LateCheckInToleranceMinutes,
+        veryLateThresholdMinutes = tolerance.VeryLateThresholdMinutes,
+        earlyCheckOutToleranceMinutes = tolerance.EarlyCheckOutToleranceMinutes,
+        halfDayEarlyThresholdMinutes = tolerance.HalfDayEarlyThresholdMinutes,
+        earlyArrivalAllowanceMinutes = tolerance.EarlyArrivalAllowanceMinutes,
+        capEarlyArrivalToAllowance = tolerance.CapEarlyArrivalToAllowance,
+        minPresentMinutesForAttendance = tolerance.MinPresentMinutesForAttendance,
+        autoMarkAbsentWhenNoClockEvent = tolerance.AutoMarkAbsentWhenNoClockEvent,
+        gracePeriodMinutes = tolerance.GracePeriodMinutes,
+        defaultBreakMinutes = tolerance.DefaultBreakMinutes,
+        halfDayWorkedMinutes = tolerance.HalfDayWorkedMinutes
+    });
+}).WithName("ShiftsToleranceGet");
+
+// PUT /api/shifts/tolerance — update attendance tolerance config
+app.MapPut("/api/shifts/tolerance", async (
+    HttpContext ctx,
+    ShiftService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<AttendanceTolerance>();
+    if (body == null) return Results.BadRequest(new { error = "Invalid request body." });
+
+    var updated = await svc.UpdateToleranceAsync(oid, body, actorEmail: null);
+    return Results.Ok(new { id = updated.Id, updatedAt = updated.UpdatedAt });
+}).WithName("ShiftsToleranceUpdate");
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODULE 4: Leave Management
+// ═════════════════════════════════════════════════════════════════════════════
+
+// GET /api/leave — list leave requests
+app.MapGet("/api/leave", async (
+    LeaveService svc,
+    UkuuHrDbContext db,
+    int? orgId,
+    string? status,
+    int? employeeId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    LeaveRequestStatus? statusFilter = status != null && Enum.TryParse<LeaveRequestStatus>(status, true, out var s)
+        ? s : null;
+
+    List<LeaveRequest> requests;
+    if (employeeId.HasValue)
+        requests = await svc.ForEmployeeAsync(oid, employeeId.Value);
+    else
+        requests = await svc.AllAsync(oid, statusFilter);
+
+    return Results.Ok(new
+    {
+        total = requests.Count,
+        requests = requests.Select(r => new
+        {
+            r.Id,
+            r.EmployeeId,
+            r.EmployeeName,
+            r.LeaveTypeId,
+            leaveType = r.LeaveTypeName,
+            startDate = r.StartDate.ToString("yyyy-MM-dd"),
+            endDate = r.EndDate.ToString("yyyy-MM-dd"),
+            requestedDays = r.RequestedDays,
+            r.Reason,
+            r.Status,
+            r.ReviewedByEmail,
+            reviewedAt = r.ReviewedAt?.ToString("yyyy-MM-dd HH:mm"),
+            r.RejectionReason,
+            r.ApproverNotes,
+            createdAt = r.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
+            periodLabel = r.PeriodLabel
+        })
+    });
+}).WithName("LeaveList");
+
+// GET /api/leave/{id} — get a single leave request
+app.MapGet("/api/leave/{id:int}", async (
+    LeaveService svc,
+    UkuuHrDbContext db,
+    int id,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var lr = await svc.GetAsync(oid, id);
+    if (lr == null) return Results.NotFound(new { error = "Leave request not found." });
+
+    return Results.Ok(new
+    {
+        lr.Id,
+        lr.EmployeeId,
+        lr.EmployeeName,
+        lr.LeaveTypeId,
+        leaveType = lr.LeaveTypeName,
+        startDate = lr.StartDate.ToString("yyyy-MM-dd"),
+        endDate = lr.EndDate.ToString("yyyy-MM-dd"),
+        requestedDays = lr.RequestedDays,
+        lr.Reason,
+        lr.Status,
+        lr.IsExceptional,
+        lr.DeductibleDays,
+        lr.HolidayDays,
+        lr.ReviewedByEmail,
+        reviewedAt = lr.ReviewedAt?.ToString("yyyy-MM-dd HH:mm"),
+        lr.RejectionReason,
+        lr.ApproverNotes,
+        createdAt = lr.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
+        periodLabel = lr.PeriodLabel
+    });
+}).WithName("LeaveGet");
+
+// POST /api/leave — create a new leave request
+app.MapPost("/api/leave", async (
+    HttpContext ctx,
+    LeaveService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<LeaveRequest>();
+    if (body == null) return Results.BadRequest(new { error = "Invalid request body." });
+
+    body.OrganizationId = oid;
+    var created = await svc.CreateAsync(body);
+    return Results.Created($"/api/leave/{created.Id}", new { id = created.Id, status = created.Status });
+}).WithName("LeaveCreate");
+
+// POST /api/leave/{id}/approve — approve a leave request
+app.MapPost("/api/leave/{id:int}/approve", async (
+    HttpContext ctx,
+    LeaveService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<ApprovalBody>();
+    var reviewerEmail = body?.ReviewerEmail ?? "api-client";
+
+    var result = await svc.ReviewAsync(oid, id, approve: true, reviewerEmail, notes: body?.Notes);
+    if (!result) return Results.NotFound(new { error = "Leave request not found." });
+    return Results.Ok(new { status = "approved", id });
+}).WithName("LeaveApprove");
+
+// POST /api/leave/{id}/reject — reject a leave request
+app.MapPost("/api/leave/{id:int}/reject", async (
+    HttpContext ctx,
+    LeaveService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var body = await ctx.Request.ReadFromJsonAsync<ApprovalBody>();
+    var reviewerEmail = body?.ReviewerEmail ?? "api-client";
+
+    var result = await svc.ReviewAsync(oid, id, approve: false, reviewerEmail, notes: body?.Notes);
+    if (!result) return Results.NotFound(new { error = "Leave request not found." });
+    return Results.Ok(new { status = "rejected", id });
+}).WithName("LeaveReject");
+
+// POST /api/leave/{id}/cancel — cancel a leave request
+app.MapPost("/api/leave/{id:int}/cancel", async (
+    LeaveService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var result = await svc.CancelAsync(oid, id);
+    if (!result) return Results.NotFound(new { error = "Leave request not found or already reviewed." });
+    return Results.Ok(new { status = "cancelled", id });
+}).WithName("LeaveCancel");
+
+// GET /api/leave/types — list leave types
+app.MapGet("/api/leave/types", async (
+    LeaveService svc,
+    UkuuHrDbContext db,
+    int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var types = await svc.GetLeaveTypesAsync(oid);
+    return Results.Ok(new
+    {
+        total = types.Count,
+        types = types.Select(t => new
+        {
+            t.Id,
+            t.Name,
+            t.Color,
+            t.DefaultDays,
+            t.IsPaid,
+            t.RequiresApproval,
+            t.CarryForward,
+            t.MaxCarryForwardDays
+        })
+    });
+}).WithName("LeaveTypesList");
+
+// GET /api/leave/balances — get leave balances for an employee
+app.MapGet("/api/leave/balances", async (
+    LeaveService svc,
+    UkuuHrDbContext db,
+    int? orgId,
+    int? employeeId,
+    int? year) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+    if (!employeeId.HasValue) return Results.BadRequest(new { error = "employeeId is required." });
+
+    var balances = await svc.GetOrCreateBalancesAsync(oid, employeeId.Value, year);
+    return Results.Ok(new
+    {
+        year = year ?? DateTime.UtcNow.Year,
+        balances = balances.Select(b => new
+        {
+            b.Id,
+            b.LeaveTypeId,
+            leaveType = b.LeaveType?.Name,
+            b.Year,
+            b.EntitlementDays,
+            b.UsedDays,
+            b.CarriedForwardDays,
+            b.AdjustedDays,
+            remainingDays = b.RemainingDays
+        })
+    });
+}).WithName("LeaveBalancesGet");
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Phase 5: FR-012 Payroll Integration API + FR-013 Modular API surface
 //
 // These endpoints expose attendance + leave + overtime data in JSON + CSV
@@ -508,14 +1276,14 @@ app.MapGet("/api/modules", async (UkuuHrDbContext db) =>
     var org = await db.Organizations.FirstOrDefaultAsync();
     var modules = new List<ModuleInfo>
     {
-        new("employees", "Employee Management", true, "/api/employees"),
-        new("attendance", "Attendance Management", true, "/api/attendance"),
-        new("shifts", "Shift Management", true, "/api/shifts"),
-        new("leave", "Leave Management", true, "/api/leave"),
-        new("payroll", "Payroll Integration", true, "/api/payroll/attendance-summary"),
-        new("reporting", "Reporting", true, "/api/reports"),
-        new("notifications", "Notifications", true, "/api/notifications"),
-        new("devices", "Device Integration", true, "/api/devices")
+        new("employees", "Employee Management", true, "GET /api/employees, /api/employees/stats, /api/employees/{id}"),
+        new("attendance", "Attendance Management", true, "GET /api/attendance, /api/attendance/today, POST /api/attendance/clock-in, /api/attendance/clock-out"),
+        new("shifts", "Shift Management", true, "GET /api/shifts, /api/shifts/{id}, /api/shifts/assignments, /api/shifts/tolerance"),
+        new("leave", "Leave Management", true, "GET /api/leave, /api/leave/types, /api/leave/balances, POST /api/leave, /api/leave/{id}/approve"),
+        new("payroll", "Payroll Integration", true, "GET /api/payroll/attendance-summary, /api/payroll/attendance-summary.csv"),
+        new("reporting", "Reporting", true, "GET /api/reports/attendance/csv, /api/reports/attendance/xlsx, /api/reports/attendance/csv/search"),
+        new("notifications", "Notifications", true, "GET /api/notifications, POST /api/notifications/{id}/read, /api/notifications/read-all"),
+        new("devices", "Device Integration", true, "GET /api/devices")
     };
     return Results.Ok(new { organization = org?.Name, modules });
 }).WithName("ModulesList");
@@ -745,3 +1513,6 @@ app.Run();
 
 // ───── Phase 5: FR-013 — Module info DTO for the modular API surface ─────
 public sealed record ModuleInfo(string Key, string Name, bool Implemented, string? Endpoint);
+
+// DTO for leave approval/rejection requests via the API
+public sealed record ApprovalBody(string? ReviewerEmail, string? Notes);
