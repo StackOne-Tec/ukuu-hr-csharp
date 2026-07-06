@@ -1,6 +1,7 @@
 @page "/leave"
 @attribute [Authorize]
 @using Microsoft.EntityFrameworkCore
+@using LeaveRequestModel = UkuuHr.Models.LeaveRequest
 @inject LeaveService LeaveSvc
 @inject UkuuHrDbContext Db
 @inject NavigationManager Nav
@@ -243,7 +244,7 @@
 
 @code {
     private string _tab = "pending";
-    private List<LeaveRequest> _all = new();
+    private List<LeaveRequestModel> _all = new();
     private List<LeaveHoliday> _holidays = new();
     private int _pending, _approvedThisMonth, _activeLeaveDays;
     private int _orgId;
@@ -263,7 +264,7 @@
         double UsedDays,
         double RemainingDays);
 
-    private IEnumerable<LeaveRequest> _filtered => _tab switch
+    private IEnumerable<LeaveRequestModel> _filtered => _tab switch
     {
         "pending" => _all.Where(l => l.Status == LeaveRequestStatus.Pending),
         "approved" => _all.Where(l => l.Status == LeaveRequestStatus.Approved),
