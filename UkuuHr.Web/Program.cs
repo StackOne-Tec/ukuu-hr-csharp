@@ -5,6 +5,7 @@ using MudBlazor;
 using MudBlazor.Services;
 using UkuuHr.Components;
 using UkuuHr.Data;
+using UkuuHr.Models;
 using UkuuHr.Services;
 
 // Use legacy timestamp behavior so DateTime is treated as 'timestamp without time zone'
@@ -201,6 +202,9 @@ builder.Services.AddScoped<ReportExportService>();
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();
 
+// ───── Phase 5: FR-002 — Automatic device sync background service ─────
+builder.Services.AddHostedService<DeviceAutoSyncService>();
+
 var app = builder.Build();
 
 // ───────────── Initialize DB ─────────────
@@ -306,7 +310,187 @@ app.MapPost("/auth/register", async (HttpContext ctx, ILogger<Program> logger) =
     return Results.Redirect("/login?registered=1");
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 5: FR-012 Payroll Integration API + FR-013 Modular API surface
+//
+// These endpoints expose attendance + leave + overtime data in JSON + CSV
+// formats for external payroll systems (Sage, Xero, QuickBooks, custom ERP).
+// They are intentionally RESTful and stateless so any payroll system can
+// poll them on its own schedule.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// FR-012: Payroll-ready attendance summary for a given month.
+// Returns: per-employee { workedHours, overtimeHours, leaveDays, absentDays, status }
+app.MapGet("/api/payroll/attendance-summary", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    int? orgId,
+    int? year,
+    int? month) =>
+{
+    var today = DateTime.Today;
+    var y = year ?? today.Year;
+    var m = month ?? today.Month;
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var from = new DateTime(y, m, 1);
+    var to = from.AddMonths(1).AddTicks(-1);
+
+    var attendance = await db.Attendances
+        .Where(a => a.OrganizationId == oid && a.Date >= from && a.Date <= to)
+        .ToListAsync();
+    var overtime = await db.OvertimeRecords
+        .Where(o => o.OrganizationId == oid && o.Date >= from && o.Date <= to && o.Status != OvertimeStatus.Rejected)
+        .ToListAsync();
+    var leave = await db.LeaveRequests
+        .Where(l => l.OrganizationId == oid && l.Status == LeaveRequestStatus.Approved
+                 && l.StartDate <= to && l.EndDate >= from)
+        .ToListAsync();
+    var employees = await db.Employees
+        .Where(e => e.OrganizationId == oid && e.Status != EmploymentStatus.Inactive)
+        .ToListAsync();
+
+    var rows = employees.Select(e =>
+    {
+        var empAttendance = attendance.Where(a => a.EmployeeId == e.Id).ToList();
+        var empOt = overtime.Where(o => o.EmployeeId == e.Id).ToList();
+        var empLeave = leave.Where(l => l.EmployeeId == e.Id).ToList();
+        var leaveDays = empLeave.Sum(l => LeaveRequest.CalculateBusinessDays(
+            l.StartDate < from ? from : l.StartDate,
+            l.EndDate > to ? to : l.EndDate));
+        return new
+        {
+            employeeId = e.Id,
+            employeeCode = e.EmployeeCode,
+            employeeName = e.FullName,
+            department = e.Department,
+            workedHours = Math.Round(empAttendance.Sum(a => a.WorkedHours), 2),
+            overtimeHours = Math.Round(empOt.Sum(o => o.Hours), 2),
+            overtimePay = Math.Round(empOt.Sum(o => o.Pay), 2),
+            leaveDays,
+            absentDays = empAttendance.Count(a => a.Status == AttendanceStatus.Absent),
+            lateDays = empAttendance.Count(a => a.Status == AttendanceStatus.Late),
+            halfDays = empAttendance.Count(a => a.Status == AttendanceStatus.HalfDay),
+            basicSalary = e.BasicSalary,
+            currency = e.DisplayCurrency
+        };
+    }).ToList();
+
+    return Results.Ok(new
+    {
+        period = $"{y:0000}-{m:00}",
+        organization = (await db.Organizations.FirstOrDefaultAsync(o => o.Id == oid))?.Name,
+        generatedAt = DateTime.UtcNow,
+        totalEmployees = rows.Count,
+        rows
+    });
+}).WithName("PayrollAttendanceSummary");
+
+// FR-012: Export attendance summary as CSV (for legacy payroll systems).
+app.MapGet("/api/payroll/attendance-summary.csv", async (
+    UkuuHrDbContext db,
+    int? orgId,
+    int? year,
+    int? month) =>
+{
+    var today = DateTime.Today;
+    var y = year ?? today.Year;
+    var m = month ?? today.Month;
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound();
+
+    var from = new DateTime(y, m, 1);
+    var to = from.AddMonths(1).AddTicks(-1);
+    var attendance = await db.Attendances
+        .Where(a => a.OrganizationId == oid && a.Date >= from && a.Date <= to)
+        .ToListAsync();
+    var employees = await db.Employees
+        .Where(e => e.OrganizationId == oid && e.Status != EmploymentStatus.Inactive)
+        .ToListAsync();
+
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("EmployeeCode,EmployeeName,Department,WorkedHours,AbsentDays,LateDays,HalfDays,BasicSalary,Currency");
+    foreach (var e in employees)
+    {
+        var att = attendance.Where(a => a.EmployeeId == e.Id).ToList();
+        sb.AppendLine(string.Join(",",
+            e.EmployeeCode ?? "",
+            $"\"{e.FullName}\"",
+            e.Department ?? "",
+            att.Sum(a => a.WorkedHours).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+            att.Count(a => a.Status == AttendanceStatus.Absent).ToString(),
+            att.Count(a => a.Status == AttendanceStatus.Late).ToString(),
+            att.Count(a => a.Status == AttendanceStatus.HalfDay).ToString(),
+            e.BasicSalary.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+            e.DisplayCurrency));
+    }
+    var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    return Results.File(bytes, "text/csv", $"attendance-summary-{y}{m:00}.csv");
+}).WithName("PayrollAttendanceCsv");
+
+// FR-013: Modular API — list of available modules + their status.
+app.MapGet("/api/modules", async (UkuuHrDbContext db) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    var modules = new List<ModuleInfo>
+    {
+        new("employees", "Employee Management", true, "/api/employees"),
+        new("attendance", "Attendance Management", true, "/api/attendance"),
+        new("shifts", "Shift Management", true, "/api/shifts"),
+        new("leave", "Leave Management", true, "/api/leave"),
+        new("payroll", "Payroll Integration", true, "/api/payroll/attendance-summary"),
+        new("reporting", "Reporting", true, "/api/reports"),
+        new("notifications", "Notifications", false, null),
+        new("devices", "Device Integration", true, "/api/devices")
+    };
+    return Results.Ok(new { organization = org?.Name, modules });
+}).WithName("ModulesList");
+
+// FR-013: Devices list (modular API surface — minimal read endpoint for external systems).
+app.MapGet("/api/devices", async (UkuuHrDbContext db, int? orgId) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var devices = await db.AttendanceDevices
+        .Where(d => d.OrganizationId == oid && d.IsActive)
+        .Select(d => new
+        {
+            d.Id,
+            d.Name,
+            vendor = d.Vendor.ToString(),
+            mode = d.Mode.ToString(),
+            d.IpAddress,
+            d.Port,
+            d.Location,
+            d.LastSuccessfulSyncAt,
+            d.TotalEventsSynced,
+            d.AutoSyncEnabled,
+            d.SyncIntervalMinutes
+        })
+        .ToListAsync();
+    return Results.Ok(new { total = devices.Count, devices });
+}).WithName("DevicesList");
+
+// FR-013: System metrics endpoint (for monitoring dashboards / NFR — 99.9% availability).
+app.MapGet("/api/system/metrics", (UkuuHrDbContext db) =>
+{
+    return Results.Ok(new
+    {
+        status = "ok",
+        uptime_seconds = (DateTime.UtcNow - startTime).TotalSeconds,
+        timestamp = DateTime.UtcNow,
+        modules_active = new[]
+        {
+            "employees", "attendance", "shifts", "leave",
+            "payroll", "reporting", "devices", "auto-sync"
+        }
+    });
+}).WithName("SystemMetrics");
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// ───── Phase 5: FR-013 — Module info DTO for the modular API surface ─────
+public sealed record ModuleInfo(string Key, string Name, bool Implemented, string? Endpoint);

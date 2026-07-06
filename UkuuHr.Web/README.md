@@ -282,6 +282,65 @@ Each REST connector parses vendor-specific payloads (XML/JSON/key=value) into `N
 cd UkuuHr.Tests && dotnet test
 ```
 
+## 🆕 Phase 4 — FR-009 Attendance Search + FR-010 Reporting
+
+| FRS Requirement | Module | Files |
+|---|---|---|
+| **FR-009** Attendance Search | Multi-filter search: employee / dept / branch / shift / status / date / custom range | `Services/AttendanceReportService.cs` → `AttendanceSearchService`, `Components/Pages/AttendanceSearch.razor` |
+| **FR-010** Reporting | Daily / Weekly / Monthly / Custom reports with CSV & XLSX export | `Services/AttendanceReportService.cs` → `ReportExportService` |
+
+### Search Features
+
+- 8-filter form: Employee, Department, Branch, Shift, Status, From/To date, free-text name search
+- 5 quick-date presets: Today / 7 / 30 / 90 days / This month
+- Pagination with "Showing X–Y of N" counter
+- Results table: Date, Employee, Code, Department, Branch, CheckIn, CheckOut, Hours, Status pill
+
+### Export Features
+
+- **CSV**: 10-column format via CsvHelper
+- **XLSX**: 2-sheet workbook (Summary + Detail) via ClosedXML
+  - Summary sheet: report title, period, metric table with branded ink-violet headers
+  - Detail sheet: full row data with color-coded Status cells (Present=green, Late=amber, Absent=red)
+  - Frozen header row, auto-adjusted columns
+
+### Phase 4 Tests
+
+51 total tests (27 Phase 1 + 17 Phase 3 + 7 Phase 4) covering CSV/XLSX byte output, round-trip XLSX re-opening, summary computation, period resolution.
+
+## 🆕 Phase 5 — FR-002 Auto-Sync + FR-012 Payroll API + FR-013 Modular Architecture
+
+| FRS Requirement | Module | Files |
+|---|---|---|
+| **FR-002** Automatic Synchronization | Background service polls active devices on their `SyncIntervalMinutes` schedule | `Services/DeviceAutoSyncService.cs` |
+| **FR-012** Payroll Integration | REST + CSV API endpoints exposing attendance summary for external payroll systems | `Program.cs` → `/api/payroll/*` |
+| **FR-013** Modular Architecture | 8-module API surface with implementation status + system metrics endpoint | `Program.cs` → `/api/modules`, `/api/system/metrics` |
+
+### Auto-Sync Background Service
+
+`DeviceAutoSyncService` is an `IHostedService` that ticks every 60 seconds and syncs any device whose:
+- `IsActive == true` AND
+- `AutoSyncEnabled == true` AND
+- `LastSyncAt + SyncIntervalMinutes <= now`
+
+### Payroll Integration API
+
+```
+GET /api/payroll/attendance-summary?orgId=1&year=2026&month=7
+  → JSON with per-employee { workedHours, overtimeHours, overtimePay, leaveDays, absentDays, lateDays, halfDays, basicSalary, currency }
+
+GET /api/payroll/attendance-summary.csv?year=2026&month=7
+  → CSV file download (Content-Disposition: attachment)
+```
+
+### Modular API Surface
+
+```
+GET /api/modules           → 8 modules with implementation status
+GET /api/devices           → All active devices with sync metadata
+GET /api/system/metrics    → Uptime + active modules list (NFR: 99.9% availability)
+```
+
 ## ⚠️ Notes
 
 - The original Dart project uses Firebase; this C# rebuild uses EF Core + SQLite for simplicity and zero external service dependencies.
