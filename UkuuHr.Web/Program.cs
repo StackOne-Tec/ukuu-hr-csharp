@@ -998,6 +998,48 @@ app.MapDelete("/api/shifts/{id:int}", async (
     return Results.Ok(new { status = "deactivated" });
 }).WithName("ShiftsDelete");
 
+// POST /api/shifts/tolerance — save attendance tolerance policy (traditional form POST)
+app.MapPost("/api/shifts/tolerance", async (
+    HttpContext ctx,
+    ShiftService svc,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.Redirect("/shifts/tolerance");
+
+    var form = await ctx.Request.ReadFormAsync();
+    var tolerance = await svc.GetOrCreateToleranceAsync(oid);
+
+    tolerance.LateCheckInToleranceMinutes = int.TryParse(form["LateCheckInToleranceMinutes"], out var v1) ? v1 : 15;
+    tolerance.VeryLateThresholdMinutes = int.TryParse(form["VeryLateThresholdMinutes"], out var v2) ? v2 : 60;
+    tolerance.EarlyCheckOutToleranceMinutes = int.TryParse(form["EarlyCheckOutToleranceMinutes"], out var v3) ? v3 : 10;
+    tolerance.HalfDayEarlyThresholdMinutes = int.TryParse(form["HalfDayEarlyThresholdMinutes"], out var v4) ? v4 : 180;
+    tolerance.EarlyArrivalAllowanceMinutes = int.TryParse(form["EarlyArrivalAllowanceMinutes"], out var v5) ? v5 : 30;
+    tolerance.CapEarlyArrivalToAllowance = form["CapEarlyArrivalToAllowance"] == "true";
+    tolerance.MinPresentMinutesForAttendance = int.TryParse(form["MinPresentMinutesForAttendance"], out var v6) ? v6 : 240;
+    tolerance.AutoMarkAbsentWhenNoClockEvent = form["AutoMarkAbsentWhenNoClockEvent"] == "true";
+    tolerance.GracePeriodMinutes = int.TryParse(form["GracePeriodMinutes"], out var v7) ? v7 : 0;
+    tolerance.GracePeriodDaysMask = int.TryParse(form["GracePeriodDaysMask"], out var v8) ? v8 : 31;
+    tolerance.DefaultBreakMinutes = int.TryParse(form["DefaultBreakMinutes"], out var v9) ? v9 : 60;
+    tolerance.MinWorkedMinutesBeforeBreak = int.TryParse(form["MinWorkedMinutesBeforeBreak"], out var v10) ? v10 : 240;
+    tolerance.HalfDayWorkedMinutes = int.TryParse(form["HalfDayWorkedMinutes"], out var v11) ? v11 : 240;
+    tolerance.UpdatedByEmail = "admin";
+    tolerance.UpdatedAt = DateTime.UtcNow;
+
+    try
+    {
+        await svc.UpdateToleranceAsync(oid, tolerance, "admin");
+        logger.LogInformation("Tolerance policy saved for org {OrgId}", oid);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to save tolerance policy for org {OrgId}", oid);
+    }
+
+    return Results.Redirect("/shifts/tolerance?saved=1");
+}).WithName("ShiftsToleranceSave");
+
 // GET /api/shifts/assignments — list shift assignments
 app.MapGet("/api/shifts/assignments", async (
     ShiftService svc,
