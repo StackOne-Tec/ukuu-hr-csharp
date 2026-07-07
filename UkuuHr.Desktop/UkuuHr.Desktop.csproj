@@ -2,41 +2,25 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
-    <TargetFrameworks>net9.0-windows10.0.19041.0;net9.0</TargetFrameworks>
-    <UseWindowsForms>false</UseWindowsForms>
-    <UseWPF>false</UseWPF>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>UkuuHr.Desktop</RootNamespace>
     <AssemblyName>UkuuHr</AssemblyName>
-    <ApplicationIcon>ukuu-icon.ico</ApplicationIcon>
     <Version>1.0.0</Version>
     <Company>Ukuu HR</Company>
     <Product>Ukuu HR Desktop</Product>
     <Description>Ukuu HR — Modern HRMS for Africa (Desktop Edition)</Description>
-    <PackageProjectUrl>https://ukuu-hr-csharp.onrender.com</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/CHAMA18/ukuu-hr-csharp</RepositoryUrl>
+    <!-- Allow building on non-Windows (Linux CI for macOS build) -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
-  <!-- Photino.NET for cross-platform native window (Windows + macOS + Linux) -->
   <ItemGroup>
-    <PackageReference Include="Photino.NET" Version="2.6.0" />
+    <PackageReference Include="Photino.NET" Version="4.0.16" />
   </ItemGroup>
 
-  <!-- Reference the web project so we can start Kestrel in-process -->
   <ItemGroup>
     <ProjectReference Include="..\UkuuHr.Web\UkuuHr.Web.csproj" />
-  </ItemGroup>
-
-  <!-- Windows-specific: include icon -->
-  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
-    <Content Include="ukuu-icon.ico" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <!-- macOS: no icon needed at build time (added via .app bundle packaging) -->
-  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
-    <None Remove="ukuu-icon.ico" />
   </ItemGroup>
 
 </Project>
