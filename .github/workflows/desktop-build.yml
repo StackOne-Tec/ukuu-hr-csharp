@@ -1,0 +1,170 @@
+name: Build Desktop Apps (Windows + macOS)
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Also allow manual trigger
+
+jobs:
+  # ───────────────── Windows Build ─────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish Windows desktop app
+        run: |
+          dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj `
+            -c Release `
+            -f net9.0-windows10.0.19041.0 `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o ./publish/windows
+
+      - name: Create Windows ZIP
+        run: Compress-Archive -Path ./publish/windows/* -DestinationPath ./UkuuHr-Windows-x64.zip
+
+      - name: Upload Windows artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./UkuuHr-Windows-x64.zip
+          asset_name: UkuuHr-Windows-x64.zip
+          asset_content_type: application/zip
+        if: needs.create-release.outputs.upload_url != ''
+
+      - name: Upload artifact (for workflow_dispatch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: UkuuHr-Windows-x64
+          path: ./UkuuHr-Windows-x64.zip
+
+  # ───────────────── macOS Build ─────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish macOS desktop app
+        run: |
+          dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj \
+            -c Release \
+            -f net9.0 \
+            -r osx-arm64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o ./publish/macos
+
+      - name: Create macOS .app bundle
+        run: |
+          mkdir -p "UkuuHr.app/Contents/MacOS"
+          mkdir -p "UkuuHr.app/Contents/Resources"
+          cp -r ./publish/macos/* "UkuuHr.app/Contents/MacOS/"
+          cat > "UkuuHr.app/Contents/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>Ukuu HR</string>
+            <key>CFBundleDisplayName</key>
+            <string>Ukuu HR</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.ukuuhr.desktop</string>
+            <key>CFBundleVersion</key>
+            <string>1.0.0</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleExecutable</key>
+            <string>UkuuHr</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+          chmod +x "UkuuHr.app/Contents/MacOS/UkuuHr"
+
+      - name: Create macOS ZIP
+        run: zip -r UkuuHr-macOS-arm64.zip UkuuHr.app
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UkuuHr-macOS-arm64
+          path: ./UkuuHr-macOS-arm64.zip
+
+  # ───────────────── Create GitHub Release ─────────────────
+  create-release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UkuuHr-Windows-x64
+          path: ./downloads
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UkuuHr-macOS-arm64
+          path: ./downloads
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Ukuu HR Desktop ${{ github.ref_name }}
+          body: |
+            # Ukuu HR Desktop ${{ github.ref_name }}
+
+            ## Downloads
+
+            ### Windows
+            - **UkuuHr-Windows-x64.zip** — Self-contained .exe (no .NET install required)
+              1. Download and unzip
+              2. Run `UkuuHr.exe`
+              3. The app opens in a native window
+
+            ### macOS
+            - **UkuuHr-macOS-arm64.zip** — Self-contained .app bundle (Apple Silicon)
+              1. Download and unzip
+              2. Move `UkuuHr.app` to Applications
+              3. Right-click → Open (first time only)
+              4. The app opens in a native window
+
+            ### Also available as PWA
+            Visit https://ukuu-hr-csharp.onrender.com in Chrome or Edge,
+            click the install icon (⊕) in the address bar to install as a
+            Progressive Web App — works on both Windows and macOS.
+
+            ## What's new
+            - Native desktop window (no browser needed)
+            - Self-contained (no .NET runtime required)
+            - Offline-capable (PWA service worker caches the app shell)
+          files: ./downloads/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

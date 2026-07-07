@@ -7,6 +7,7 @@
     <title>Ukuu HR — Modern HRMS for Africa</title>
     <meta name="description" content="Ukuu HR — a world-class HR management system for the African market. Employees, attendance, leave, payroll, scheduling, and more." />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="manifest" href="manifest.json" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Round" rel="stylesheet" />
@@ -46,6 +47,15 @@
         window.ukuuGetTheme = function() {
             return document.documentElement.getAttribute('data-theme') || 'light';
         };
+
+        // PWA: Register service worker for installable app support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/service-worker.js').catch(function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
     </script>
 </body>
 </html>

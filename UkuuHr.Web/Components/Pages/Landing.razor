@@ -19,6 +19,7 @@
                 <a href="#payroll">Payroll</a>
                 <a href="#method">Method</a>
                 <a href="#products">Modules</a>
+                <a href="#download">Download</a>
                 <a href="#cta">Get started</a>
             </nav>
             <div class="bk-nav-cta">
@@ -359,6 +360,70 @@
                     <strong>admin@ukuuhr.demo</strong>
                     <span style="color:var(--bk-ink-3);">·</span>
                     <code>Admin@2025</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @* ─────────── DESKTOP DOWNLOAD SECTION ─────────── *@
+    <section class="bk-section" id="download" style="background:linear-gradient(180deg, var(--ukuu-ink) 0%, var(--ukuu-ink-deep, #180D2E) 100%);color:#FCFBFF;">
+        <div class="bk-container">
+            <div style="text-align:center;margin-bottom:48px;">
+                <p class="bk-eyebrow" style="color:rgba(255,255,255,0.6);">Desktop Apps</p>
+                <h2 class="bk-h2" style="margin-top:12px;color:#FCFBFF;">Install Ukuu HR on your computer</h2>
+                <p class="bk-lead" style="color:rgba(255,255,255,0.7);max-width:600px;margin:12px auto 0;">
+                    Run Ukuu HR as a native desktop application — no browser needed.
+                    Available for Windows and macOS. Self-contained, no .NET runtime required.
+                </p>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;max-width:900px;margin:0 auto;">
+                @* Windows download card *@
+                <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px 28px;text-align:center;transition:transform 0.2s ease,background 0.2s ease;">
+                    <div style="width:64px;height:64px;margin:0 auto 20px;background:rgba(0,120,215,0.15);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+                        <span class="material-icons-round" style="font-size:36px;color:#4A90D9;">desktop_windows</span>
+                    </div>
+                    <h3 style="font-size:20px;font-weight:700;color:#FCFBFF;margin-bottom:8px;">Windows</h3>
+                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">Windows 10 or later · 64-bit<br/>Self-contained .exe (no .NET install needed)</p>
+                    <a href="https://github.com/CHAMA18/ukuu-hr-csharp/releases/latest/download/UkuuHr-Windows-x64.zip"
+                       class="bk-btn bk-btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);border:1px solid rgba(255,255,255,0.2);">
+                        <span class="material-icons-round" style="font-size:18px;">download</span>
+                        Download for Windows
+                    </a>
+                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .zip file</p>
+                </div>
+
+                @* macOS download card *@
+                <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px 28px;text-align:center;transition:transform 0.2s ease,background 0.2s ease;">
+                    <div style="width:64px;height:64px;margin:0 auto 20px;background:rgba(255,255,255,0.08);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+                        <span class="material-icons-round" style="font-size:36px;color:#FCFBFF;">laptop_mac</span>
+                    </div>
+                    <h3 style="font-size:20px;font-weight:700;color:#FCFBFF;margin-bottom:8px;">macOS</h3>
+                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">macOS 11 (Big Sur) or later<br/>Apple Silicon (M1/M2/M3) · .app bundle</p>
+                    <a href="https://github.com/CHAMA18/ukuu-hr-csharp/releases/latest/download/UkuuHr-macOS-arm64.zip"
+                       class="bk-btn bk-btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);border:1px solid rgba(255,255,255,0.2);">
+                        <span class="material-icons-round" style="font-size:18px;">download</span>
+                        Download for macOS
+                    </a>
+                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .zip file</p>
+                </div>
+            </div>
+
+            @* PWA fallback *@
+            <div style="max-width:600px;margin:40px auto 0;padding:24px;background:rgba(255,255,255,0.04);border-radius:16px;border:1px solid rgba(255,255,255,0.08);">
+                <div style="display:flex;align-items:flex-start;gap:16px;">
+                    <div style="width:40px;height:40px;flex-shrink:0;background:rgba(255,255,255,0.08);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <span class="material-icons-round" style="font-size:22px;color:rgba(255,255,255,0.8);">install_desktop</span>
+                    </div>
+                    <div>
+                        <h4 style="font-size:15px;font-weight:700;color:#FCFBFF;margin-bottom:4px;">Prefer a browser-based install?</h4>
+                        <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;">
+                            Ukuu HR is also a Progressive Web App (PWA). Open
+                            <a href="/dashboard" style="color:#9C8FB8;text-decoration:underline;">the web app</a>
+                            in Chrome or Edge, then click the install icon (⊕) in the address bar to install
+                            it as a desktop app — works on both Windows and macOS without downloading anything.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
