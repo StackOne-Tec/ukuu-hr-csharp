@@ -89,8 +89,7 @@
                 </div>
             }
 
-            <EditForm Model="@_form" OnValidSubmit="@HandleSignUp">
-                <DataAnnotationsValidator />
+            <form method="post" action="/auth/signup" class="bk-form">
 
                 @* Name row *@
                 <div class="bk-field-group" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
@@ -98,17 +97,17 @@
                         <label class="bk-label" for="firstName">First name <span style="color:var(--bk-error);">*</span></label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon" style="font-size:18px;">person_outline</span>
-                            <InputText id="firstName" class="bk-input" style="padding-left:36px;" @bind-Value="_form.FirstName" placeholder="James" />
+                            <input id="firstName" class="bk-input" style="padding-left:36px;" name="FormData.FirstName" placeholder="James" />
                         </div>
-                        <ValidationMessage For="@(() => _form.FirstName)" />
+                        
                     </div>
                     <div class="bk-field">
                         <label class="bk-label" for="lastName">Last name <span style="color:var(--bk-error);">*</span></label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon" style="font-size:18px;">person_outline</span>
-                            <InputText id="lastName" class="bk-input" style="padding-left:36px;" @bind-Value="_form.LastName" placeholder="Mwale" />
+                            <input id="lastName" class="bk-input" style="padding-left:36px;" name="FormData.LastName" placeholder="Mwale" />
                         </div>
-                        <ValidationMessage For="@(() => _form.LastName)" />
+                        
                     </div>
                 </div>
 
@@ -117,9 +116,9 @@
                     <label class="bk-label" for="email">Work email <span style="color:var(--bk-error);">*</span></label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon" style="font-size:18px;">mail_outline</span>
-                        <InputText id="email" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Email" placeholder="you@company.com" />
+                        <input id="email" class="bk-input" style="padding-left:36px;" name="FormData.Email" placeholder="you@company.com" />
                     </div>
-                    <ValidationMessage For="@(() => _form.Email)" />
+                    
                 </div>
 
                 @* Phone *@
@@ -127,7 +126,7 @@
                     <label class="bk-label" for="phone">Phone number</label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon" style="font-size:18px;">phone</span>
-                        <InputText id="phone" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Phone" placeholder="+260 97 123 4567" />
+                        <input id="phone" class="bk-input" style="padding-left:36px;" name="FormData.Phone" placeholder="+260 97 123 4567" />
                     </div>
                 </div>
 
@@ -136,9 +135,9 @@
                     <label class="bk-label" for="orgName">Organization name <span style="color:var(--bk-error);">*</span></label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon" style="font-size:18px;">business</span>
-                        <InputText id="orgName" class="bk-input" style="padding-left:36px;" @bind-Value="_form.OrganizationName" placeholder="Acme Ltd" />
+                        <input id="orgName" class="bk-input" style="padding-left:36px;" name="FormData.OrganizationName" placeholder="Acme Ltd" />
                     </div>
-                    <ValidationMessage For="@(() => _form.OrganizationName)" />
+                    
                 </div>
 
                 @* Country & Industry *@
@@ -147,7 +146,7 @@
                         <label class="bk-label" for="country">Country <span style="color:var(--bk-error);">*</span></label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon" style="font-size:18px;">public</span>
-                            <InputSelect id="country" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Country">
+                            <select id="country" class="bk-input" style="padding-left:36px;" name="FormData.Country">
                                 <option value="">Select country</option>
                                 <option value="Zambia">Zambia</option>
                                 <option value="Tanzania">Tanzania</option>
@@ -157,15 +156,15 @@
                                 <option value="Nigeria">Nigeria</option>
                                 <option value="Uganda">Uganda</option>
                                 <option value="Ghana">Ghana</option>
-                            </InputSelect>
+                            </select>
                         </div>
-                        <ValidationMessage For="@(() => _form.Country)" />
+                        
                     </div>
                     <div class="bk-field">
                         <label class="bk-label" for="industry">Industry</label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon" style="font-size:18px;">factory</span>
-                            <InputSelect id="industry" class="bk-input" style="padding-left:36px;" @bind-Value="_form.Industry">
+                            <select id="industry" class="bk-input" style="padding-left:36px;" name="FormData.Industry">
                                 <option value="">Select industry</option>
                                 <option value="Technology">Technology</option>
                                 <option value="Finance & Banking">Finance & Banking</option>
@@ -176,7 +175,7 @@
                                 <option value="Agriculture">Agriculture</option>
                                 <option value="Non-profit">Non-profit</option>
                                 <option value="Other">Other</option>
-                            </InputSelect>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -186,13 +185,13 @@
                     <label class="bk-label" for="empCount">Number of employees</label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon" style="font-size:18px;">groups</span>
-                        <InputSelect id="empCount" class="bk-input" style="padding-left:36px;" @bind-Value="_form.EmployeeCount">
+                        <select id="empCount" class="bk-input" style="padding-left:36px;" name="FormData.EmployeeCount">
                             <option value="1-10">1–10 employees</option>
                             <option value="11-50">11–50 employees</option>
                             <option value="51-200">51–200 employees</option>
                             <option value="201-500">201–500 employees</option>
                             <option value="500+">500+ employees</option>
-                        </InputSelect>
+                        </select>
                     </div>
                 </div>
 
@@ -201,8 +200,8 @@
                     <label class="bk-label" for="password">Create password <span style="color:var(--bk-error);">*</span></label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon" style="font-size:18px;">lock_outline</span>
-                        <InputText id="password" type="@(_showPassword ? "text" : "password")" class="bk-input" style="padding-left:36px;padding-right:48px;" @bind-Value="_form.Password" placeholder="Create a strong password" />
-                        <button type="button" class="bk-input-toggle" @onclick="TogglePasswordVisibility" aria-label="Toggle password visibility" style="cursor:pointer;">
+                        <input id="password" type="password" class="bk-input" style="padding-left:36px;padding-right:48px;" name="FormData.Password" placeholder="Create a strong password" />
+                        <button type="button" class="bk-input-toggle" onclick="togglePasswordVisibility()" aria-label="Toggle password visibility" style="cursor:pointer;">
                             <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">@(_showPassword ? "visibility_off" : "visibility")</span>
                         </button>
                     </div>
@@ -222,7 +221,7 @@
                             <small style="font-size:11px;font-weight:600;color:@_passwordStrengthColor;">@_passwordLabel</small>
                         }
                     </div>
-                    <ValidationMessage For="@(() => _form.Password)" />
+                    
                 </div>
 
                 @* Confirm password *@
@@ -230,7 +229,7 @@
                     <label class="bk-label" for="confirmPassword">Confirm password <span style="color:var(--bk-error);">*</span></label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon" style="font-size:18px;">lock_outline</span>
-                        <InputText id="confirmPassword" type="password" class="bk-input" style="padding-left:36px;" @bind-Value="_form.ConfirmPassword" placeholder="Repeat your password" />
+                        <input id="confirmPassword" type="password" class="bk-input" style="padding-left:36px;" name="FormData.ConfirmPassword" placeholder="Repeat your password" />
                     </div>
                     @if (!string.IsNullOrEmpty(_form.ConfirmPassword) && _form.Password != _form.ConfirmPassword)
                     {
@@ -243,7 +242,7 @@
 
                 @* Terms checkbox *@
                 <label class="bk-check-row" style="margin-top:16px;align-items:flex-start;">
-                    <input type="checkbox" @bind="_agreed" class="bk-check" style="margin-top:2px;" />
+                    <input type="checkbox" name="FormData.Agreed" value="true" class="bk-check" style="margin-top:2px;" required />
                     <span class="bk-check-label" style="font-size:13px;">
                         I agree to the <a href="#" class="bk-auth-link">Terms of Service</a> and
                         <a href="#" class="bk-auth-link">Privacy Policy</a>. I understand that my
@@ -259,7 +258,7 @@
                 }
 
                 @* Submit button *@
-                <button type="submit" class="bk-auth-submit" disabled="@_isSubmitting" style="margin-top:20px;@(_isSubmitting ? "opacity:0.7;cursor:not-allowed;" : "")">
+                <button type="submit" class="bk-auth-submit" style="margin-top:20px;">
                     @if (_isSubmitting)
                     {
                         <span class="material-icons-round" style="font-size:18px;animation:bk-spin 1s linear infinite;">sync</span>
@@ -271,7 +270,7 @@
                         <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
                     }
                 </button>
-            </EditForm>
+            </form>
 
             @* Divider *@
             <div class="bk-divider"><span>or continue with</span></div>

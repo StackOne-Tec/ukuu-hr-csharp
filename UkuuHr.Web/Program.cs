@@ -418,6 +418,104 @@ app.MapPost("/auth/register", async (HttpContext ctx, ILogger<Program> logger) =
     return Results.Redirect("/login?registered=1");
 });
 
+// Phase 18: Real signup endpoint — creates org + user account + signs in.
+// This is a traditional HTTP POST (not Blazor) so it has a real HttpContext
+// and can issue the auth cookie. The SignUp.razor page uses a plain HTML
+// <form method="post" action="/auth/signup"> that posts here.
+app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthService auth, AuditService audit, ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var firstName = form["FormData.FirstName"].ToString().Trim();
+    var lastName = form["FormData.LastName"].ToString().Trim();
+    var email = form["FormData.Email"].ToString().Trim();
+    var phone = form["FormData.Phone"].ToString().Trim();
+    var orgName = form["FormData.OrganizationName"].ToString().Trim();
+    var country = form["FormData.Country"].ToString().Trim();
+    if (string.IsNullOrEmpty(country)) country = "Zambia";
+    var industry = form["FormData.Industry"].ToString().Trim();
+    var password = form["FormData.Password"].ToString();
+    var confirmPassword = form["FormData.ConfirmPassword"].ToString();
+    var agreed = form["FormData.Agreed"] == "true";
+
+    logger.LogInformation("Signup POST: firstName={FirstName}, email={Email}, org={Org}", firstName, email, orgName);
+
+    // Validate
+    if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+        return Results.Redirect("/signup?error=Name is required");
+    if (string.IsNullOrWhiteSpace(email))
+        return Results.Redirect("/signup?error=Email is required");
+    if (string.IsNullOrWhiteSpace(orgName))
+        return Results.Redirect("/signup?error=Organization name is required");
+    if (password.Length < 8)
+        return Results.Redirect("/signup?error=Password must be at least 8 characters");
+    if (password != confirmPassword)
+        return Results.Redirect("/signup?error=Passwords do not match");
+    if (!agreed)
+        return Results.Redirect("/signup?error=You must agree to the terms");
+
+    // Check if email already exists
+    var existing = await db.UserAccounts.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+    if (existing != null)
+        return Results.Redirect("/signup?error=An account with this email already exists");
+
+    try
+    {
+        // 1. Create Organization
+        var org = new Organization
+        {
+            Name = orgName,
+            Country = country,
+            Currency = country switch { "Tanzania" => "TZS", "Malawi" => "MWK", _ => "ZMW" },
+            Industry = string.IsNullOrWhiteSpace(industry) ? null : industry,
+            OwnerUserId = "pending",
+            PayrollConfigJson = "{}",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Organizations.Add(org);
+        await db.SaveChangesAsync();
+
+        // 2. Create UserAccount
+        var passwordHash = AuthService.HashPassword(password);
+        var userAccount = new UserAccount
+        {
+            OrganizationId = org.Id,
+            AuthUid = passwordHash,
+            Email = email,
+            FirstName = firstName,
+            LastName = lastName,
+            Role = UserRole.SuperAdmin,
+            UserType = "owner",
+            Status = AccountStatus.Active,
+            IsFirstLogin = false,
+            CreatedAt = DateTime.UtcNow,
+            LastActivatedAt = DateTime.UtcNow
+        };
+        db.UserAccounts.Add(userAccount);
+        org.OwnerUserId = userAccount.Id.ToString();
+        await db.SaveChangesAsync();
+
+        // 3. Audit log
+        await audit.LogAsync(org.Id, AuditAction.UserCreated, email,
+            details: $"Self-registration: {firstName} {lastName} created organization '{orgName}'");
+
+        // 4. Sign in
+        var success = await auth.SignInAsync(email, password, rememberMe: true);
+        if (success)
+        {
+            logger.LogInformation("Signup success — user {Email} signed in, redirecting to /dashboard", email);
+            return Results.Redirect("/dashboard");
+        }
+
+        logger.LogWarning("Signup: account created but sign-in failed for {Email}, redirecting to /login", email);
+        return Results.Redirect("/login?registered=1");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Signup error for {Email}", email);
+        return Results.Redirect($"/signup?error=Registration failed: {ex.Message}");
+    }
+});
+
 // Phase 18: Auto-login endpoint for Blazor Server flows that can't access HttpContext.
 // After account creation (which happens in a Blazor event handler without HttpContext),
 // the app redirects here with forceLoad=true. This endpoint HAS a real HttpContext,
