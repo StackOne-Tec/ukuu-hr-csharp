@@ -5,7 +5,6 @@
 @using Microsoft.EntityFrameworkCore
 @inject NavigationManager Nav
 @inject UkuuHrDbContext Db
-@inject AuthService Auth
 @inject AuditService AuditSvc
 @inject ISnackbar Snackbar
 
@@ -574,11 +573,16 @@
             await AuditSvc.LogAsync(org.Id, AuditAction.UserCreated, _form.Email.Trim(),
                 details: $"Self-registration: {_form.FirstName} {_form.LastName} created organization '{_form.OrganizationName}'");
 
-            // 5. Sign the user in immediately (no need to redirect to login)
-            await Auth.SignInAsync(_form.Email.Trim(), _form.Password, rememberMe: true);
-
-            // 6. Redirect to dashboard
-            Nav.NavigateTo("/dashboard", forceLoad: true);
+            // 5. Redirect to a traditional HTTP endpoint that signs the user in.
+            // We can't call Auth.SignInAsync() directly from a Blazor Server event
+            // handler because HttpContext is null during WebSocket events.
+            // Instead, we redirect (forceLoad=true) to /auth/auto-login which is a
+            // server-side POST endpoint that has a real HttpContext and can issue
+            // the auth cookie.
+            var returnUrl = Uri.EscapeDataString("/dashboard");
+            var email = Uri.EscapeDataString(_form.Email.Trim());
+            var password = Uri.EscapeDataString(_form.Password);
+            Nav.NavigateTo($"/auth/auto-login?email={email}&password={password}&returnUrl={returnUrl}", forceLoad: true);
         }
         catch (Exception ex)
         {

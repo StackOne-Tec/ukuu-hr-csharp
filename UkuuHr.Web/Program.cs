@@ -418,6 +418,34 @@ app.MapPost("/auth/register", async (HttpContext ctx, ILogger<Program> logger) =
     return Results.Redirect("/login?registered=1");
 });
 
+// Phase 18: Auto-login endpoint for Blazor Server flows that can't access HttpContext.
+// After account creation (which happens in a Blazor event handler without HttpContext),
+// the app redirects here with forceLoad=true. This endpoint HAS a real HttpContext,
+// so it can call AuthService.SignInAsync() to issue the auth cookie, then redirect
+// to the dashboard.
+app.MapGet("/auth/auto-login", async (HttpContext ctx, AuthService auth, ILogger<Program> logger) =>
+{
+    var email = ctx.Request.Query["email"].ToString();
+    var password = ctx.Request.Query["password"].ToString();
+    var returnUrl = ctx.Request.Query["returnUrl"].ToString();
+    if (string.IsNullOrEmpty(returnUrl)) returnUrl = "/dashboard";
+
+    logger.LogInformation("Auto-login: email={Email}", email);
+
+    if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+        return Results.Redirect("/login?error=1");
+
+    var success = await auth.SignInAsync(email, password, rememberMe: true);
+    if (success)
+    {
+        logger.LogInformation("Auto-login success for {Email}", email);
+        return Results.Redirect(returnUrl);
+    }
+
+    logger.LogWarning("Auto-login failed for {Email}", email);
+    return Results.Redirect("/login?error=1");
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Modular Architecture — REST API endpoints for the 8 core modules
 //
