@@ -2,7 +2,11 @@
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
 @using System.Text.RegularExpressions
+@using Microsoft.EntityFrameworkCore
 @inject NavigationManager Nav
+@inject UkuuHrDbContext Db
+@inject AuthService Auth
+@inject AuditService AuditSvc
 @inject ISnackbar Snackbar
 
 <div class="bk-auth">
@@ -516,10 +520,65 @@
 
         try
         {
-            // In production, this would call a registration endpoint.
-            // For now, we simulate registration and redirect to login.
-            await Task.Delay(500); // Simulate network delay
-            Nav.NavigateTo("/login?registered=1", forceLoad: true);
+            // Check if email is already registered
+            var existingUser = await Db.UserAccounts.FirstOrDefaultAsync(u => u.Email.ToLower() == _form.Email.Trim().ToLower());
+            if (existingUser != null)
+            {
+                _error = "An account with this email already exists. Please sign in instead.";
+                _isSubmitting = false;
+                return;
+            }
+
+            // 1. Create the Organization
+            var org = new Organization
+            {
+                Name = _form.OrganizationName.Trim(),
+                Country = _form.Country,
+                Currency = _form.Country switch
+                {
+                    "Tanzania" => "TZS",
+                    "Malawi" => "MWK",
+                    _ => "ZMW"
+                },
+                Industry = string.IsNullOrWhiteSpace(_form.Industry) ? null : _form.Industry.Trim(),
+                OwnerUserId = "pending",
+                PayrollConfigJson = "{}",
+                CreatedAt = DateTime.UtcNow
+            };
+            Db.Organizations.Add(org);
+            await Db.SaveChangesAsync();
+
+            // 2. Create the UserAccount with BCrypt-hashed password
+            var passwordHash = AuthService.HashPassword(_form.Password);
+            var userAccount = new UserAccount
+            {
+                OrganizationId = org.Id,
+                AuthUid = passwordHash,
+                Email = _form.Email.Trim(),
+                FirstName = _form.FirstName.Trim(),
+                LastName = _form.LastName.Trim(),
+                Role = UserRole.SuperAdmin,
+                UserType = "owner",
+                Status = AccountStatus.Active,
+                IsFirstLogin = false,
+                CreatedAt = DateTime.UtcNow,
+                LastActivatedAt = DateTime.UtcNow
+            };
+            Db.UserAccounts.Add(userAccount);
+
+            // 3. Update org OwnerUserId to the real user account ID
+            org.OwnerUserId = userAccount.Id.ToString();
+            await Db.SaveChangesAsync();
+
+            // 4. Audit log
+            await AuditSvc.LogAsync(org.Id, AuditAction.UserCreated, _form.Email.Trim(),
+                details: $"Self-registration: {_form.FirstName} {_form.LastName} created organization '{_form.OrganizationName}'");
+
+            // 5. Sign the user in immediately (no need to redirect to login)
+            await Auth.SignInAsync(_form.Email.Trim(), _form.Password, rememberMe: true);
+
+            // 6. Redirect to dashboard
+            Nav.NavigateTo("/dashboard", forceLoad: true);
         }
         catch (Exception ex)
         {
