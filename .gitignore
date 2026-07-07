@@ -34,3 +34,6 @@ logs/
 appsettings.*.Local.json
 .env
 .env.*
+UkuuHr-Windows-x64.zip
+UkuuHr-macOS-arm64.zip
+publish/
