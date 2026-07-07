@@ -171,18 +171,31 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadData();
-    }
-
-    private async Task LoadData()
-    {
         _loadError = null;
         try
         {
             var org = await Db.Organizations.FirstOrDefaultAsync();
             if (org == null)
             {
-                _loadError = "No organization found. Please create an organization first in Settings.";
+                // No org found — show a friendly message instead of crashing.
+                // This happens on fresh deployments where no org has been created yet.
+                _tolerance = new AttendanceTolerance
+                {
+                    LateCheckInToleranceMinutes = 15,
+                    VeryLateThresholdMinutes = 60,
+                    EarlyCheckOutToleranceMinutes = 10,
+                    HalfDayEarlyThresholdMinutes = 180,
+                    EarlyArrivalAllowanceMinutes = 30,
+                    CapEarlyArrivalToAllowance = true,
+                    MinPresentMinutesForAttendance = 240,
+                    AutoMarkAbsentWhenNoClockEvent = true,
+                    GracePeriodMinutes = 0,
+                    GracePeriodDaysMask = 31,
+                    DefaultBreakMinutes = 60,
+                    MinWorkedMinutesBeforeBreak = 240,
+                    HalfDayWorkedMinutes = 240
+                };
+                _loadError = "No organization found. These are default values — create an organization in Settings to save changes.";
                 return;
             }
             _orgId = org.Id;
@@ -190,7 +203,24 @@
         }
         catch (Exception ex)
         {
-            _loadError = $"Failed to load tolerance policy: {ex.Message}";
+            // If the DB/table isn't ready yet, show defaults instead of crashing.
+            _tolerance = new AttendanceTolerance
+            {
+                LateCheckInToleranceMinutes = 15,
+                VeryLateThresholdMinutes = 60,
+                EarlyCheckOutToleranceMinutes = 10,
+                HalfDayEarlyThresholdMinutes = 180,
+                EarlyArrivalAllowanceMinutes = 30,
+                CapEarlyArrivalToAllowance = true,
+                MinPresentMinutesForAttendance = 240,
+                AutoMarkAbsentWhenNoClockEvent = true,
+                GracePeriodMinutes = 0,
+                GracePeriodDaysMask = 31,
+                DefaultBreakMinutes = 60,
+                MinWorkedMinutesBeforeBreak = 240,
+                HalfDayWorkedMinutes = 240
+            };
+            _loadError = $"Using default values (database not ready): {ex.Message}";
         }
     }
 }
