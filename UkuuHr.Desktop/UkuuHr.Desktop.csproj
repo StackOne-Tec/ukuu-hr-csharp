@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,17 +10,7 @@
     <Version>1.0.0</Version>
     <Company>Ukuu HR</Company>
     <Product>Ukuu HR Desktop</Product>
-    <Description>Ukuu HR — Modern HRMS for Africa (Desktop Edition)</Description>
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Description>Ukuu HR — Modern HRMS for Africa (Desktop Launcher)</Description>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Photino.NET" Version="4.0.16" />
-  </ItemGroup>
-
-  <!-- No ProjectReference to UkuuHr.Web — the desktop app is a standalone
-       wrapper that opens the live deployment URL in a native window.
-       This avoids the "cannot reference Microsoft.NET.Sdk.Web from a
-       console app" build error. -->
 
 </Project>
