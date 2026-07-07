@@ -3,7 +3,6 @@
 @using Microsoft.EntityFrameworkCore
 @inject ShiftService ShiftSvc
 @inject UkuuHrDbContext Db
-@inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
 <div class="bk-admin-fade-in">
@@ -13,8 +12,6 @@
             <h1 class="bk-admin-h1">Attendance Tolerance Policy</h1>
             <p class="bk-admin-sub">
                 Organization-wide thresholds that drive automatic attendance status computation.
-                Configure late check-in, early check-out, early arrival allowances, absent thresholds,
-                grace periods, and break-handling rules.
             </p>
         </div>
         <div class="bk-admin-actions">
@@ -25,202 +22,168 @@
         </div>
     </div>
 
-    @if (_loadError != null)
+    @if (_saved)
     {
-        <div class="bk-admin-card" style="padding:24px;">
-            <div style="padding:16px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;color:var(--bk-error);font-size:13px;">
-                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">error_outline</span>
-                @_loadError
-            </div>
-            <a href="/shifts/tolerance" class="bk-btn bk-btn-primary" style="margin-top:16px;">Retry</a>
+        <div style="padding:12px 16px;margin-bottom:16px;background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.25);border-radius:8px;color:var(--bk-success);font-size:13px;display:flex;align-items:center;gap:8px;">
+            <span class="material-icons-round" style="font-size:18px;">check_circle</span>
+            Tolerance policy saved successfully.
         </div>
     }
-    else if (_tolerance == null)
-    {
-        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
-            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">tune</span>
-            <h3 style="margin-top:16px;">Loading tolerance policy…</h3>
-            <p style="color:var(--bk-ink-3);font-size:13px;margin-top:8px;">If this takes too long, the Blazor connection may be slow. <a href="/shifts/tolerance" style="color:var(--bk-accent);">Click here to reload</a></p>
-        </div>
-    }
-    else
-    {
-        <form method="post" action="/api/shifts/tolerance" class="bk-admin-card">
-            <div class="bk-admin-card-content" style="padding-bottom:24px;">
 
-                @* ───── Policy cards grid ───── *@
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;">
+    <form method="post" action="/api/shifts/tolerance" class="bk-admin-card">
+        <div class="bk-admin-card-content" style="padding-bottom:24px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;">
 
-                    @* Late check-in *@
-                    <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(245,158,11,0.04);">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                            <span class="material-icons-round" style="color:var(--bk-warning);font-size:20px;">schedule</span>
-                            <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-warning);">Late Check-In</h4>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Late tolerance (minutes)</label>
-                            <input type="number" class="bk-input" name="LateCheckInToleranceMinutes" value="@_tolerance.LateCheckInToleranceMinutes" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;">
-                            <label class="bk-label">Very-late threshold (minutes)</label>
-                            <input type="number" class="bk-input" name="VeryLateThresholdMinutes" value="@_tolerance.VeryLateThresholdMinutes" />
-                        </div>
+                <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(245,158,11,0.04);">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-icons-round" style="color:var(--bk-warning);font-size:20px;">schedule</span>
+                        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-warning);">Late Check-In</h4>
                     </div>
-
-                    @* Early check-out *@
-                    <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(220,38,38,0.04);">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                            <span class="material-icons-round" style="color:var(--bk-error);font-size:20px;">logout</span>
-                            <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-error);">Early Check-Out</h4>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Early tolerance (minutes)</label>
-                            <input type="number" class="bk-input" name="EarlyCheckOutToleranceMinutes" value="@_tolerance.EarlyCheckOutToleranceMinutes" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;">
-                            <label class="bk-label">Half-day threshold (minutes early)</label>
-                            <input type="number" class="bk-input" name="HalfDayEarlyThresholdMinutes" value="@_tolerance.HalfDayEarlyThresholdMinutes" />
-                        </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Late tolerance (minutes)</label>
+                        <input type="number" class="bk-input" name="LateCheckInToleranceMinutes" value="@_t.LateCheckInToleranceMinutes" />
                     </div>
-
-                    @* Early arrival *@
-                    <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(22,163,74,0.04);">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                            <span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">login</span>
-                            <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-success);">Early Arrival</h4>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Allowance (minutes paid)</label>
-                            <input type="number" class="bk-input" name="EarlyArrivalAllowanceMinutes" value="@_tolerance.EarlyArrivalAllowanceMinutes" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" name="CapEarlyArrivalToAllowance" value="true" checked="@_tolerance.CapEarlyArrivalToAllowance" id="capEarly" />
-                            <label for="capEarly" style="font-size:12px;color:var(--bk-ink-2);">Cap to allowance (don't pay beyond)</label>
-                        </div>
-                    </div>
-
-                    @* Absent threshold *@
-                    <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(220,38,38,0.04);">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                            <span class="material-icons-round" style="color:var(--bk-error);font-size:20px;">cancel</span>
-                            <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-error);">Absent Threshold</h4>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Min present minutes (else absent)</label>
-                            <input type="number" class="bk-input" name="MinPresentMinutesForAttendance" value="@_tolerance.MinPresentMinutesForAttendance" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" name="AutoMarkAbsentWhenNoClockEvent" value="true" checked="@_tolerance.AutoMarkAbsentWhenNoClockEvent" id="autoAbsent" />
-                            <label for="autoAbsent" style="font-size:12px;color:var(--bk-ink-2);">Auto-mark absent when no clock event</label>
-                        </div>
-                    </div>
-
-                    @* Grace period *@
-                    <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(37,99,235,0.04);">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                            <span class="material-icons-round" style="color:var(--bk-info);font-size:20px;">timer</span>
-                            <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-info);">Grace Period</h4>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Grace minutes (added to tolerance)</label>
-                            <input type="number" class="bk-input" name="GracePeriodMinutes" value="@_tolerance.GracePeriodMinutes" />
-                        </div>
-                        <input type="hidden" name="GracePeriodDaysMask" value="@_tolerance.GracePeriodDaysMask" />
-                    </div>
-
-                    @* Break handling *@
-                    <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(110,95,146,0.04);">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                            <span class="material-icons-round" style="color:var(--bk-accent-2);font-size:20px;">restaurant</span>
-                            <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-accent-2);">Break & Half-Day</h4>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Default break (minutes)</label>
-                            <input type="number" class="bk-input" name="DefaultBreakMinutes" value="@_tolerance.DefaultBreakMinutes" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;">
-                            <label class="bk-label">Min worked minutes before break deducted</label>
-                            <input type="number" class="bk-input" name="MinWorkedMinutesBeforeBreak" value="@_tolerance.MinWorkedMinutesBeforeBreak" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;">
-                            <label class="bk-label">Half-day worked minutes</label>
-                            <input type="number" class="bk-input" name="HalfDayWorkedMinutes" value="@_tolerance.HalfDayWorkedMinutes" />
-                        </div>
+                    <div class="bk-field" style="margin-top:12px;">
+                        <label class="bk-label">Very-late threshold (minutes)</label>
+                        <input type="number" class="bk-input" name="VeryLateThresholdMinutes" value="@_t.VeryLateThresholdMinutes" />
                     </div>
                 </div>
 
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
-                    <div style="font-size:12px;color:var(--bk-ink-3);">
-                        <span class="material-icons-round" style="font-size:14px;vertical-align:middle;">info</span>
-                        Changes are audit-logged. The ShiftEngine re-evaluates all future attendance records against the new policy.
+                <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(220,38,38,0.04);">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-icons-round" style="color:var(--bk-error);font-size:20px;">logout</span>
+                        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-error);">Early Check-Out</h4>
                     </div>
-                    <button type="submit" class="bk-btn bk-btn-primary">
-                        <span class="material-icons-round" style="font-size:16px;">save</span>
-                        Save Tolerance Policy
-                    </button>
+                    <div class="bk-field">
+                        <label class="bk-label">Early tolerance (minutes)</label>
+                        <input type="number" class="bk-input" name="EarlyCheckOutToleranceMinutes" value="@_t.EarlyCheckOutToleranceMinutes" />
+                    </div>
+                    <div class="bk-field" style="margin-top:12px;">
+                        <label class="bk-label">Half-day threshold (minutes early)</label>
+                        <input type="number" class="bk-input" name="HalfDayEarlyThresholdMinutes" value="@_t.HalfDayEarlyThresholdMinutes" />
+                    </div>
+                </div>
+
+                <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(22,163,74,0.04);">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">login</span>
+                        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-success);">Early Arrival</h4>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Allowance (minutes paid)</label>
+                        <input type="number" class="bk-input" name="EarlyArrivalAllowanceMinutes" value="@_t.EarlyArrivalAllowanceMinutes" />
+                    </div>
+                    <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" name="CapEarlyArrivalToAllowance" value="true" checked="@_t.CapEarlyArrivalToAllowance" id="capEarly" />
+                        <label for="capEarly" style="font-size:12px;color:var(--bk-ink-2);">Cap to allowance</label>
+                    </div>
+                </div>
+
+                <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(220,38,38,0.04);">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-icons-round" style="color:var(--bk-error);font-size:20px;">cancel</span>
+                        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-error);">Absent Threshold</h4>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Min present minutes</label>
+                        <input type="number" class="bk-input" name="MinPresentMinutesForAttendance" value="@_t.MinPresentMinutesForAttendance" />
+                    </div>
+                    <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" name="AutoMarkAbsentWhenNoClockEvent" value="true" checked="@_t.AutoMarkAbsentWhenNoClockEvent" id="autoAbsent" />
+                        <label for="autoAbsent" style="font-size:12px;color:var(--bk-ink-2);">Auto-mark absent</label>
+                    </div>
+                </div>
+
+                <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(37,99,235,0.04);">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-icons-round" style="color:var(--bk-info);font-size:20px;">timer</span>
+                        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-info);">Grace Period</h4>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Grace minutes</label>
+                        <input type="number" class="bk-input" name="GracePeriodMinutes" value="@_t.GracePeriodMinutes" />
+                    </div>
+                    <input type="hidden" name="GracePeriodDaysMask" value="@_t.GracePeriodDaysMask" />
+                </div>
+
+                <div style="padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:rgba(110,95,146,0.04);">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <span class="material-icons-round" style="color:var(--bk-accent-2);font-size:20px;">restaurant</span>
+                        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--bk-accent-2);">Break & Half-Day</h4>
+                    </div>
+                    <div class="bk-field">
+                        <label class="bk-label">Default break (minutes)</label>
+                        <input type="number" class="bk-input" name="DefaultBreakMinutes" value="@_t.DefaultBreakMinutes" />
+                    </div>
+                    <div class="bk-field" style="margin-top:12px;">
+                        <label class="bk-label">Min worked before break</label>
+                        <input type="number" class="bk-input" name="MinWorkedMinutesBeforeBreak" value="@_t.MinWorkedMinutesBeforeBreak" />
+                    </div>
+                    <div class="bk-field" style="margin-top:12px;">
+                        <label class="bk-label">Half-day worked minutes</label>
+                        <input type="number" class="bk-input" name="HalfDayWorkedMinutes" value="@_t.HalfDayWorkedMinutes" />
+                    </div>
                 </div>
             </div>
-        </form>
-    }
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                <div style="font-size:12px;color:var(--bk-ink-3);">
+                    <span class="material-icons-round" style="font-size:14px;vertical-align:middle;">info</span>
+                    Changes are audit-logged.
+                </div>
+                <button type="submit" class="bk-btn bk-btn-primary">
+                    <span class="material-icons-round" style="font-size:16px;">save</span>
+                    Save Tolerance Policy
+                </button>
+            </div>
+        </div>
+    </form>
 </div>
 
 @code {
-    private AttendanceTolerance? _tolerance;
-    private int _orgId;
-    private string? _loadError;
+    // Use a field that's ALWAYS non-null — defaults are set at declaration.
+    // OnInitializedAsync tries to load from DB but if it fails, the
+    // defaults are already there so the page never shows blank.
+    private AttendanceTolerance _t = new()
+    {
+        LateCheckInToleranceMinutes = 15,
+        VeryLateThresholdMinutes = 60,
+        EarlyCheckOutToleranceMinutes = 10,
+        HalfDayEarlyThresholdMinutes = 180,
+        EarlyArrivalAllowanceMinutes = 30,
+        CapEarlyArrivalToAllowance = true,
+        MinPresentMinutesForAttendance = 240,
+        AutoMarkAbsentWhenNoClockEvent = true,
+        GracePeriodMinutes = 0,
+        GracePeriodDaysMask = 31,
+        DefaultBreakMinutes = 60,
+        MinWorkedMinutesBeforeBreak = 240,
+        HalfDayWorkedMinutes = 240
+    };
+    private bool _saved;
 
     protected override async Task OnInitializedAsync()
     {
-        _loadError = null;
+        // Check for ?saved=1 query param
+        try
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            _saved = uri.Query.Contains("saved=1");
+        }
+        catch { }
+
+        // Try to load from DB — if it fails, the defaults above are used.
         try
         {
             var org = await Db.Organizations.FirstOrDefaultAsync();
-            if (org == null)
+            if (org != null)
             {
-                // No org found — show a friendly message instead of crashing.
-                // This happens on fresh deployments where no org has been created yet.
-                _tolerance = new AttendanceTolerance
-                {
-                    LateCheckInToleranceMinutes = 15,
-                    VeryLateThresholdMinutes = 60,
-                    EarlyCheckOutToleranceMinutes = 10,
-                    HalfDayEarlyThresholdMinutes = 180,
-                    EarlyArrivalAllowanceMinutes = 30,
-                    CapEarlyArrivalToAllowance = true,
-                    MinPresentMinutesForAttendance = 240,
-                    AutoMarkAbsentWhenNoClockEvent = true,
-                    GracePeriodMinutes = 0,
-                    GracePeriodDaysMask = 31,
-                    DefaultBreakMinutes = 60,
-                    MinWorkedMinutesBeforeBreak = 240,
-                    HalfDayWorkedMinutes = 240
-                };
-                _loadError = "No organization found. These are default values — create an organization in Settings to save changes.";
-                return;
+                _t = await ShiftSvc.GetOrCreateToleranceAsync(org.Id);
             }
-            _orgId = org.Id;
-            _tolerance = await ShiftSvc.GetOrCreateToleranceAsync(_orgId);
         }
-        catch (Exception ex)
+        catch
         {
-            // If the DB/table isn't ready yet, show defaults instead of crashing.
-            _tolerance = new AttendanceTolerance
-            {
-                LateCheckInToleranceMinutes = 15,
-                VeryLateThresholdMinutes = 60,
-                EarlyCheckOutToleranceMinutes = 10,
-                HalfDayEarlyThresholdMinutes = 180,
-                EarlyArrivalAllowanceMinutes = 30,
-                CapEarlyArrivalToAllowance = true,
-                MinPresentMinutesForAttendance = 240,
-                AutoMarkAbsentWhenNoClockEvent = true,
-                GracePeriodMinutes = 0,
-                GracePeriodDaysMask = 31,
-                DefaultBreakMinutes = 60,
-                MinWorkedMinutesBeforeBreak = 240,
-                HalfDayWorkedMinutes = 240
-            };
-            _loadError = $"Using default values (database not ready): {ex.Message}";
+            // Silently fall back to defaults — the form still renders.
         }
     }
 }
