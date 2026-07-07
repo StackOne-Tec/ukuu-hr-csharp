@@ -94,7 +94,7 @@
                             <input type="number" class="bk-input" name="EarlyArrivalAllowanceMinutes" value="@_tolerance.EarlyArrivalAllowanceMinutes" />
                         </div>
                         <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" name="CapEarlyArrivalToAllowance" value="true" @(_tolerance.CapEarlyArrivalToAllowance ? "checked" : "") id="capEarly" />
+                            <input type="checkbox" name="CapEarlyArrivalToAllowance" value="true" checked="@_tolerance.CapEarlyArrivalToAllowance" id="capEarly" />
                             <label for="capEarly" style="font-size:12px;color:var(--bk-ink-2);">Cap to allowance (don't pay beyond)</label>
                         </div>
                     </div>
@@ -110,7 +110,7 @@
                             <input type="number" class="bk-input" name="MinPresentMinutesForAttendance" value="@_tolerance.MinPresentMinutesForAttendance" />
                         </div>
                         <div class="bk-field" style="margin-top:12px;display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" name="AutoMarkAbsentWhenNoClockEvent" value="true" @(_tolerance.AutoMarkAbsentWhenNoClockEvent ? "checked" : "") id="autoAbsent" />
+                            <input type="checkbox" name="AutoMarkAbsentWhenNoClockEvent" value="true" checked="@_tolerance.AutoMarkAbsentWhenNoClockEvent" id="autoAbsent" />
                             <label for="autoAbsent" style="font-size:12px;color:var(--bk-ink-2);">Auto-mark absent when no clock event</label>
                         </div>
                     </div>
