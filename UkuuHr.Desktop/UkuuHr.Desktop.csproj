@@ -11,7 +11,6 @@
     <Company>Ukuu HR</Company>
     <Product>Ukuu HR Desktop</Product>
     <Description>Ukuu HR — Modern HRMS for Africa (Desktop Edition)</Description>
-    <!-- Allow building on non-Windows (Linux CI for macOS build) -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
@@ -19,8 +18,9 @@
     <PackageReference Include="Photino.NET" Version="4.0.16" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\UkuuHr.Web\UkuuHr.Web.csproj" />
-  </ItemGroup>
+  <!-- No ProjectReference to UkuuHr.Web — the desktop app is a standalone
+       wrapper that opens the live deployment URL in a native window.
+       This avoids the "cannot reference Microsoft.NET.Sdk.Web from a
+       console app" build error. -->
 
 </Project>
