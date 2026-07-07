@@ -11,11 +11,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Round" rel="stylesheet" />
-    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     @{
-        // Cache-busting version: changes on every build to force browser to reload CSS/JS
-        var _cacheVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0.0";
+        // Phase 17: Comprehensive cache-busting.
+        // Uses build timestamp (not assembly version) so every deployment
+        // generates a unique URL → browser always fetches fresh assets.
+        // This fixes the "button does nothing" issue caused by stale
+        // blazor.web.js being served from browser cache.
+        var _cacheVersion = System.IO.File.GetLastWriteTime(typeof(Program).Assembly.Location).ToString("yyyyMMddHHmmss");
     }
+    <link href="_content/MudBlazor/MudBlazor.min.css?v=@_cacheVersion" rel="stylesheet" />
     <link href="css/app.css?v=@_cacheVersion" rel="stylesheet" />
     <link href="css/ukuu.css?v=@_cacheVersion" rel="stylesheet" />
     <script>
@@ -23,6 +27,35 @@
         (function() {
             var t = localStorage.getItem('ukuu-theme') || 'light';
             document.documentElement.setAttribute('data-theme', t);
+        })();
+
+        // Phase 17: Auto-reload if stale cached version detected.
+        // On each page load, check if the build version in localStorage
+        // matches the current build version. If not, clear all caches
+        // and reload to pick up fresh assets.
+        (function() {
+            var currentVersion = '@_cacheVersion';
+            var cachedVersion = localStorage.getItem('ukuu-build-version');
+            if (cachedVersion && cachedVersion !== currentVersion) {
+                console.log('[Cache] Build version changed: ' + cachedVersion + ' → ' + currentVersion + '. Clearing caches + reloading.');
+                localStorage.setItem('ukuu-build-version', currentVersion);
+                // Unregister all service workers
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(regs) {
+                        regs.forEach(function(r) { r.unregister(); });
+                    });
+                }
+                // Clear all caches
+                if ('caches' in window) {
+                    caches.keys().then(function(keys) {
+                        keys.forEach(function(k) { caches.delete(k); });
+                    });
+                }
+                // Hard reload
+                window.location.reload();
+            } else {
+                localStorage.setItem('ukuu-build-version', currentVersion);
+            }
         })();
     </script>
 </head>
@@ -48,10 +81,27 @@
             return document.documentElement.getAttribute('data-theme') || 'light';
         };
 
-        // PWA: Register service worker for installable app support
+        // PWA: Register service worker with cache-busting version.
+        // The service worker URL includes the build timestamp so the browser
+        // re-registers a new SW on every deployment (bypassing the 24h cache).
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/service-worker.js').catch(function(err) {
+                navigator.serviceWorker.register('/service-worker.js?v=@_cacheVersion').then(function(reg) {
+                    // Force the new service worker to activate immediately
+                    // (skips the waiting state that normally requires all tabs to close)
+                    if (reg.waiting) { reg.waiting.postMessage('skipWaiting'); }
+                    if (reg.installing) { reg.installing.postMessage('skipWaiting'); }
+                    reg.addEventListener('updatefound', function() {
+                        var newWorker = reg.installing;
+                        newWorker.addEventListener('statechange', function() {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New content available — reload to pick up new assets
+                                console.log('[SW] New content available, reloading...');
+                                window.location.reload();
+                            }
+                        });
+                    });
+                }).catch(function(err) {
                     console.log('ServiceWorker registration failed: ', err);
                 });
             });

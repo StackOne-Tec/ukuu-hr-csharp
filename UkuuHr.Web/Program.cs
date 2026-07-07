@@ -272,7 +272,38 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
 
-app.UseStaticFiles();
+// Phase 17: Cache-control headers to prevent stale assets.
+// - HTML pages: no-cache (always revalidate)
+// - CSS/JS with ?v= param: max-age=31536000 (1 year — immutable, versioned)
+// - Blazor framework (_framework/*): no-cache (must always be fresh)
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path.Value ?? "";
+    if (path.EndsWith(".css") || path.EndsWith(".js"))
+    {
+        // Versioned assets (have ?v= param) — cache for 1 year
+        if (ctx.Request.QueryString.Value?.Contains("v=") == true)
+            ctx.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+        else
+            ctx.Response.Headers["Cache-Control"] = "no-cache, must-revalidate";
+    }
+    else if (path.Contains("/_framework/"))
+    {
+        // Blazor framework files — never cache
+        ctx.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    }
+    await next();
+});
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Default: no-cache for all static files unless overridden above
+        if (!ctx.Context.Response.Headers.ContainsKey("Cache-Control"))
+            ctx.Context.Response.Headers["Cache-Control"] = "no-cache, must-revalidate";
+    }
+});
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
