@@ -3,6 +3,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject OvertimeService OvertimeSvc
 @inject UkuuHrDbContext Db
+@inject NavigationManager Nav
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -57,18 +58,18 @@
 
     <!-- Tabs -->
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:24px;overflow-x:auto;">
-        <div @onclick="@(() => _tab = "pending")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        <a href="/overtime?tab=pending" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">pending_actions</span>
             Pending (@_summary.PendingCount)
-        </div>
-        <div @onclick="@(() => _tab = "approved")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "approved" ? "var(--bk-ink)" : "transparent");color:@(_tab == "approved" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        </a>
+        <a href="/overtime?tab=approved" style="padding:12px 16px;border-bottom:2px solid @(_tab == "approved" ? "var(--bk-ink)" : "transparent");color:@(_tab == "approved" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">check_circle</span>
             Approved (@_summary.ApprovedCount)
-        </div>
-        <div @onclick="@(() => _tab = "all")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "all" ? "var(--bk-ink)" : "transparent");color:@(_tab == "all" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        </a>
+        <a href="/overtime?tab=all" style="padding:12px 16px;border-bottom:2px solid @(_tab == "all" ? "var(--bk-ink)" : "transparent");color:@(_tab == "all" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">list_alt</span>
             All Records (@_all.Count)
-        </div>
+        </a>
     </div>
 
     <div class="bk-admin-card" style="overflow:hidden;">
@@ -171,6 +172,17 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Read tab from query string (?tab=approved) — works without Blazor circuit
+        try
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var qTab = query["tab"];
+            if (!string.IsNullOrEmpty(qTab) && (qTab == "pending" || qTab == "approved" || qTab == "all"))
+                _tab = qTab;
+        }
+        catch { }
+
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         _orgId = org.Id;

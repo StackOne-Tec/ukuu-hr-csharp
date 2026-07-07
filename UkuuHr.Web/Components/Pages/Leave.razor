@@ -56,26 +56,26 @@
 
     <!-- Tabs -->
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:24px;overflow-x:auto;">
-        <div @onclick="@(() => _tab = "pending")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        <a href="/leave?tab=pending" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">pending_actions</span>
             Pending (@_pending)
-        </div>
-        <div @onclick="@(() => _tab = "approved")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "approved" ? "var(--bk-ink)" : "transparent");color:@(_tab == "approved" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        </a>
+        <a href="/leave?tab=approved" style="padding:12px 16px;border-bottom:2px solid @(_tab == "approved" ? "var(--bk-ink)" : "transparent");color:@(_tab == "approved" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">check_circle</span>
             Approved (@_all.Count(l => l.Status == LeaveRequestStatus.Approved))
-        </div>
-        <div @onclick="@(() => _tab = "rejected")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "rejected" ? "var(--bk-ink)" : "transparent");color:@(_tab == "rejected" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        </a>
+        <a href="/leave?tab=rejected" style="padding:12px 16px;border-bottom:2px solid @(_tab == "rejected" ? "var(--bk-ink)" : "transparent");color:@(_tab == "rejected" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">cancel</span>
             Rejected (@_all.Count(l => l.Status == LeaveRequestStatus.Rejected))
-        </div>
-        <div @onclick="@(() => _tab = "balances")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "balances" ? "var(--bk-ink)" : "transparent");color:@(_tab == "balances" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        </a>
+        <a href="/leave?tab=balances" style="padding:12px 16px;border-bottom:2px solid @(_tab == "balances" ? "var(--bk-ink)" : "transparent");color:@(_tab == "balances" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">account_balance</span>
             Leave Balances
-        </div>
-        <div @onclick="@(() => _tab = "holidays")" style="padding:12px 16px;border-bottom:2px solid @(_tab == "holidays" ? "var(--bk-ink)" : "transparent");color:@(_tab == "holidays" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;">
+        </a>
+        <a href="/leave?tab=holidays" style="padding:12px 16px;border-bottom:2px solid @(_tab == "holidays" ? "var(--bk-ink)" : "transparent");color:@(_tab == "holidays" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
             <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">celebration</span>
             Public Holidays
-        </div>
+        </a>
     </div>
 
     @if (_tab == "balances")
@@ -274,6 +274,17 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Read tab from query string (?tab=approved) — works without Blazor circuit
+        try
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var qTab = query["tab"];
+            if (!string.IsNullOrEmpty(qTab) && (qTab == "pending" || qTab == "approved" || qTab == "rejected" || qTab == "balances" || qTab == "holidays"))
+                _tab = qTab;
+        }
+        catch { }
+
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         _orgId = org.Id;
