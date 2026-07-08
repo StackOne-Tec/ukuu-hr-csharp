@@ -34,7 +34,7 @@
             var idx = i;
             var isActive = i == _currentStep;
             var isComplete = i < _currentStep;
-            <div style="flex:1;padding:16px 20px;display:flex;align-items:center;gap:12px;background:@(isActive ? "rgba(37,22,63,0.03)" : "transparent");border-bottom:@(isActive ? "2px solid var(--bk-accent)" : "2px solid transparent");cursor:pointer;transition:all 0.2s ease;" @onclick="() => GoToStep(idx)">
+            <a href="?step=@idx" style="flex:1;padding:16px 20px;display:flex;align-items:center;gap:12px;background:@(isActive ? "rgba(37,22,63,0.03)" : "transparent");border-bottom:@(isActive ? "2px solid var(--bk-accent)" : "2px solid transparent");cursor:pointer;transition:all 0.2s ease;text-decoration:none;">
                 <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:@(isComplete ? "var(--bk-success)" : isActive ? "var(--bk-accent)" : "var(--bk-line)");color:@(isComplete || isActive ? "white" : "var(--bk-ink-3)");flex-shrink:0;transition:all 0.2s ease;">
                     @if (isComplete)
                     {
@@ -53,7 +53,7 @@
                 {
                     <span class="material-icons-round" style="font-size:16px;color:var(--bk-ink-3);margin-left:auto;">chevron_right</span>
                 }
-            </div>
+            </a>
         }
     </div>
 
@@ -518,17 +518,17 @@
         <div style="display:flex;gap:8px;">
             @if (_currentStep > 0)
             {
-                <button type="button" class="bk-btn bk-btn-secondary" @onclick="() => PreviousStep()">
+                <a href="?step=@(_currentStep - 1)" class="bk-btn bk-btn-secondary">
                     <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
                     Previous
-                </button>
+                </a>
             }
             @if (_currentStep < _steps.Length - 1)
             {
-                <button type="button" class="bk-btn bk-btn-primary" @onclick="() => NextStep()">
+                <a href="?step=@(_currentStep + 1)" class="bk-btn bk-btn-primary">
                     <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
                     Next: @_steps[_currentStep + 1]
-                </button>
+                </a>
             }
             else
             {
@@ -555,6 +555,17 @@
     {
         try
         {
+            // Read step from query string (?step=1) — works without Blazor circuit
+            try
+            {
+                var uri = Nav.ToAbsoluteUri(Nav.Uri);
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                var stepStr = query["step"];
+                if (int.TryParse(stepStr, out var s) && s >= 0 && s < _steps.Length)
+                    _currentStep = s;
+            }
+            catch { }
+
             var org = await Db.Organizations.FirstOrDefaultAsync();
             if (org == null) return;
 
