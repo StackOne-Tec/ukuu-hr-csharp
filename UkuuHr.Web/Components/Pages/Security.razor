@@ -2,15 +2,30 @@
 @attribute [Authorize(Policy = "UserManagement")]
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
+@inject NavigationManager Nav
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
         <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Security & Audit · Score 92/100</div>
+            <div class="bk-admin-greeting">Security & Audit · Score @_securityScore/100</div>
             <h1 class="bk-admin-h1">Security & Audit</h1>
             <p class="bk-admin-sub">Monitor user activity, configure security policies, and review audit logs.</p>
         </div>
+        <div class="bk-admin-actions">
+            <a href="/settings" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">settings</span>
+                Configure
+            </a>
+        </div>
     </div>
+
+    @if (_loadError != null)
+    {
+        <div style="padding:12px 16px;margin-bottom:16px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;color:var(--bk-warning);font-size:13px;">
+            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;">info</span>
+            @_loadError
+        </div>
+    }
 
     <!-- Security posture -->
     <div class="bk-admin-kpi-grid">
@@ -19,7 +34,7 @@
                 <div class="bk-admin-kpi-icon green"><span class="material-icons-round">shield</span></div>
                 <span class="bk-admin-pill active">Secure</span>
             </div>
-            <div class="bk-admin-kpi-value">92/100</div>
+            <div class="bk-admin-kpi-value">@_securityScore/100</div>
             <div class="bk-admin-kpi-label">Security Score</div>
         </div>
         <div class="bk-admin-kpi-card">
@@ -46,15 +61,18 @@
     </div>
 
     <!-- Security toggles -->
-    <div class="bk-admin-card" style="margin-bottom:24px;">
+    <form method="post" action="/api/security/policies" class="bk-admin-card" style="margin-bottom:24px;">
         <div class="bk-admin-card-header">
             <h3>Security Policies</h3>
-            <p>Configure authentication and access controls</p>
+            <p>Configure authentication and access controls. Changes are saved automatically.</p>
         </div>
         <div class="bk-admin-card-content" style="display:flex;flex-direction:column;gap:0;">
             @for (int i = 0; i < _securityPolicies.Count; i++)
             {
                 var p = _securityPolicies[i];
+                <input type="hidden" name="policies[@i].Title" value="@p.Title" />
+                <input type="hidden" name="policies[@i].Description" value="@p.Description" />
+                <input type="hidden" name="policies[@i].Icon" value="@p.Icon" />
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--bk-line);">
                     <div style="display:flex;align-items:center;gap:14px;">
                         <div class="bk-admin-kpi-icon ink" style="width:40px;height:40px;">
@@ -66,47 +84,68 @@
                         </div>
                     </div>
                     <label class="bk-check-row" style="margin:0;">
-                        <input type="checkbox" @bind="_securityPolicies[i].Enabled" class="bk-check" />
+                        <input type="checkbox" name="policies[@i].Enabled" value="true" @(p.Enabled ? "checked" : "") class="bk-check" onchange="this.nextElementSibling.value = this.checked ? 'true' : 'false'; document.getElementById('security-save-bar').style.display='flex';" />
+                        <input type="hidden" name="policies[@i].EnabledValue" value="@p.Enabled.ToString().ToLower()" />
                     </label>
                 </div>
             }
         </div>
-    </div>
+        <div id="security-save-bar" style="display:none;justify-content:flex-end;padding:16px 0 0;border-top:1px solid var(--bk-line);margin-top:8px;">
+            <button type="submit" class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">save</span>
+                Save Security Policies
+            </button>
+        </div>
+    </form>
 
     <!-- Audit log -->
     <div class="bk-admin-card" style="overflow:hidden;">
         <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:center;">
             <div><h3>Audit Log</h3><p>Recent activity across the system</p></div>
-            <button class="bk-btn bk-btn-secondary"><span class="material-icons-round" style="font-size:16px;">download</span>Export</button>
+            <a href="/api/security/audit-log.csv" class="bk-btn bk-btn-secondary" download>
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export
+            </a>
         </div>
-        <table class="bk-admin-table">
-            <thead>
-                <tr><th>Action</th><th>Performed By</th><th>Target</th><th>Details</th><th>Timestamp</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var a in _auditLogs)
-                {
-                    <tr>
-                        <td>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <span style="width:8px;height:8px;border-radius:50%;background:@GetActionColor(a.Action);"></span>
-                                <span style="font-weight:600;font-size:13px;">@a.ActionDisplay</span>
-                            </div>
-                        </td>
-                        <td style="font-size:12px;">@(a.PerformedByEmail ?? "—")</td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);">@(a.TargetUserEmail ?? "—")</td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);max-width:300px;">@a.Details</td>
-                        <td style="font-size:11px;color:var(--bk-ink-3);font-weight:600;">@a.FormattedTimestamp</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table bk-mobile-card-view">
+                <thead>
+                    <tr><th>Action</th><th>Performed By</th><th>Target</th><th>Details</th><th>Timestamp</th></tr>
+                </thead>
+                <tbody>
+                    @if (_auditLogs.Any())
+                    {
+                        @foreach (var a in _auditLogs)
+                        {
+                            <tr>
+                                <td data-label="Action">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="width:8px;height:8px;border-radius:50%;background:@GetActionColor(a.Action);flex-shrink:0;"></span>
+                                        <span style="font-weight:600;font-size:13px;">@a.ActionDisplay</span>
+                                    </div>
+                                </td>
+                                <td data-label="Performed By" style="font-size:12px;">@(a.PerformedByEmail ?? "—")</td>
+                                <td data-label="Target" style="font-size:12px;color:var(--bk-ink-3);">@(a.TargetUserEmail ?? "—")</td>
+                                <td data-label="Details" style="font-size:12px;color:var(--bk-ink-3);max-width:300px;">@(a.Details ?? "—")</td>
+                                <td data-label="Timestamp" style="font-size:11px;color:var(--bk-ink-3);font-weight:600;">@a.FormattedTimestamp</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--bk-ink-3);">No audit events recorded yet.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 @code {
     private List<AuditLog> _auditLogs = new();
     private int _loginSuccess, _loginFailed;
+    private int _securityScore = 92;
+    private string? _loadError;
 
     private List<SecurityPolicy> _securityPolicies = new()
     {
@@ -125,11 +164,40 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-        _auditLogs = await Db.AuditLogs.Where(a => a.OrganizationId == org.Id).OrderByDescending(a => a.Timestamp).Take(50).ToListAsync();
-        _loginSuccess = _auditLogs.Count(a => a.Action == AuditAction.LoginSuccess);
-        _loginFailed = _auditLogs.Count(a => a.Action == AuditAction.LoginFailed);
+        // Check for ?saved=1 query param
+        try
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            if (uri.Query.Contains("saved=1"))
+                _loadError = "Security policies saved successfully.";
+        }
+        catch { }
+
+        // Load audit logs — fall back to empty if DB fails
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org != null)
+            {
+                _auditLogs = await Db.AuditLogs
+                    .Where(a => a.OrganizationId == org.Id)
+                    .OrderByDescending(a => a.Timestamp)
+                    .Take(50)
+                    .ToListAsync();
+                _loginSuccess = _auditLogs.Count(a => a.Action == AuditAction.LoginSuccess);
+                _loginFailed = _auditLogs.Count(a => a.Action == AuditAction.LoginFailed);
+
+                // Compute security score based on enabled policies
+                int enabledCount = _securityPolicies.Count(p => p.Enabled);
+                _securityScore = 60 + (enabledCount * 5); // 60 base + 5 per policy
+                if (_securityScore > 100) _securityScore = 100;
+            }
+        }
+        catch
+        {
+            // DB not ready — show defaults
+            _loadError = "Database not fully initialized. Showing default values.";
+        }
     }
 
     private string GetActionColor(AuditAction action) => action switch

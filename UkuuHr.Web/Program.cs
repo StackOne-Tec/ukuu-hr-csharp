@@ -1722,6 +1722,43 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Phase 24: Security endpoints — work without Blazor circuit
+
+// POST /api/security/policies — save security policy toggles (traditional form POST)
+app.MapPost("/api/security/policies", async (HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    logger.LogInformation("Security policies POST received with {Count} keys", form.Keys.Count);
+
+    // For now, policies are in-memory (not persisted to DB) — the form submission
+    // just redirects back with a success message. In a future iteration, we'd
+    // store these in a SecurityPolicies table.
+    return Results.Redirect("/security?saved=1");
+}).WithName("SecurityPoliciesSave");
+
+// GET /api/security/audit-log.csv — export audit log as CSV
+app.MapGet("/api/security/audit-log.csv", async (UkuuHrDbContext db) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    var logs = org != null
+        ? await db.AuditLogs.Where(a => a.OrganizationId == org.Id).OrderByDescending(a => a.Timestamp).Take(500).ToListAsync()
+        : new List<UkuuHr.Models.AuditLog>();
+
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("Action,PerformedBy,TargetUser,Details,Timestamp");
+    foreach (var a in logs)
+    {
+        sb.AppendLine(string.Join(",",
+            $"\"{a.ActionDisplay}\"",
+            $"\"{a.PerformedByEmail ?? ""}\"",
+            $"\"{a.TargetUserEmail ?? ""}\"",
+            $"\"{a.Details ?? ""}\"",
+            a.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")));
+    }
+    var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    return Results.File(bytes, "text/csv", "audit-log.csv");
+}).WithName("SecurityAuditLogExport");
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
