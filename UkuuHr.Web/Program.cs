@@ -1940,6 +1940,13 @@ app.MapPost("/api/employees/save", async (
     emp.PassportNumber = form["PassportNumber"].ToString();
     emp.DateOfBirth = DateTime.TryParse(form["DateOfBirth"], out var dob) ? dob : null;
 
+    // Emergency contact — Phase 29
+    emp.EmergencyContactName = form["EmergencyContactName"].ToString();
+    emp.EmergencyContactRelationship = form["EmergencyContactRelationship"].ToString();
+    emp.EmergencyContactPhone = form["EmergencyContactPhone"].ToString();
+    emp.EmergencyContactEmail = form["EmergencyContactEmail"].ToString();
+
+    // Employment
     emp.EmployeeCode = form["EmployeeCode"].ToString();
     emp.JobTitle = form["JobTitle"].ToString();
     emp.Department = form["Department"].ToString();
@@ -1949,6 +1956,13 @@ app.MapPost("/api/employees/save", async (
     emp.WorkHoursPerWeek = double.TryParse(form["WorkHoursPerWeek"], out var whpw) ? whpw : 40;
     emp.JoiningDate = DateTime.TryParse(form["JoiningDate"], out var jd) ? jd : null;
     emp.ReportingManagerName = form["ReportingManagerName"].ToString();
+    // Phase 29: Round out employment fields so nothing in the wizard is silently dropped
+    emp.ReportingManagerTitle = form["ReportingManagerTitle"].ToString();
+    emp.PlaceOfWork = form["PlaceOfWork"].ToString();
+    emp.TerminationNoticePeriod = form["TerminationNoticePeriod"].ToString();
+    if (int.TryParse(form["HolidayEntitlementDays"], out var hed)) emp.HolidayEntitlementDays = hed;
+    if (int.TryParse(form["ProbationaryPeriodMonths"], out var ppm)) emp.ProbationaryPeriodMonths = ppm;
+    emp.JobDescription = form["JobDescription"].ToString();
 
     Enum.TryParse<EmploymentStatus>(form["Status"].ToString(), out var status);
     emp.Status = status;
@@ -1962,6 +1976,8 @@ app.MapPost("/api/employees/save", async (
     emp.BeneficiaryName = form["BeneficiaryName"].ToString();
     emp.Currency = string.IsNullOrEmpty(form["Currency"].ToString()) ? "ZMW" : form["Currency"].ToString();
     emp.SwiftCode = form["SwiftCode"].ToString();
+    emp.IbanNumber = form["IbanNumber"].ToString();
+    emp.RoutingNumbers = form["RoutingNumbers"].ToString();
 
     emp.Tpin = form["Tpin"].ToString();
     emp.NapsaNumber = form["NapsaNumber"].ToString();

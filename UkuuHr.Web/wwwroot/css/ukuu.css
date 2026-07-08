@@ -2457,6 +2457,96 @@ h1, h2, h3, h4, h5, h6 {
     padding-right: 48px;
 }
 
+/* ───── World-class <select> styling (InputSelect) ─────
+   Native <select> elements styled with .bk-input:
+   - Reset left padding (no icon by default)
+   - Custom chevron arrow that adapts to light/dark mode
+   - Consistent 48px height matching text inputs
+   - Proper appearance across Chrome/Firefox/Safari */
+select.bk-input {
+    padding: 0 40px 0 16px;              /* 16px left (no icon), 40px right for arrow */
+    appearance: none;                     /* remove native arrow */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23707070' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px 16px;
+    cursor: pointer;
+    line-height: 48px;                    /* vertically center the selected value */
+}
+
+/* When a select DOES have an icon (inside .bk-input-wrap with .bk-input-icon),
+   restore the icon padding and shift the arrow slightly more right */
+.bk-input-wrap select.bk-input {
+    padding-left: 44px;
+}
+
+/* Hide the default arrow on IE/Edge legacy */
+select.bk-input::-ms-expand { display: none; }
+
+/* Style the placeholder/empty option (the "Select …" row) */
+select.bk-input option[value=""] {
+    color: var(--bk-ink-3);
+    font-style: italic;
+}
+
+/* Dark-mode adjustments for the select arrow + optgroup */
+html[data-theme="dark"] select.bk-input {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a89cc4' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+html[data-theme="dark"] select.bk-input optgroup {
+    background: #1c1530;
+    color: var(--ukuu-text-muted, #a89cc4);
+    font-style: normal;
+    font-weight: 700;
+}
+
+html[data-theme="dark"] select.bk-input option {
+    background: #25163F;
+    color: var(--ukuu-text, #FCFBFF);
+}
+
+/* Light-mode optgroup styling for a clean, editorial feel */
+select.bk-input optgroup {
+    background: #fafafa;
+    color: var(--bk-ink-2, #525252);
+    font-style: normal;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+select.bk-input option {
+    background: #ffffff;
+    color: var(--bk-ink, #1a1a1a);
+    padding: 8px 12px;
+}
+
+/* Hover/focus ring on the select matches text inputs */
+select.bk-input:hover {
+    border-color: var(--bk-ink-3);
+}
+
+select.bk-input:focus {
+    border-color: var(--bk-ink);
+    box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.08);
+    background-color: white;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2325163F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px 16px;
+}
+
+html[data-theme="dark"] select.bk-input:focus {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: #FCFBFF;
+    box-shadow: 0 0 0 3px rgba(252, 251, 255, 0.08);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23FCFBFF' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
 /* ValidationMessage */
 .validation-message {
     font-size: 12px;
