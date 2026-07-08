@@ -17,9 +17,11 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
 // ───────────── Database (PostgreSQL in prod, SQLite fallback for local dev) ─────────────
-// Priority: explicit Npgsql connection string env var > DATABASE_URL (Render) > SQLite local file
+// Priority: explicit Npgsql connection string env var > DATABASE_URL (if postgres://) > SQLite local file
 // When running in our Docker container, entrypoint.sh exports POSTGRES_CONNECTION_STRING pointing to localhost.
 // When running locally without env vars set, falls back to a SQLite file in the project root.
+// Note: DATABASE_URL from some environments (e.g. sandbox) may be a non-PostgreSQL URL (file://) —
+// we only use it if it starts with "postgres://" to avoid Npgsql connection string parse errors.
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var explicitConnStr = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING")
     ?? Environment.GetEnvironmentVariable("ConnectionString")
@@ -32,7 +34,7 @@ if (!string.IsNullOrWhiteSpace(explicitConnStr))
     connectionString = explicitConnStr;
     useSqlite = false;
 }
-else if (!string.IsNullOrWhiteSpace(databaseUrl))
+else if (!string.IsNullOrWhiteSpace(databaseUrl) && databaseUrl.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
 {
     connectionString = ConvertRenderDatabaseUrlToNpgsql(databaseUrl);
     useSqlite = false;
