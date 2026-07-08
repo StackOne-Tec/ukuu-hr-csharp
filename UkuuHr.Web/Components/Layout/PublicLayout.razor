@@ -3,6 +3,16 @@
     <MudPopoverProvider />
     <MudDialogProvider />
     <MudSnackbarProvider />
+
+    @* Floating theme toggle — visible on all public pages (login, register, landing) *@
+    <button onclick="ukuuToggleThemeAndUpdate(this); return false;"
+            class="bk-public-theme-toggle"
+            title="Toggle dark/light mode"
+            aria-label="Toggle theme"
+            style="position:fixed;top:20px;right:20px;z-index:9999;width:44px;height:44px;border-radius:50%;border:1px solid var(--ukuu-border-soft,#DDD7E8);background:var(--ukuu-surface,#FCFBFF);color:var(--ukuu-text,#25163F);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(37,22,63,0.12);transition:all 0.2s ease;">
+        <span class="material-icons-round" style="font-size:22px;" id="ukuu-public-theme-icon">light_mode</span>
+    </button>
+
     @Body
 </main>
 

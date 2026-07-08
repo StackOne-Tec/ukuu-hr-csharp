@@ -207,19 +207,19 @@
         <div class="bk-admin-sidebar-footer">
             @if (!_collapsed)
             {
-                <button class="bk-theme-toggle @(_isDark ? "dark" : "")" @onclick="ToggleTheme">
+                <button class="bk-theme-toggle @(_isDark ? "dark" : "")" onclick="ukuuToggleThemeAndUpdate(this); return false;" data-is-dark="@_isDark">
                     <span class="bk-theme-toggle-icon">
-                        <span class="material-icons-round" style="font-size:20px;">@(_isDark ? "dark_mode" : "light_mode")</span>
+                        <span class="material-icons-round" style="font-size:20px;" id="ukuu-theme-icon">@(_isDark ? "dark_mode" : "light_mode")</span>
                     </span>
-                    <span class="bk-theme-toggle-text">@(_isDark ? "Dark Mode" : "Light Mode")</span>
+                    <span class="bk-theme-toggle-text" id="ukuu-theme-label">@(_isDark ? "Dark Mode" : "Light Mode")</span>
                     <span class="bk-theme-toggle-switch"></span>
                 </button>
             }
             else
             {
-                <button class="bk-theme-toggle" @onclick="ToggleTheme" style="justify-content:center;padding:10px;">
+                <button class="bk-theme-toggle" onclick="ukuuToggleThemeAndUpdate(this); return false;" data-is-dark="@_isDark" style="justify-content:center;padding:10px;">
                     <span class="bk-theme-toggle-icon">
-                        <span class="material-icons-round" style="font-size:20px;">@(_isDark ? "dark_mode" : "light_mode")</span>
+                        <span class="material-icons-round" style="font-size:20px;" id="ukuu-theme-icon">@(_isDark ? "dark_mode" : "light_mode")</span>
                     </span>
                 </button>
             }

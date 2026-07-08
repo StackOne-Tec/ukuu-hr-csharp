@@ -81,6 +81,55 @@
             return document.documentElement.getAttribute('data-theme') || 'light';
         };
 
+        // Phase 24: Plain-JS theme toggle that works WITHOUT Blazor circuit.
+        // Updates the button UI (icon + label) + toggles the data-theme attribute.
+        // This is called via onclick= (native HTML), not @@onclick (Blazor), so it
+        // works even when the Blazor SignalR circuit fails on Render free tier.
+        window.ukuuToggleThemeAndUpdate = function(btn) {
+            var next = window.ukuuToggleTheme();
+            var isDark = next === 'dark';
+
+            // Update all theme toggle buttons on the page
+            document.querySelectorAll('.bk-theme-toggle').forEach(function(el) {
+                if (isDark) el.classList.add('dark');
+                else el.classList.remove('dark');
+                el.setAttribute('data-is-dark', isDark);
+            });
+
+            // Update admin sidebar icon + label
+            var icon = document.getElementById('ukuu-theme-icon');
+            if (icon) icon.textContent = isDark ? 'dark_mode' : 'light_mode';
+            var label = document.getElementById('ukuu-theme-label');
+            if (label) label.textContent = isDark ? 'Dark Mode' : 'Light Mode';
+
+            // Update public (floating) toggle icon
+            var publicIcon = document.getElementById('ukuu-public-theme-icon');
+            if (publicIcon) publicIcon.textContent = isDark ? 'dark_mode' : 'light_mode';
+        };
+
+        // On page load, sync all toggle button states with the current theme
+        (function() {
+            var theme = localStorage.getItem('ukuu-theme') || 'light';
+            var isDark = theme === 'dark';
+            function syncThemeUI() {
+                document.querySelectorAll('.bk-theme-toggle').forEach(function(el) {
+                    if (isDark) el.classList.add('dark');
+                    else el.classList.remove('dark');
+                });
+                var icon = document.getElementById('ukuu-theme-icon');
+                if (icon) icon.textContent = isDark ? 'dark_mode' : 'light_mode';
+                var label = document.getElementById('ukuu-theme-label');
+                if (label) label.textContent = isDark ? 'Dark Mode' : 'Light Mode';
+                var publicIcon = document.getElementById('ukuu-public-theme-icon');
+                if (publicIcon) publicIcon.textContent = isDark ? 'dark_mode' : 'light_mode';
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', syncThemeUI);
+            } else {
+                syncThemeUI();
+            }
+        })();
+
         // PWA: Register service worker with cache-busting version.
         // The service worker URL includes the build timestamp so the browser
         // re-registers a new SW on every deployment (bypassing the 24h cache).
