@@ -4942,3 +4942,295 @@ body:has(.bk-modal-backdrop) ~ [id*="zai"] {
     top: 20px;
     bottom: auto;
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Phase 26: Comprehensive dark mode — ensure ALL elements have dark styling
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Cards + content areas */
+html[data-theme="dark"] .bk-admin-card,
+html[data-theme="dark"] .bk-admin-kpi-card,
+html[data-theme="dark"] .bk-admin-stat-box {
+    background: var(--ukuu-surface) !important;
+    border-color: var(--ukuu-divider) !important;
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-admin-card h3,
+html[data-theme="dark"] .bk-admin-card-header h3,
+html[data-theme="dark"] .bk-admin-kpi-value,
+html[data-theme="dark"] .bk-admin-stat-box-value {
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-admin-card-header p,
+html[data-theme="dark"] .bk-admin-card-content p,
+html[data-theme="dark"] .bk-admin-kpi-label,
+html[data-theme="dark"] .bk-admin-kpi-sub,
+html[data-theme="dark"] .bk-admin-stat-box-label,
+html[data-theme="dark"] .bk-admin-greeting,
+html[data-theme="dark"] .bk-admin-sub {
+    color: var(--ukuu-text-muted) !important;
+}
+
+/* Topbar */
+html[data-theme="dark"] .bk-admin-topbar {
+    background: rgba(28, 17, 47, 0.92) !important;
+    border-bottom-color: var(--ukuu-divider) !important;
+}
+
+html[data-theme="dark"] .bk-admin-topbar-search input {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: var(--ukuu-divider) !important;
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-admin-topbar-search input::placeholder {
+    color: var(--ukuu-text-subtle) !important;
+}
+
+html[data-theme="dark"] .bk-admin-topbar-icon-btn,
+html[data-theme="dark"] .bk-admin-topbar-toggle {
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--ukuu-text-muted) !important;
+}
+
+html[data-theme="dark"] .bk-admin-topbar-avatar {
+    background: var(--ukuu-ink) !important;
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-admin-topbar-mobile-brand {
+    color: var(--ukuu-text) !important;
+}
+
+/* Main content area */
+html[data-theme="dark"] .bk-admin-main {
+    background: var(--ukuu-bg) !important;
+}
+
+html[data-theme="dark"] .bk-admin-content {
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-admin-h1,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4 {
+    color: var(--ukuu-text) !important;
+}
+
+/* Tables */
+html[data-theme="dark"] .bk-admin-table {
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-admin-table thead th {
+    color: var(--ukuu-text-muted) !important;
+    border-bottom-color: var(--ukuu-divider) !important;
+}
+
+html[data-theme="dark"] .bk-admin-table tbody td {
+    color: var(--ukuu-text) !important;
+    border-bottom-color: var(--ukuu-divider) !important;
+}
+
+html[data-theme="dark"] .bk-admin-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Inputs + forms */
+html[data-theme="dark"] .bk-input,
+html[data-theme="dark"] select.bk-input,
+html[data-theme="dark"] textarea.bk-input,
+html[data-theme="dark"] input.bk-input {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: var(--ukuu-divider) !important;
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-input::placeholder,
+html[data-theme="dark"] .bk-input-wrap .bk-input-icon {
+    color: var(--ukuu-text-subtle) !important;
+}
+
+html[data-theme="dark"] .bk-label {
+    color: var(--ukuu-text-muted) !important;
+}
+
+html[data-theme="dark"] .bk-input-wrap {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: var(--ukuu-divider) !important;
+}
+
+/* Buttons */
+html[data-theme="dark"] .bk-btn-secondary {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: var(--ukuu-divider) !important;
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Pills / badges */
+html[data-theme="dark"] .bk-admin-pill {
+    border-color: transparent !important;
+}
+
+/* Modal */
+html[data-theme="dark"] .bk-modal {
+    background: var(--ukuu-surface) !important;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-theme="dark"] .bk-modal-header {
+    border-bottom-color: var(--ukuu-divider) !important;
+}
+
+html[data-theme="dark"] .bk-modal-header h3 {
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-modal-close {
+    color: var(--ukuu-text-muted) !important;
+}
+
+html[data-theme="dark"] .bk-modal-close:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: var(--ukuu-text) !important;
+}
+
+/* Date input + select */
+html[data-theme="dark"] input[type="date"],
+html[data-theme="dark"] input[type="time"],
+html[data-theme="dark"] input[type="number"],
+html[data-theme="dark"] select {
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--ukuu-text) !important;
+    border-color: var(--ukuu-divider) !important;
+}
+
+html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
+/* Checkboxes */
+html[data-theme="dark"] input[type="checkbox"] {
+    accent-color: var(--ukuu-accent-gold) !important;
+}
+
+/* Progress bars */
+html[data-theme="dark"] .bk-admin-progress {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Empty state messages */
+html[data-theme="dark"] .bk-admin-card-content p,
+html[data-theme="dark"] div[style*="color:var(--bk-ink-3)"],
+html[data-theme="dark"] div[style*="color: var(--bk-ink-3)"] {
+    color: var(--ukuu-text-subtle) !important;
+}
+
+/* Section header */
+html[data-theme="dark"] .bk-admin-section-header-left .bk-admin-greeting {
+    color: var(--ukuu-text-subtle) !important;
+}
+
+/* Links */
+html[data-theme="dark"] a {
+    color: var(--ukuu-accent-violet) !important;
+}
+
+html[data-theme="dark"] .bk-admin-sidebar-item,
+html[data-theme="dark"] .bk-mobile-bottomnav-item {
+    color: var(--ukuu-sidebar-item) !important;
+}
+
+html[data-theme="dark"] .bk-admin-sidebar-item.active,
+html[data-theme="dark"] .bk-mobile-bottomnav-item.active {
+    color: var(--ukuu-sidebar-item-active) !important;
+}
+
+/* Inline styles using --bk-* vars (these should work because --bk-* has dark overrides) */
+html[data-theme="dark"] [style*="var(--bk-ink)"],
+html[data-theme="dark"] [style*="var(--bk-ink-2)"],
+html[data-theme="dark"] [style*="var(--bk-ink-3)"] {
+    color: var(--bk-ink) !important;
+}
+
+html[data-theme="dark"] [style*="var(--bk-bg)"],
+html[data-theme="dark"] [style*="var(--bk-bg-strong)"],
+html[data-theme="dark"] [style*="var(--bk-muted)"] {
+    background: var(--bk-bg-strong) !important;
+}
+
+html[data-theme="dark"] [style*="var(--bk-line)"] {
+    border-color: var(--bk-line) !important;
+}
+
+/* Landing page sections */
+html[data-theme="dark"] .bk-section,
+html[data-theme="dark"] .bk-hero {
+    background: #0a0a0a !important;
+    color: var(--bk-ink) !important;
+}
+
+html[data-theme="dark"] .bk-feature-card,
+html[data-theme="dark"] .bk-pricing-card,
+html[data-theme="dark"] .bk-discipline-card,
+html[data-theme="dark"] .bk-stage-card {
+    background: var(--ukuu-surface) !important;
+    border-color: var(--ukuu-divider) !important;
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-section-title,
+html[data-theme="dark"] .bk-h2,
+html[data-theme="dark"] .bk-h3 {
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .bk-lead,
+html[data-theme="dark"] .bk-eyebrow {
+    color: var(--ukuu-text-muted) !important;
+}
+
+/* Footer */
+html[data-theme="dark"] .bk-footer {
+    background: #0a0a0a !important;
+    color: var(--ukuu-text-muted) !important;
+}
+
+html[data-theme="dark"] .bk-footer a {
+    color: var(--ukuu-text-subtle) !important;
+}
+
+/* Artboard (dashboard mockup on landing) */
+html[data-theme="dark"] .bk-artboard {
+    background: var(--ukuu-surface) !important;
+    border-color: var(--ukuu-divider) !important;
+}
+
+/* MudBlazor overrides */
+html[data-theme="dark"] .mud-card,
+html[data-theme="dark"] .mud-paper {
+    background: var(--ukuu-surface) !important;
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .mud-input {
+    color: var(--ukuu-text) !important;
+}
+
+html[data-theme="dark"] .mud-table-cell {
+    color: var(--ukuu-text) !important;
+    border-bottom-color: var(--ukuu-divider) !important;
+}
+
+html[data-theme="dark"] .mud-table-head-cell {
+    color: var(--ukuu-text-muted) !important;
+}

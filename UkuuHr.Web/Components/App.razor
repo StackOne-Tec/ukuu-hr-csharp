@@ -25,7 +25,7 @@
     <script>
         // Apply saved theme before page renders to avoid flash
         (function() {
-            var t = localStorage.getItem('ukuu-theme') || 'light';
+            var t = localStorage.getItem('ukuu-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', t);
             // Sync cookie with localStorage (in case localStorage was set but cookie wasn't)
             document.cookie = 'ukuu-theme=' + t + ';path=/;max-age=31536000;samesite=lax';
@@ -113,7 +113,7 @@
 
         // On page load, sync all toggle button states with the current theme
         (function() {
-            var theme = localStorage.getItem('ukuu-theme') || 'light';
+            var theme = localStorage.getItem('ukuu-theme') || 'dark';
             var isDark = theme === 'dark';
             function syncThemeUI() {
                 document.querySelectorAll('.bk-theme-toggle').forEach(function(el) {
