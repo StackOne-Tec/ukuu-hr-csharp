@@ -1792,6 +1792,109 @@ app.MapGet("/api/security/audit-log.csv", async (UkuuHrDbContext db) =>
     return Results.File(bytes, "text/csv", "audit-log.csv");
 }).WithName("SecurityAuditLogExport");
 
+// Phase 27: Document upload + export endpoints
+
+// POST /api/documents/upload — handle file upload (traditional form POST)
+app.MapPost("/api/documents/upload", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var name = form["name"].ToString().Trim();
+    var employeeIdStr = form["employeeId"].ToString();
+    var categoryStr = form["category"].ToString();
+    var uploadedBy = form["uploadedBy"].ToString().Trim();
+    var description = form["description"].ToString().Trim();
+    var file = form.Files.FirstOrDefault();
+
+    logger.LogInformation("Document upload: name={Name}, category={Category}, hasFile={HasFile}", name, categoryStr, file != null);
+
+    if (string.IsNullOrWhiteSpace(name) || file == null || file.Length == 0)
+        return Results.Redirect("/documents/upload?error=1");
+
+    if (file.Length > 10 * 1024 * 1024)
+        return Results.Redirect("/documents/upload?error=1");
+
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.Redirect("/documents/upload?error=1");
+
+    // Parse category
+    Enum.TryParse<DocumentCategory>(categoryStr, out var category);
+
+    // Parse employee ID
+    int? employeeId = null;
+    if (int.TryParse(employeeIdStr, out var eid) && eid > 0)
+        employeeId = eid;
+
+    // Determine document type from extension
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    var docType = ext switch
+    {
+        ".pdf" => DocumentType.Pdf,
+        ".jpg" or ".jpeg" or ".png" or ".gif" => DocumentType.Image,
+        ".doc" or ".docx" => DocumentType.Word,
+        ".xls" or ".xlsx" => DocumentType.Excel,
+        _ => DocumentType.Other
+    };
+
+    // Save file to wwwroot/uploads/ (in production, this would be S3/cloud storage)
+    var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+    Directory.CreateDirectory(uploadsDir);
+    var fileName = $"{Guid.NewGuid():N}{ext}";
+    var filePath = Path.Combine(uploadsDir, fileName);
+    using (var stream = new FileStream(filePath, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    var doc = new EmployeeDocument
+    {
+        OrganizationId = org.Id,
+        EmployeeId = employeeId ?? 0,
+        Name = name,
+        Type = docType,
+        Category = category,
+        Folder = DocumentFolder.All,
+        SizeBytes = file.Length,
+        DownloadUrl = $"/uploads/{fileName}",
+        UploadedBy = string.IsNullOrWhiteSpace(uploadedBy) ? "HR" : "HR",
+        UploadedByName = string.IsNullOrWhiteSpace(uploadedBy) ? "Admin" : uploadedBy,
+        Description = string.IsNullOrWhiteSpace(description) ? null : description,
+        UploadedAt = DateTime.UtcNow
+    };
+
+    db.EmployeeDocuments.Add(doc);
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("Document saved: {Name} ({Size} bytes), ID={Id}", name, file.Length, doc.Id);
+    return Results.Redirect("/documents/upload?saved=1");
+}).WithName("DocumentUpload").DisableAntiforgery();
+
+// GET /api/documents/export.csv — export document list as CSV
+app.MapGet("/api/documents/export.csv", async (UkuuHrDbContext db) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    var docs = org != null
+        ? await db.EmployeeDocuments.Where(d => d.OrganizationId == org.Id).OrderByDescending(d => d.UploadedAt).ToListAsync()
+        : new List<EmployeeDocument>();
+
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("Name,Category,Type,Size,UploadedBy,Date");
+    foreach (var d in docs)
+    {
+        sb.AppendLine(string.Join(",",
+            $"\"{d.Name}\"",
+            d.Category.ToString(),
+            d.Type.ToString(),
+            d.FormattedSize,
+            $"\"{d.UploadedByName ?? ""}\"",
+            d.UploadedAt.ToString("yyyy-MM-dd")));
+    }
+    var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    return Results.File(bytes, "text/csv", "documents.csv");
+}).WithName("DocumentExport");
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

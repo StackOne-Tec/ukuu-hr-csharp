@@ -1,0 +1,143 @@
+@page "/documents/upload"
+@attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">HR Documents · Upload</div>
+            <h1 class="bk-admin-h1">Upload Document</h1>
+            <p class="bk-admin-sub">Upload employee files, contracts, payslips, ID copies, compliance documents, and HR policies.</p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/documents" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                Back to Documents
+            </a>
+        </div>
+    </div>
+
+    @if (_saved)
+    {
+        <div style="padding:14px 18px;margin-bottom:20px;background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.25);border-radius:12px;color:var(--bk-success);font-size:14px;display:flex;align-items:center;gap:10px;">
+            <span class="material-icons-round" style="font-size:20px;">check_circle</span>
+            <strong>Document uploaded successfully!</strong>
+            <a href="/documents" style="margin-left:auto;color:var(--bk-accent);font-weight:600;">View all documents →</a>
+        </div>
+    }
+
+    @if (_error != null)
+    {
+        <div style="padding:14px 18px;margin-bottom:20px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:12px;color:var(--bk-error);font-size:14px;display:flex;align-items:center;gap:10px;">
+            <span class="material-icons-round" style="font-size:20px;">error_outline</span>
+            <strong>@_error</strong>
+        </div>
+    }
+
+    <form method="post" action="/api/documents/upload" enctype="multipart/form-data" class="bk-admin-card">
+        <div class="bk-admin-card-header">
+            <h3>Document Details</h3>
+            <p>Fill in the details below and select a file to upload.</p>
+        </div>
+        <div class="bk-admin-card-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+
+            <div class="bk-field">
+                <label class="bk-label">Document Name *</label>
+                <div class="bk-input-wrap">
+                    <span class="material-icons-round bk-input-icon">description</span>
+                    <input type="text" name="name" class="bk-input" placeholder="e.g. Employment Contract - James Banda.pdf" required style="padding-left:36px;" />
+                </div>
+            </div>
+
+            <div class="bk-field">
+                <label class="bk-label">Employee</label>
+                <div class="bk-input-wrap">
+                    <span class="material-icons-round bk-input-icon">person</span>
+                    <select name="employeeId" class="bk-input" style="padding-left:36px;">
+                        <option value="">— Organization-wide —</option>
+                        @foreach (var e in _employees.OrderBy(e => e.FullName))
+                        {
+                            <option value="@e.Id">@e.FullName (@e.EmployeeCode)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="bk-field">
+                <label class="bk-label">Category *</label>
+                <div class="bk-input-wrap">
+                    <span class="material-icons-round bk-input-icon">category</span>
+                    <select name="category" class="bk-input" style="padding-left:36px;" required>
+                        <option value="Contract">Contract</option>
+                        <option value="Payslip">Payslip</option>
+                        <option value="Identity">Identity</option>
+                        <option value="Compliance">Compliance</option>
+                        <option value="Policy">Policy</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bk-field">
+                <label class="bk-label">Uploaded By</label>
+                <div class="bk-input-wrap">
+                    <span class="material-icons-round bk-input-icon">person_outline</span>
+                    <input type="text" name="uploadedBy" class="bk-input" placeholder="Your name" style="padding-left:36px;" />
+                </div>
+            </div>
+
+            <div class="bk-field" style="grid-column:1/-1;">
+                <label class="bk-label">Description (optional)</label>
+                <div class="bk-input-wrap">
+                    <span class="material-icons-round bk-input-icon">notes</span>
+                    <input type="text" name="description" class="bk-input" placeholder="Brief description of the document" style="padding-left:36px;" />
+                </div>
+            </div>
+
+            <div class="bk-field" style="grid-column:1/-1;">
+                <label class="bk-label">File *</label>
+                <div style="border:2px dashed var(--bk-line);border-radius:12px;padding:32px 24px;text-align:center;transition:all 0.2s ease;cursor:pointer;" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" name="file" id="fileInput" required style="display:none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif" onchange="document.getElementById('fileName').textContent = this.files[0] ? this.files[0].name : 'No file selected'; document.getElementById('fileSize').textContent = this.files[0] ? (this.files[0].size / 1024).toFixed(1) + ' KB' : '';" />
+                    <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.4;display:block;margin-bottom:12px;">cloud_upload</span>
+                    <div style="font-size:14px;font-weight:600;color:var(--bk-ink);margin-bottom:4px;">Click to select a file</div>
+                    <div style="font-size:12px;color:var(--bk-ink-3);">PDF, DOC, DOCX, XLS, XLSX, PNG, JPG, GIF — Max 10MB</div>
+                    <div id="fileName" style="margin-top:12px;font-size:13px;font-weight:600;color:var(--bk-accent);">No file selected</div>
+                    <div id="fileSize" style="font-size:11px;color:var(--bk-ink-3);"></div>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
+            <a href="/documents" class="bk-btn bk-btn-secondary">Cancel</a>
+            <button type="submit" class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">upload_file</span>
+                Upload Document
+            </button>
+        </div>
+    </form>
+</div>
+
+@code {
+    private List<Employee> _employees = new();
+    private bool _saved;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            _saved = uri.Query.Contains("saved=1");
+            _error = string.IsNullOrEmpty(uri.Query) ? null : null;
+
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org != null)
+            {
+                _employees = await Db.Employees.Where(e => e.OrganizationId == org.Id && !e.IsTerminated).ToListAsync();
+            }
+        }
+        catch { }
+    }
+}
