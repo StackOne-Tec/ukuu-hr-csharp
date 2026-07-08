@@ -1895,6 +1895,101 @@ app.MapGet("/api/documents/export.csv", async (UkuuHrDbContext db) =>
     return Results.File(bytes, "text/csv", "documents.csv");
 }).WithName("DocumentExport");
 
+// Phase 28: POST /api/employees/save — save employee via traditional form POST (no Blazor circuit)
+app.MapPost("/api/employees/save", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    EmployeeService svc,
+    ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var isEdit = form["isEdit"] == "true";
+    var empIdStr = form["employeeId"].ToString();
+
+    logger.LogInformation("Employee save POST: isEdit={IsEdit}, empId={EmpId}", isEdit, empIdStr);
+
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found" });
+
+    Employee emp;
+    if (isEdit && int.TryParse(empIdStr, out var eid) && eid > 0)
+    {
+        emp = await svc.GetAsync(org.Id, eid);
+        if (emp == null) return Results.NotFound(new { error = "Employee not found" });
+    }
+    else
+    {
+        emp = new Employee { OrganizationId = org.Id, CreatedAt = DateTime.UtcNow };
+    }
+
+    // Map form fields to model
+    emp.Title = form["Title"].ToString();
+    emp.FirstName = form["FirstName"].ToString();
+    emp.MiddleNames = form["MiddleNames"].ToString();
+    emp.Surname = form["Surname"].ToString();
+    emp.Nationality = form["Nationality"].ToString();
+    emp.Country = form["Country"].ToString();
+    emp.City = form["City"].ToString();
+    emp.Gender = form["Gender"].ToString();
+    emp.MaritalStatus = form["MaritalStatus"].ToString();
+    emp.Email = form["Email"].ToString();
+    emp.Phone = form["Phone"].ToString();
+    emp.StreetAddress = form["StreetAddress"].ToString();
+    emp.PostalCode = form["PostalCode"].ToString();
+    emp.NationalIdentityNumber = form["NationalIdentityNumber"].ToString();
+    emp.PassportNumber = form["PassportNumber"].ToString();
+    emp.DateOfBirth = DateTime.TryParse(form["DateOfBirth"], out var dob) ? dob : null;
+
+    emp.EmployeeCode = form["EmployeeCode"].ToString();
+    emp.JobTitle = form["JobTitle"].ToString();
+    emp.Department = form["Department"].ToString();
+    emp.EmploymentType = form["EmploymentType"].ToString();
+    emp.ContractType = form["ContractType"].ToString();
+    emp.ContractEndDate = DateTime.TryParse(form["ContractEndDate"], out var ced) ? ced : null;
+    emp.WorkHoursPerWeek = double.TryParse(form["WorkHoursPerWeek"], out var whpw) ? whpw : 40;
+    emp.JoiningDate = DateTime.TryParse(form["JoiningDate"], out var jd) ? jd : null;
+    emp.ReportingManagerName = form["ReportingManagerName"].ToString();
+
+    Enum.TryParse<EmploymentStatus>(form["Status"].ToString(), out var status);
+    emp.Status = status;
+
+    emp.BasicSalary = double.TryParse(form["BasicSalary"], out var bs) ? bs : 0;
+    emp.HourlyRate = double.TryParse(form["HourlyRate"], out var hr) ? hr : null;
+    emp.BankName = form["BankName"].ToString();
+    emp.Branch = form["Branch"].ToString();
+    emp.AccountNumber = form["AccountNumber"].ToString();
+    emp.MobileMoney = form["MobileMoney"].ToString();
+    emp.BeneficiaryName = form["BeneficiaryName"].ToString();
+    emp.Currency = string.IsNullOrEmpty(form["Currency"].ToString()) ? "ZMW" : form["Currency"].ToString();
+    emp.SwiftCode = form["SwiftCode"].ToString();
+
+    emp.Tpin = form["Tpin"].ToString();
+    emp.NapsaNumber = form["NapsaNumber"].ToString();
+    emp.HealthInsuranceNumber = form["HealthInsuranceNumber"].ToString();
+
+    emp.UpdatedAt = DateTime.UtcNow;
+
+    try
+    {
+        if (isEdit)
+        {
+            await svc.UpdateAsync(emp);
+            logger.LogInformation("Employee updated: {Name}", emp.FullName);
+        }
+        else
+        {
+            await svc.CreateAsync(emp);
+            logger.LogInformation("Employee created: {Name}", emp.FullName);
+        }
+        return Results.Ok(new { success = true, name = emp.FullName, id = emp.Id });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to save employee");
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).WithName("EmployeeSave").DisableAntiforgery();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

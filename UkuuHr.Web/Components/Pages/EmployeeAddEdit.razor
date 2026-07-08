@@ -532,9 +532,9 @@
             }
             else
             {
-                <button type="submit" class="bk-btn bk-btn-primary" disabled="@_isSaving" style="background:linear-gradient(135deg,var(--bk-success),#16A34A);">
-                    <span class="material-icons-round" style="font-size:16px;">@(_isSaving ? "sync" : "check")</span>
-                    @(_isSaving ? "Saving…" : (_isEdit ? "Save Changes" : "Create Employee"))
+                <button type="button" class="bk-btn bk-btn-primary" style="background:linear-gradient(135deg,var(--bk-success),#16A34A);" onclick="ukuuSaveEmployee(this, @(_isEdit ? "true" : "false"), @(_isEdit ? Id.ToString() : "0"));">
+                    <span class="material-icons-round" style="font-size:16px;">check</span>
+                    @(_isEdit ? "Save Changes" : "Create Employee")
                 </button>
             }
         </div>
