@@ -1,0 +1,178 @@
+@page "/clock"
+@attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@inject AttendanceService AttendanceSvc
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Time & Attendance · @DateTime.UtcNow.ToString("dd MMMM yyyy")</div>
+            <h1 class="bk-admin-h1">Clock In / Out</h1>
+            <p class="bk-admin-sub">
+                Select an employee and clock them in or out. The system records the exact UTC timestamp
+                and automatically creates an attendance record if one doesn't exist for today.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/attendance" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                Back to Attendance
+            </a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_clockResult))
+    {
+        var isSuccess = _clockResult == "success";
+        var bannerBg = isSuccess ? "rgba(22,163,74,0.08)" : "rgba(220,38,38,0.08)";
+        var bannerBorder = isSuccess ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.25)";
+        var bannerColor = isSuccess ? "var(--bk-success)" : "var(--bk-error)";
+        var icon = isSuccess ? "check_circle" : "error_outline";
+        var message = isSuccess
+            ? $"{_clockedEmpName} {_clockedAction} at {DateTime.UtcNow:HH:mm:ss} UTC"
+            : "Failed to clock. Please try again.";
+
+        <div style="padding:14px 18px;margin-bottom:20px;background:@bannerBg;border:1px solid @bannerBorder;border-radius:12px;color:@bannerColor;font-size:14px;display:flex;align-items:center;gap:10px;">
+            <span class="material-icons-round" style="font-size:20px;">@icon</span>
+            <strong>@message</strong>
+        </div>
+    }
+
+    @if (!_hasOrg)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">business</span>
+            <h3 style="margin-top:16px;">No Organization Found</h3>
+            <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Create an organization in Settings to start managing attendance.</p>
+            <a href="/settings" class="bk-btn bk-btn-primary">Go to Settings</a>
+        </div>
+    }
+    else if (!_employees.Any())
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">groups</span>
+            <h3 style="margin-top:16px;">No Employees Found</h3>
+            <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Add employees first to clock them in or out.</p>
+            <a href="/employees/add" class="bk-btn bk-btn-primary">
+                <span class="material-icons-round" style="font-size:16px;">person_add</span>
+                Add Employee
+            </a>
+        </div>
+    }
+    else
+    {
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;">
+            @foreach (var emp in _employees)
+            {
+                var att = _todayRecords.FirstOrDefault(r => r.EmployeeId == emp.Id);
+                var isCheckedIn = att?.CheckIn != null;
+                var isCheckedOut = att?.CheckOut != null;
+                var statusColor = isCheckedIn && !isCheckedOut ? "var(--bk-success)" :
+                                  isCheckedIn && isCheckedOut ? "var(--bk-accent-2)" : "var(--bk-ink-3)";
+                var statusText = isCheckedIn && !isCheckedOut ? "Clocked In" :
+                                 isCheckedIn && isCheckedOut ? "Completed" : "Not Clocked";
+
+                <div class="bk-admin-card bk-admin-card-hover" style="padding:20px;">
+                    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+                        <div class="bk-admin-avatar gold" style="width:44px;height:44px;font-size:15px;">@emp.Initials</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:14px;color:var(--bk-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@emp.FullName</div>
+                            <div style="font-size:11px;color:var(--bk-ink-3);">@emp.EmployeeCode · @(emp.Department ?? "—")</div>
+                        </div>
+                        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.06);color:@statusColor;">
+                            @statusText
+                        </span>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                        <div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid var(--bk-line);">
+                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:600;letter-spacing:0.04em;">Check In</div>
+                            <div style="font-size:15px;font-weight:700;color:var(--bk-ink);font-family:var(--ukuu-font-mono);margin-top:2px;">
+                                @(att?.CheckIn?.ToString("HH:mm:ss") ?? "—")
+                            </div>
+                        </div>
+                        <div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid var(--bk-line);">
+                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:600;letter-spacing:0.04em;">Check Out</div>
+                            <div style="font-size:15px;font-weight:700;color:var(--bk-ink);font-family:var(--ukuu-font-mono);margin-top:2px;">
+                                @(att?.CheckOut?.ToString("HH:mm:ss") ?? "—")
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (att?.CheckIn != null && att?.CheckOut != null)
+                    {
+                        <div style="text-align:center;margin-bottom:16px;padding:8px;background:rgba(20,163,127,0.06);border-radius:8px;">
+                            <span style="font-size:12px;color:var(--bk-accent-3);font-weight:600;">
+                                <span class="material-icons-round" style="font-size:14px;vertical-align:middle;">schedule</span>
+                                Worked: @att.WorkedHours.ToString("0.0")h
+                            </span>
+                        </div>
+                    }
+
+                    <form method="post" action="/api/attendance/clock" style="display:flex;gap:8px;">
+                        <input type="hidden" name="employeeId" value="@emp.Id" />
+                        @if (!isCheckedIn)
+                        {
+                            <button type="submit" name="action" value="in" class="bk-btn bk-btn-primary" style="flex:1;justify-content:center;">
+                                <span class="material-icons-round" style="font-size:18px;">login</span>
+                                Clock In
+                            </button>
+                        }
+                        else if (!isCheckedOut)
+                        {
+                            <button type="submit" name="action" value="out" class="bk-btn bk-btn-primary" style="flex:1;justify-content:center;background:linear-gradient(135deg,#e85d75,#c9405a);">
+                                <span class="material-icons-round" style="font-size:18px;">logout</span>
+                                Clock Out
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="submit" name="action" value="in" class="bk-btn bk-btn-secondary" style="flex:1;justify-content:center;font-size:12px;">
+                                <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                                Clock In Again
+                            </button>
+                        }
+                    </form>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Employee> _employees = new();
+    private List<Attendance> _todayRecords = new();
+    private bool _hasOrg;
+    private string? _clockResult;
+    private string? _clockedEmpName;
+    private string? _clockedAction;
+    private string _todayKey = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            _clockResult = query["result"];
+            _clockedEmpName = query["name"];
+            _clockedAction = query["action"];
+
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org != null)
+            {
+                _hasOrg = true;
+                _employees = await Db.Employees
+                    .Where(e => e.OrganizationId == org.Id && !e.IsTerminated)
+                    .OrderBy(e => e.FullName)
+                    .ToListAsync();
+                _todayRecords = await Db.Attendances
+                    .Where(a => a.OrganizationId == org.Id && a.DateKey == _todayKey)
+                    .ToListAsync();
+            }
+        }
+        catch { }
+    }
+}

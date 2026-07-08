@@ -869,10 +869,43 @@ app.MapPost("/api/attendance/clock-out", async (
         status = "clocked_out",
         employeeId,
         checkOut = result.CheckOut,
-        workedHours = result.WorkedHours,
         dateKey = result.DateKey
     });
 }).WithName("AttendanceClockOut");
+
+// POST /api/attendance/clock — unified clock in/out from the Clock page form
+// Reads employeeId + action from form body, calls ClockAsync, redirects back
+app.MapPost("/api/attendance/clock", async (
+    HttpContext ctx,
+    AttendanceService svc,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var employeeIdStr = form["employeeId"].ToString();
+    var action = form["action"].ToString();
+    var clockIn = action == "in";
+
+    logger.LogInformation("Clock POST: employeeId={EmployeeId}, action={Action}", employeeIdStr, action);
+
+    if (!int.TryParse(employeeIdStr, out var employeeId))
+        return Results.Redirect("/clock?result=error");
+
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.Redirect("/clock?result=error");
+
+    var emp = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId);
+    if (emp == null) return Results.Redirect("/clock?result=error");
+
+    var result = await svc.ClockAsync(oid, employeeId, clockIn);
+    if (result == null) return Results.Redirect("/clock?result=error");
+
+    var actionLabel = clockIn ? "clocked in" : "clocked out";
+    var empName = Uri.EscapeDataString(emp.FullName);
+    logger.LogInformation("Clock success: {Name} {Action} at {Time}", emp.FullName, actionLabel, DateTime.UtcNow);
+
+    return Results.Redirect($"/clock?result=success&name={empName}&action={actionLabel}");
+}).WithName("AttendanceClockUnified");
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MODULE 3: Shift Management

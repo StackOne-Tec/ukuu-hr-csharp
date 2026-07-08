@@ -22,10 +22,10 @@
                 <span class="material-icons-round" style="font-size:16px;">refresh</span>
                 Recompute Status
             </button>
-            <button class="bk-btn bk-btn-primary" @onclick="OpenClockDialog">
+            <a href="/clock" class="bk-btn bk-btn-primary">
                 <span class="material-icons-round" style="font-size:16px;">fingerprint</span>
                 Clock In/Out
-            </button>
+            </a>
         </div>
     </div>
 
@@ -193,92 +193,6 @@
     }
 </div>
 
-@* ───── Clock In/Out dialog ───── *@
-@if (_showClockDialog)
-{
-    <div class="bk-modal-backdrop" @onclick="CloseClockDialog">
-        <div class="bk-modal" @onclick:stopPropagation style="max-width:520px;">
-            <div class="bk-modal-header">
-                <h3>Clock In / Out</h3>
-                <button class="bk-modal-close" @onclick="CloseClockDialog"><span class="material-icons-round">close</span></button>
-            </div>
-            <div class="bk-modal-body">
-                <p style="font-size:13px;color:var(--bk-ink-2);margin-bottom:16px;">
-                    Select an employee and clock them in or out for @_selectedDate.ToString("dd MMM yyyy").
-                    The system uses the current UTC time as the punch timestamp.
-                </p>
-
-                <div class="bk-field">
-                    <label class="bk-label">Employee *</label>
-                    <select class="bk-input" value="@_clockEmployeeId" @onchange="OnClockEmployeeChanged">
-                        <option value="0">— Select employee —</option>
-                        @foreach (var e in _employees.Where(e => !e.IsTerminated).OrderBy(e => e.FullName))
-                        {
-                            <option value="@e.Id" selected="@(e.Id == _clockEmployeeId)">@e.FullName (@e.EmployeeCode) — @(e.Department ?? "—")</option>
-                        }
-                    </select>
-                </div>
-
-                @if (_clockEmployeeId > 0)
-                {
-                    var todayKey = _selectedDate.ToString("yyyy-MM-dd");
-                    var todayAtt = _records.FirstOrDefault(r => r.EmployeeId == _clockEmployeeId && r.DateKey == todayKey);
-                    <div style="margin-top:16px;padding:16px;border:1px solid var(--bk-line);border-radius:12px;background:var(--bk-muted);">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                            <span style="font-size:13px;font-weight:600;color:var(--bk-ink);">Today's status</span>
-                            <span class="bk-admin-pill @(todayAtt?.Status == AttendanceStatus.Present ? "active" : todayAtt?.Status == AttendanceStatus.Late ? "probation" : todayAtt?.Status == AttendanceStatus.Absent ? "inactive" : "info")" style="font-size:11px;">
-                                @(todayAtt?.Status.ToString() ?? "No record")
-                            </span>
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                            <div>
-                                <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:600;">Check In</div>
-                                <div style="font-size:16px;font-weight:700;color:var(--bk-ink);font-family:var(--ukuu-font-mono);">
-                                    @(todayAtt?.CheckIn?.ToString("HH:mm:ss") ?? "—")
-                                </div>
-                            </div>
-                            <div>
-                                <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:600;">Check Out</div>
-                                <div style="font-size:16px;font-weight:700;color:var(--bk-ink);font-family:var(--ukuu-font-mono);">
-                                    @(todayAtt?.CheckOut?.ToString("HH:mm:ss") ?? "—")
-                                </div>
-                            </div>
-                        </div>
-                        @if (todayAtt != null && todayAtt.CheckIn.HasValue && !todayAtt.CheckOut.HasValue)
-                        {
-                            <div style="margin-top:8px;font-size:11px;color:var(--bk-accent-3);font-weight:600;">
-                                ✓ Checked in — ready to clock out
-                            </div>
-                        }
-                        else if (todayAtt != null && todayAtt.CheckIn.HasValue && todayAtt.CheckOut.HasValue)
-                        {
-                            <div style="margin-top:8px;font-size:11px;color:var(--bk-ink-3);">
-                                Worked: @todayAtt.WorkedHours.ToString("0.0")h
-                            </div>
-                        }
-                    </div>
-
-                    <div style="display:flex;gap:8px;margin-top:20px;">
-                        <button class="bk-btn bk-btn-secondary" style="flex:1;justify-content:center;" @onclick="() => ClockEmployee(true)" disabled="@_clockSaving">
-                            <span class="material-icons-round" style="font-size:18px;">login</span>
-                            Clock In
-                        </button>
-                        <button class="bk-btn bk-btn-primary" style="flex:1;justify-content:center;" @onclick="() => ClockEmployee(false)" disabled="@_clockSaving">
-                            <span class="material-icons-round" style="font-size:18px;">logout</span>
-                            Clock Out
-                        </button>
-                    </div>
-                }
-                else
-                {
-                    <div style="margin-top:20px;padding:32px 16px;text-align:center;color:var(--bk-ink-3);font-size:13px;">
-                        <span class="material-icons-round" style="font-size:40px;opacity:0.3;display:block;margin-bottom:8px;">person_search</span>
-                        Select an employee to clock them in or out.
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
 }
 
 @code {
