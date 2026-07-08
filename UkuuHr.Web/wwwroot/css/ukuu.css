@@ -4851,3 +4851,35 @@ html[data-theme="dark"] .bk-artboard {
 html[data-theme="dark"] .bk-artboard > div {
     color: var(--bk-ink);
 }
+
+
+/* Phase 22: Fix sidebar overflow — too many items causing layout breakage */
+.bk-admin-sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.bk-admin-sidebar-nav {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0; /* critical for flexbox scroll */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.bk-admin-sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+.bk-admin-sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+.bk-admin-sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+}
+.bk-admin-sidebar-footer {
+    flex-shrink: 0;
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
