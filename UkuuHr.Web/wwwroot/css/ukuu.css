@@ -4883,3 +4883,62 @@ html[data-theme="dark"] .bk-artboard > div {
     padding: 12px;
     border-top: 1px solid rgba(255,255,255,0.06);
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Phase 25: KAZ AI chat widget overflow prevention
+   The KAZ AI chat system adds a floating widget (~64px) in the bottom-right
+   corner of all pages. These rules ensure page content + footers don't
+   overlap with it.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Admin pages: add extra bottom padding for the chat widget */
+.bk-admin-content {
+    padding-bottom: 80px !important;
+}
+
+/* On mobile, account for both bottom nav AND chat widget */
+@media (max-width: 1023px) {
+    .bk-admin-content {
+        padding-bottom: calc(var(--ukuu-mobile-bottomnav-h) + var(--ukuu-mobile-safe-area-bottom) + 80px) !important;
+    }
+}
+
+/* Landing page footer: add bottom padding so the chat widget doesn't cover footer content */
+.bk-footer {
+    padding-bottom: 80px !important;
+}
+
+/* Login/Register pages: add bottom padding */
+.bk-auth-form-side {
+    padding-bottom: 80px;
+}
+
+/* Any page with a sticky bottom bar (like tolerance save bar) */
+.bk-admin-card-content {
+    padding-bottom: 16px;
+}
+
+/* Ensure modals don't overlap with the chat widget */
+.bk-modal {
+    max-height: calc(90vh - 80px) !important;
+}
+
+/* Hide the KAZ AI chat widget when a modal is open (prevents z-index conflicts) */
+body:has(.bk-modal-backdrop) ~ [class*="chat"],
+body:has(.bk-modal-backdrop) ~ [id*="chat"],
+body:has(.bk-modal-backdrop) ~ [class*="zai"],
+body:has(.bk-modal-backdrop) ~ [id*="zai"] {
+    display: none !important;
+}
+
+/* Push down any fixed bottom elements above the chat widget area */
+.bk-mobile-bottomnav {
+    bottom: 0;
+}
+
+/* Ensure the floating theme toggle on public pages doesn't overlap with chat */
+.bk-public-theme-toggle {
+    top: 20px;
+    bottom: auto;
+}
