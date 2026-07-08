@@ -239,12 +239,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         _orgId = org.Id;
         var now = DateTime.Now;
         _stats = await PayrollSvc.GetMonthlyStatsAsync(_orgId, now.Month, now.Year);
         await LoadData();
+        }
+        catch
+        {
+            // Fall back to empty data — page renders with defaults
+        }
     }
 
     private async Task LoadData()

@@ -18,12 +18,27 @@
     {
         _currentUrl = Nav.ToBaseRelativePath(Nav.Uri);
         Nav.LocationChanged += OnLocationChanged;
+
+        // Read theme from HttpContext (SSR) — this persists across page navigations
+        // because the cookie/localStorage value is read server-side on every request.
+        try
+        {
+            var httpCtx = HttpAccessor.HttpContext;
+            if (httpCtx?.Request?.Cookies != null)
+            {
+                var themeCookie = httpCtx.Request.Cookies["ukuu-theme"];
+                if (!string.IsNullOrEmpty(themeCookie))
+                    _isDark = themeCookie == "dark";
+            }
+        }
+        catch { }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            // Also try reading from JS localStorage (covers cases where cookie isn't set yet)
             try
             {
                 var theme = await JS.InvokeAsync<string>("ukuuGetTheme");
@@ -32,8 +47,6 @@
             catch { }
 
             // Resolve the actual signed-in user's display name from the auth cookie.
-            // Falls back to "Administrator" if the user is not signed in or the
-            // name claim is missing (e.g. clean DB, hardcoded admin fallback).
             try
             {
                 var httpCtx = HttpAccessor.HttpContext;

@@ -147,6 +147,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         _orgId = org.Id;
@@ -162,6 +164,11 @@
             ("Policies", "gavel", "purple", _docs.Count(d => d.Category == DocumentCategory.Policy)),
             ("Other", "folder", "pink", _docs.Count(d => d.Category == DocumentCategory.Other))
         };
+        }
+        catch
+        {
+            // Fall back to empty data — page renders with defaults
+        }
     }
 
     private string GetEmployee(int id) => _employees.FirstOrDefault(e => e.Id == id)?.FullName ?? "—";

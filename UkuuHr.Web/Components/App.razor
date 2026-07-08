@@ -27,6 +27,8 @@
         (function() {
             var t = localStorage.getItem('ukuu-theme') || 'light';
             document.documentElement.setAttribute('data-theme', t);
+            // Sync cookie with localStorage (in case localStorage was set but cookie wasn't)
+            document.cookie = 'ukuu-theme=' + t + ';path=/;max-age=31536000;samesite=lax';
         })();
 
         // Phase 17: Auto-reload if stale cached version detected.
@@ -75,6 +77,8 @@
             var next = current === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
             localStorage.setItem('ukuu-theme', next);
+            // Also set a cookie so the server (SSR) can read the theme on next page load
+            document.cookie = 'ukuu-theme=' + next + ';path=/;max-age=31536000;samesite=lax';
             return next;
         };
         window.ukuuGetTheme = function() {

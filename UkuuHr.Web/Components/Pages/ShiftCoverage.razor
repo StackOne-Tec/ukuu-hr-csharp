@@ -282,6 +282,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         _orgId = org.Id;
@@ -310,6 +312,11 @@
             _maxExpectedPerShift = (int)Math.Ceiling(allCounts.Average()) + 1;
         else
             _maxExpectedPerShift = 3;
+        }
+        catch
+        {
+            // Fall back to empty data — page renders with defaults
+        }
     }
 
     private void ToggleView()

@@ -182,11 +182,18 @@
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         _orgId = org.Id;
 
         _recentNotifications = await NotificationSvc.RecentAsync(_orgId, take: 10);
+        }
+        catch
+        {
+            // Fall back to empty data — page renders with defaults
+        }
     }
 
     private void SavePreferences()

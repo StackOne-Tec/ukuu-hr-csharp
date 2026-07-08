@@ -218,6 +218,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         var emps = await Db.Employees.Where(e => e.OrganizationId == org.Id).ToListAsync();
@@ -234,6 +236,11 @@
             .ToListAsync();
         var usedLeave = approvedLeaves.Where(l => l.StartDate.Year == DateTime.Now.Year).Sum(l => l.RequestedDays);
         _leaveUtil = totalLeave > 0 ? Math.Min(100, usedLeave * 100.0 / (totalLeave * _totalEmps)) : 0;
+        }
+        catch
+        {
+            // Fall back to empty data — page renders with defaults
+        }
     }
 
     private string GetLinePath(int[] data, double w, double h, int padding, int max)

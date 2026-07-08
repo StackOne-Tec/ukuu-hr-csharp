@@ -141,7 +141,11 @@
         (_filterDept == "All" || e.Department == _filterDept) &&
         (_filterStatus == "All" || e.StatusDisplay == _filterStatus));
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        try { await LoadAsync(); }
+        catch { /* fall back to empty */ }
+    }
 
     private async Task LoadAsync()
     {

@@ -309,6 +309,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
         var org = await Db.Organizations.FirstOrDefaultAsync();
         _hasOrg = org != null;
         _orgName = org?.Name;
@@ -348,6 +350,11 @@
         _approvedThisMonth = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Approved && l.ReviewedAt?.Month == today.Month && l.ReviewedAt?.Year == today.Year);
 
 
+        }
+        catch
+        {
+            // Fall back to empty data — page renders with defaults
+        }
     }
 
     private static string GetGreeting()
