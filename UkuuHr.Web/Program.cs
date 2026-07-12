@@ -243,6 +243,14 @@ using (var scope = app.Services.CreateScope())
             try
             {
                 await db.Database.EnsureCreatedAsync();
+                // ───── Phase 30: Idempotent schema migration ─────
+                // EnsureCreatedAsync() only creates tables if the DB doesn't exist; it does NOT
+                // add new columns to existing tables. We add a small set of safe ALTER TABLE
+                // statements here to bring legacy databases (e.g. the long-running Prisma
+                // Postgres instance) up to the current model. Each statement is wrapped in a
+                // try/catch so it's idempotent — if the column already exists, the ALTER fails
+                // silently and we continue.
+                await RunIdempotentMigrationsAsync(db, logger);
                 await DbSeeder.SeedAsync(db);
                 logger.LogInformation("Database initialized & seeded.");
                 break;
@@ -258,6 +266,33 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         logger.LogError(ex, "Failed to initialize database after retries.");
+    }
+}
+
+// ───────────── Phase 30: Idempotent schema migrations ─────
+// Adds columns the EF model expects but that legacy databases may be missing.
+// Each ALTER TABLE is wrapped in try/catch — if the column already exists,
+// PostgreSQL returns a duplicate-column error which we swallow.
+static async Task RunIdempotentMigrationsAsync(UkuuHrDbContext db, ILogger logger)
+{
+    var migrations = new (string Table, string Column, string Sql)[]
+    {
+        ("LeaveHolidays", "IsRecurring",
+            @"ALTER TABLE ""LeaveHolidays"" ADD COLUMN IF NOT EXISTS ""IsRecurring"" boolean NOT NULL DEFAULT false"),
+    };
+
+    foreach (var (table, column, sql) in migrations)
+    {
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(sql);
+            logger.LogInformation("Migration: ensured {Table}.{Column} exists", table, column);
+        }
+        catch (Exception ex)
+        {
+            // Likely "column already exists" — log and continue
+            logger.LogWarning("Migration skipped for {Table}.{Column}: {Message}", table, column, ex.Message);
+        }
     }
 }
 
