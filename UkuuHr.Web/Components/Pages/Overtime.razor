@@ -74,15 +74,30 @@
     </div>
 
     <div class="bk-admin-card" style="overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--bk-line);">
+            <div style="font-size:13px;font-weight:700;color:var(--bk-ink);">
+                @_filtered.Count() records
+            </div>
+            <a href="/api/overtime/export?tab=@_tab" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;text-decoration:none;">
+                <span class="material-icons-round" style="font-size:14px;">file_download</span>
+                Export Excel
+            </a>
+        </div>
+        <div style="overflow-x:auto;">
         <table class="bk-admin-table bk-mobile-card-view">
             <thead>
                 <tr>
-                    <th>Employee</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>ID</th>
+                    <th>Department</th>
                     <th>Date</th>
-                    <th>Time Window</th>
-                    <th>Hours</th>
+                    <th>Weekday</th>
+                    <th>OT Hours</th>
+                    <th>Workday OT</th>
+                    <th>Weekend OT</th>
+                    <th>Holiday OT</th>
                     <th>Rate Type</th>
-                    <th>Hourly Rate</th>
                     <th>OT Pay</th>
                     <th>Source</th>
                     <th>Status</th>
@@ -93,15 +108,16 @@
                 @foreach (var ot in _filtered)
                 {
                     <tr>
-                        <td>
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@GetInitials(ot.EmployeeName)</div>
-                                <div style="font-weight:600;font-size:13px;">@ot.EmployeeName</div>
-                            </div>
-                        </td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.DateDisplay</td>
-                        <td style="font-size:12px;font-family:'JetBrains Mono',monospace;">@ot.TimeWindow</td>
+                        <td style="font-weight:600;font-size:13px;">@GetFirstName(ot.EmployeeId)</td>
+                        <td style="font-size:13px;">@GetLastName(ot.EmployeeId)</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@GetEmployeeCode(ot.EmployeeId)</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@GetDepartment(ot.EmployeeId)</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dd MMM yyyy")</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dddd")</td>
                         <td style="font-weight:700;color:var(--bk-accent);">@ot.Hours.ToString("0.0")h</td>
+                        <td style="font-size:12px;">@GetOvertimeByCategory(ot, "workday")</td>
+                        <td style="font-size:12px;">@GetOvertimeByCategory(ot, "weekend")</td>
+                        <td style="font-size:12px;">@GetOvertimeByCategory(ot, "holiday")</td>
                         <td>
                             <span class="bk-admin-pill @(
                                 ot.RateType == OvertimeRateType.PublicHoliday ? "rejected" :
@@ -116,8 +132,7 @@
                                 @ot.RateTypeDisplay
                             </span>
                         </td>
-                        <td style="font-size:12px;">ZMW @ot.HourlyRate.ToString("N2")</td>
-                        <td style="font-weight:700;color:var(--bk-accent-3);">ZMW @ot.Pay.ToString("N0")</td>
+                        <td style="font-weight:700;color:var(--bk-accent-3);font-size:13px;">ZMW @ot.Pay.ToString("N0")</td>
                         <td>
                             <span style="font-size:11px;color:var(--bk-ink-3);">
                                 @(ot.Source == OvertimeSource.AutoCalculated ? "Auto" : ot.Source == OvertimeSource.Hikvision ? "Hikvision" : "Manual")
@@ -146,6 +161,7 @@
                 }
             </tbody>
         </table>
+        </div>
         @if (!_filtered.Any())
         {
             <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
@@ -163,6 +179,7 @@
     private string _tab = "pending";
     private List<OvertimeRecord> _all = new();
     private OvertimeSummary _summary = new();
+    private Dictionary<int, Employee> _employeeMap = new();
     private int _orgId;
     private IEnumerable<OvertimeRecord> _filtered => _tab switch
     {
@@ -201,7 +218,54 @@
         _all = await OvertimeSvc.GetAllAsync(_orgId);
         var now = DateTime.Now;
         _summary = await OvertimeSvc.GetSummaryAsync(_orgId, now.Month, now.Year);
-        // Compute FR-007 classification counts.
+
+        // Load employee details for the table
+        var empIds = _all.Select(o => o.EmployeeId).Distinct().ToList();
+        if (empIds.Any())
+        {
+            var employees = await Db.Employees.Where(e => empIds.Contains(e.Id)).ToListAsync();
+            _employeeMap = employees.ToDictionary(e => e.Id);
+        }
+    }
+
+    private string GetFirstName(int employeeId)
+    {
+        if (_employeeMap.TryGetValue(employeeId, out var emp) && !string.IsNullOrWhiteSpace(emp.FirstName))
+            return emp.FirstName;
+        return "—";
+    }
+
+    private string GetLastName(int employeeId)
+    {
+        if (_employeeMap.TryGetValue(employeeId, out var emp) && !string.IsNullOrWhiteSpace(emp.Surname))
+            return emp.Surname;
+        return "—";
+    }
+
+    private string GetEmployeeCode(int employeeId)
+    {
+        if (_employeeMap.TryGetValue(employeeId, out var emp) && !string.IsNullOrWhiteSpace(emp.EmployeeCode))
+            return emp.EmployeeCode;
+        return "—";
+    }
+
+    private string GetDepartment(int employeeId)
+    {
+        if (_employeeMap.TryGetValue(employeeId, out var emp) && !string.IsNullOrWhiteSpace(emp.Department))
+            return emp.Department;
+        return "—";
+    }
+
+    private string GetOvertimeByCategory(OvertimeRecord ot, string category)
+    {
+        var match = category switch
+        {
+            "workday" => ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime,
+            "weekend" => ot.RateType == OvertimeRateType.RestDay,
+            "holiday" => ot.RateType == OvertimeRateType.PublicHoliday,
+            _ => false
+        };
+        return match ? $"{ot.Hours:F1}h" : "—";
     }
 
     private async Task AutoCalculate()
