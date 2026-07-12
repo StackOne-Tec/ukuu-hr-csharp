@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MudBlazor;
 using MudBlazor.Services;
 using Scalar.AspNetCore;
+using System.Text;
 using UkuuHr.Components;
 using UkuuHr.Data;
 using UkuuHr.Models;
