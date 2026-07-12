@@ -109,33 +109,22 @@
                 @foreach (var ot in _filtered)
                 {
                     var emp = GetEmployee(ot.EmployeeId);
-                    var isWorkday = ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime;
-                    var isWeekend = ot.RateType == OvertimeRateType.RestDay;
-                    var isHoliday = ot.RateType == OvertimeRateType.PublicHoliday;
-                    var firstName = emp?.FirstName ?? "";
-                    var lastName = emp?.Surname ?? "";
-                    if (string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(ot.EmployeeName))
-                    {
-                        var parts = ot.EmployeeName.Split(' ', 2);
-                        firstName = parts[0];
-                        lastName = parts.Length > 1 ? parts[1] : "";
-                    }
                     <tr>
-                        <td style="font-weight:600;font-size:13px;">@(string.IsNullOrEmpty(firstName) ? "—" : firstName)</td>
-                        <td style="font-size:13px;">@(string.IsNullOrEmpty(lastName) ? "—" : lastName)</td>
+                        <td style="font-weight:600;font-size:13px;">@(GetFirstName(emp, ot.EmployeeName))</td>
+                        <td style="font-size:13px;">@(GetLastName(emp, ot.EmployeeName))</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@(emp?.EmployeeCode ?? "—")</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);">@(emp?.Department ?? "—")</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dd MMM yyyy")</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dddd")</td>
                         <td style="font-weight:700;color:var(--bk-accent);">@ot.Hours.ToString("0.0")h</td>
-                        <td style="font-size:12px;color:@(isWorkday ? "var(--bk-accent-2)" : "var(--bk-ink-3)");font-weight:@(isWorkday ? "700" : "400")">
-                            @(isWorkday ? ot.Hours.ToString("0.0") + "h" : "—")
+                        <td style="font-size:12px;color:@(ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime ? "var(--bk-accent-2)" : "var(--bk-ink-3)");font-weight:@(ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime ? "700" : "400")">
+                            @(ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime ? ot.Hours.ToString("0.0") + "h" : "—")
                         </td>
-                        <td style="font-size:12px;color:@(isWeekend ? "var(--bk-accent)" : "var(--bk-ink-3)");font-weight:@(isWeekend ? "700" : "400")">
-                            @(isWeekend ? ot.Hours.ToString("0.0") + "h" : "—")
+                        <td style="font-size:12px;color:@(ot.RateType == OvertimeRateType.RestDay ? "var(--bk-accent)" : "var(--bk-ink-3)");font-weight:@(ot.RateType == OvertimeRateType.RestDay ? "700" : "400")">
+                            @(ot.RateType == OvertimeRateType.RestDay ? ot.Hours.ToString("0.0") + "h" : "—")
                         </td>
-                        <td style="font-size:12px;color:@(isHoliday ? "var(--bk-accent-4)" : "var(--bk-ink-3)");font-weight:@(isHoliday ? "700" : "400")">
-                            @(isHoliday ? ot.Hours.ToString("0.0") + "h" : "—")
+                        <td style="font-size:12px;color:@(ot.RateType == OvertimeRateType.PublicHoliday ? "var(--bk-accent-4)" : "var(--bk-ink-3)");font-weight:@(ot.RateType == OvertimeRateType.PublicHoliday ? "700" : "400")">
+                            @(ot.RateType == OvertimeRateType.PublicHoliday ? ot.Hours.ToString("0.0") + "h" : "—")
                         </td>
                         <td>
                             <span class="bk-admin-pill @(
@@ -251,6 +240,30 @@
 
     private Employee? GetEmployee(int id) =>
         _employeeMap.TryGetValue(id, out var emp) ? emp : null;
+
+    private string GetFirstName(Employee? emp, string? employeeName)
+    {
+        if (emp != null && !string.IsNullOrWhiteSpace(emp.FirstName))
+            return emp.FirstName;
+        if (!string.IsNullOrWhiteSpace(employeeName))
+        {
+            var parts = employeeName.Split(' ', 2);
+            return parts[0];
+        }
+        return "—";
+    }
+
+    private string GetLastName(Employee? emp, string? employeeName)
+    {
+        if (emp != null && !string.IsNullOrWhiteSpace(emp.Surname))
+            return emp.Surname;
+        if (!string.IsNullOrWhiteSpace(employeeName))
+        {
+            var parts = employeeName.Split(' ', 2);
+            return parts.Length > 1 ? parts[1] : "—";
+        }
+        return "—";
+    }
 
     private async Task AutoCalculate()
     {
