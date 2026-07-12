@@ -2167,18 +2167,15 @@ app.MapGet("/api/overtime/export", async (
 
         var source = ot.Source == OvertimeSource.AutoCalculated ? "Auto" : ot.Source == OvertimeSource.Hikvision ? "Hikvision" : "Manual";
 
-        sb.AppendLine($"{EscapeCsv(firstName)},{EscapeCsv(lastName)},{EscapeCsv(empCode)},{EscapeCsv(dept)},{ot.Date:yyyy-MM-dd},{ot.Date:dddd},{ot.Hours:F1}h,{workdayOT},{weekendOT},{holidayOT},{ot.RateTypeDisplay},ZMW {ot.Pay:F0},{source},{ot.StatusDisplay}");
+        sb.AppendLine($"{EscapeCsvField(firstName)},{EscapeCsvField(lastName)},{EscapeCsvField(empCode)},{EscapeCsvField(dept)},{ot.Date:yyyy-MM-dd},{ot.Date:dddd},{ot.Hours:F1}h,{workdayOT},{weekendOT},{holidayOT},{ot.RateTypeDisplay},ZMW {ot.Pay:F0},{source},{ot.StatusDisplay}");
     }
 
     var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
     var filename = $"overtime-{tab ?? "all"}-{DateTime.Now:yyyyMMdd-HHmm}.csv";
-    ctx.Response.ContentType = "text/csv; charset=utf-8";
-    ctx.Response.Headers["Content-Disposition"] = $"attachment; filename=\"{filename}\"";
-    await ctx.Response.Body.WriteAsync(bytes);
-    return Results.Empty;
+    return Results.File(bytes, "text/csv; charset=utf-8", filename);
 }).WithName("OvertimeExport");
 
-static string EscapeCsv(string? value)
+static string EscapeCsvField(string? value)
 {
     if (string.IsNullOrEmpty(value)) return "";
     if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
