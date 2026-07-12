@@ -2119,7 +2119,6 @@ app.MapPost("/api/overtime/add", async (
 // ───── GET /api/overtime/export — export overtime records as Excel-compatible CSV ─────
 // Matches the "Worked Hrs" format from the CassTech biometric system export
 app.MapGet("/api/overtime/export", async (
-    HttpContext ctx,
     OvertimeService svc,
     UkuuHrDbContext db,
     string? tab) =>

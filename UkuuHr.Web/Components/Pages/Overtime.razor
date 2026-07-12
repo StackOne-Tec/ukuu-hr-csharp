@@ -112,9 +112,17 @@
                     var isWorkday = ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime;
                     var isWeekend = ot.RateType == OvertimeRateType.RestDay;
                     var isHoliday = ot.RateType == OvertimeRateType.PublicHoliday;
+                    var firstName = emp?.FirstName ?? "";
+                    var lastName = emp?.Surname ?? "";
+                    if (string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(ot.EmployeeName))
+                    {
+                        var parts = ot.EmployeeName.Split(' ', 2);
+                        firstName = parts[0];
+                        lastName = parts.Length > 1 ? parts[1] : "";
+                    }
                     <tr>
-                        <td style="font-weight:600;font-size:13px;">@(emp?.FirstName ?? ot.EmployeeName?.Split(' ').FirstOrDefault() ?? "—")</td>
-                        <td style="font-size:13px;">@(emp?.Surname ?? (ot.EmployeeName?.Contains(' ') == true ? ot.EmployeeName.Split(' ', 2)[1] : "—"))</td>
+                        <td style="font-weight:600;font-size:13px;">@(string.IsNullOrEmpty(firstName) ? "—" : firstName)</td>
+                        <td style="font-size:13px;">@(string.IsNullOrEmpty(lastName) ? "—" : lastName)</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@(emp?.EmployeeCode ?? "—")</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);">@(emp?.Department ?? "—")</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dd MMM yyyy")</td>
