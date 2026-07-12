@@ -2116,6 +2116,76 @@ app.MapPost("/api/overtime/add", async (
     }
 }).WithName("OvertimeAdd").DisableAntiforgery();
 
+// ───── GET /api/overtime/export — export overtime records as Excel-compatible CSV ─────
+// Matches the "Worked Hrs" format from the CassTech biometric system export
+app.MapGet("/api/overtime/export", async (
+    HttpContext ctx,
+    OvertimeService svc,
+    UkuuHrDbContext db,
+    string? tab) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var allRecords = await svc.GetAllAsync(org.Id);
+
+    // Filter by tab
+    IEnumerable<OvertimeRecord> filtered = tab switch
+    {
+        "pending" => allRecords.Where(o => o.Status == OvertimeStatus.Pending),
+        "approved" => allRecords.Where(o => o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved),
+        _ => allRecords
+    };
+
+    // Load employee details
+    var empIds = filtered.Select(o => o.EmployeeId).Distinct().ToList();
+    var employees = await db.Employees.Where(e => empIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id);
+
+    // Build CSV in the "Worked Hrs" format matching the CassTech export
+    var sb = new StringBuilder();
+    sb.AppendLine("Ukuu HR");
+    sb.AppendLine("Worked Hrs (Overtime)");
+    sb.AppendLine($"Export Time: {DateTime.Now:yyyy-MM-dd HH:mm}");
+    sb.AppendLine();
+    sb.AppendLine("First Name,Last Name,ID,Department,Date,Weekday,OT Hours,Workday Overtime,Weekend Overtime,Holiday Overtime,Rate Type,OT Pay,Source,Status");
+
+    foreach (var ot in filtered.OrderByDescending(o => o.Date))
+    {
+        var emp = employees.TryGetValue(ot.EmployeeId, out var e) ? e : null;
+        var firstName = emp?.FirstName ?? ot.EmployeeName?.Split(' ').FirstOrDefault() ?? "";
+        var lastName = emp?.Surname ?? (ot.EmployeeName?.Contains(' ') == true ? ot.EmployeeName.Split(' ', 2)[1] : "");
+        var empCode = emp?.EmployeeCode ?? "";
+        var dept = emp?.Department ?? "";
+
+        var isWorkday = ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime;
+        var isWeekend = ot.RateType == OvertimeRateType.RestDay;
+        var isHoliday = ot.RateType == OvertimeRateType.PublicHoliday;
+
+        var workdayOT = isWorkday ? $"{ot.Hours:F1}h" : "0.0h";
+        var weekendOT = isWeekend ? $"{ot.Hours:F1}h" : "0.0h";
+        var holidayOT = isHoliday ? $"{ot.Hours:F1}h" : "0.0h";
+
+        var source = ot.Source == OvertimeSource.AutoCalculated ? "Auto" : ot.Source == OvertimeSource.Hikvision ? "Hikvision" : "Manual";
+
+        sb.AppendLine($"{EscapeCsv(firstName)},{EscapeCsv(lastName)},{EscapeCsv(empCode)},{EscapeCsv(dept)},{ot.Date:yyyy-MM-dd},{ot.Date:dddd},{ot.Hours:F1}h,{workdayOT},{weekendOT},{holidayOT},{ot.RateTypeDisplay},ZMW {ot.Pay:F0},{source},{ot.StatusDisplay}");
+    }
+
+    var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    var filename = $"overtime-{tab ?? "all"}-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+    ctx.Response.ContentType = "text/csv; charset=utf-8";
+    ctx.Response.Headers["Content-Disposition"] = $"attachment; filename=\"{filename}\"";
+    await ctx.Response.Body.WriteAsync(bytes);
+    return Results.Empty;
+}).WithName("OvertimeExport");
+
+static string EscapeCsv(string? value)
+{
+    if (string.IsNullOrEmpty(value)) return "";
+    if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+        return $"\"{value.Replace("\"", "\"\"")}\"";
+    return value;
+}
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

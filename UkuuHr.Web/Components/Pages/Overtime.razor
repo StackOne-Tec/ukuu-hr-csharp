@@ -74,15 +74,31 @@
     </div>
 
     <div class="bk-admin-card" style="overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--bk-line);">
+            <div style="font-size:13px;font-weight:700;color:var(--bk-ink);">
+                @_filtered.Count() records
+                @if (_tab == "pending") { <span style="color:var(--bk-ink-3);font-weight:400;">· awaiting approval</span> }
+            </div>
+            <a href="/api/overtime/export?tab=@_tab" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;text-decoration:none;">
+                <span class="material-icons-round" style="font-size:14px;">file_download</span>
+                Export Excel
+            </a>
+        </div>
+        <div style="overflow-x:auto;">
         <table class="bk-admin-table bk-mobile-card-view">
             <thead>
                 <tr>
-                    <th>Employee</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>ID</th>
+                    <th>Department</th>
                     <th>Date</th>
-                    <th>Time Window</th>
-                    <th>Hours</th>
+                    <th>Weekday</th>
+                    <th>OT Hours</th>
+                    <th>Workday OT</th>
+                    <th>Weekend OT</th>
+                    <th>Holiday OT</th>
                     <th>Rate Type</th>
-                    <th>Hourly Rate</th>
                     <th>OT Pay</th>
                     <th>Source</th>
                     <th>Status</th>
@@ -92,16 +108,27 @@
             <tbody>
                 @foreach (var ot in _filtered)
                 {
+                    var emp = GetEmployee(ot.EmployeeId);
+                    var isWorkday = ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime;
+                    var isWeekend = ot.RateType == OvertimeRateType.RestDay;
+                    var isHoliday = ot.RateType == OvertimeRateType.PublicHoliday;
                     <tr>
-                        <td>
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <div class="bk-admin-avatar gold" style="width:32px;height:32px;font-size:12px;">@GetInitials(ot.EmployeeName)</div>
-                                <div style="font-weight:600;font-size:13px;">@ot.EmployeeName</div>
-                            </div>
-                        </td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.DateDisplay</td>
-                        <td style="font-size:12px;font-family:'JetBrains Mono',monospace;">@ot.TimeWindow</td>
+                        <td style="font-weight:600;font-size:13px;">@(emp?.FirstName ?? ot.EmployeeName?.Split(' ').FirstOrDefault() ?? "—")</td>
+                        <td style="font-size:13px;">@(emp?.Surname ?? (ot.EmployeeName?.Contains(' ') == true ? ot.EmployeeName.Split(' ', 2)[1] : "—"))</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@(emp?.EmployeeCode ?? "—")</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@(emp?.Department ?? "—")</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dd MMM yyyy")</td>
+                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dddd")</td>
                         <td style="font-weight:700;color:var(--bk-accent);">@ot.Hours.ToString("0.0")h</td>
+                        <td style="font-size:12px;color:@(isWorkday ? "var(--bk-accent-2)" : "var(--bk-ink-3)");font-weight:@(isWorkday ? "700" : "400")">
+                            @(isWorkday ? ot.Hours.ToString("0.0") + "h" : "—")
+                        </td>
+                        <td style="font-size:12px;color:@(isWeekend ? "var(--bk-accent)" : "var(--bk-ink-3)");font-weight:@(isWeekend ? "700" : "400")">
+                            @(isWeekend ? ot.Hours.ToString("0.0") + "h" : "—")
+                        </td>
+                        <td style="font-size:12px;color:@(isHoliday ? "var(--bk-accent-4)" : "var(--bk-ink-3)");font-weight:@(isHoliday ? "700" : "400")">
+                            @(isHoliday ? ot.Hours.ToString("0.0") + "h" : "—")
+                        </td>
                         <td>
                             <span class="bk-admin-pill @(
                                 ot.RateType == OvertimeRateType.PublicHoliday ? "rejected" :
@@ -116,8 +143,7 @@
                                 @ot.RateTypeDisplay
                             </span>
                         </td>
-                        <td style="font-size:12px;">ZMW @ot.HourlyRate.ToString("N2")</td>
-                        <td style="font-weight:700;color:var(--bk-accent-3);">ZMW @ot.Pay.ToString("N0")</td>
+                        <td style="font-weight:700;color:var(--bk-accent-3);font-size:13px;">ZMW @ot.Pay.ToString("N0")</td>
                         <td>
                             <span style="font-size:11px;color:var(--bk-ink-3);">
                                 @(ot.Source == OvertimeSource.AutoCalculated ? "Auto" : ot.Source == OvertimeSource.Hikvision ? "Hikvision" : "Manual")
@@ -146,6 +172,7 @@
                 }
             </tbody>
         </table>
+        </div>
         @if (!_filtered.Any())
         {
             <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
@@ -163,6 +190,7 @@
     private string _tab = "pending";
     private List<OvertimeRecord> _all = new();
     private OvertimeSummary _summary = new();
+    private Dictionary<int, Employee> _employeeMap = new();
     private int _orgId;
     private IEnumerable<OvertimeRecord> _filtered => _tab switch
     {
@@ -201,8 +229,20 @@
         _all = await OvertimeSvc.GetAllAsync(_orgId);
         var now = DateTime.Now;
         _summary = await OvertimeSvc.GetSummaryAsync(_orgId, now.Month, now.Year);
-        // Compute FR-007 classification counts.
+
+        // Load employee details for the table (First Name, Last Name, ID, Department)
+        var empIds = _all.Select(o => o.EmployeeId).Distinct().ToList();
+        if (empIds.Any())
+        {
+            var employees = await Db.Employees
+                .Where(e => empIds.Contains(e.Id))
+                .ToListAsync();
+            _employeeMap = employees.ToDictionary(e => e.Id);
+        }
     }
+
+    private Employee? GetEmployee(int id) =>
+        _employeeMap.TryGetValue(id, out var emp) ? emp : null;
 
     private async Task AutoCalculate()
     {
