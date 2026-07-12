@@ -202,7 +202,7 @@
                 <div class="bk-admin-sidebar-section-label">Administration</div>
             }
 
-            <a href="/settings" class="bk-admin-sidebar-item @(IsActive("settings") && !IsActive("settings/organization") && !IsActive("settings/payroll-config") && !IsActive("settings/leave-types") && !IsActive("settings/notifications") && !IsActive("settings/user-management") ? "active" : "")">
+            <a href="/settings" class="bk-admin-sidebar-item @(IsActive("settings") && !IsActive("settings/organization") && !IsActive("settings/leave-types") && !IsActive("settings/notifications") && !IsActive("settings/user-management") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">settings</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Settings</span> }
             </a>
