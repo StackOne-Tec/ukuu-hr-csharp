@@ -2497,14 +2497,14 @@ html[data-theme="dark"] select.bk-input {
 }
 
 html[data-theme="dark"] select.bk-input optgroup {
-    background: #1c1530;
+    background: #0a0a0a;
     color: var(--ukuu-text-muted, #a89cc4);
     font-style: normal;
     font-weight: 700;
 }
 
 html[data-theme="dark"] select.bk-input option {
-    background: #25163F;
+    background: #000000;
     color: var(--ukuu-text, #FCFBFF);
 }
 
@@ -3252,36 +3252,35 @@ html[data-theme="dark"] select.bk-input:focus {
    ═══════════════════════════════════════════════════════════════════ */
 
 html[data-theme="dark"] {
-    --bk-bg: #0a0a0a;
-    --bk-bg-strong: #161616;
+    --bk-bg: #000000;
+    --bk-bg-strong: #0a0a0a;
     --bk-ink: #fbfaf6;
     --bk-ink-2: #b8b5ad;
     --bk-ink-3: #8a8780;
     --bk-line: rgba(255, 255, 255, 0.10);
     --bk-line-strong: rgba(255, 255, 255, 0.30);
-    --bk-muted: #1f1f1f;
-    --bk-muted-2: #262626;
+    --bk-muted: #141414;
+    --bk-muted-2: #1a1a1a;
     --bk-accent: #f4b942;
     --bk-accent-2: #8b80ff;
     --bk-accent-3: #2dd4a7;
     --bk-accent-4: #ff7a91;
-    --bk-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+    --bk-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
 
-    /* ───── Phase 13.2: --ukuu-* dark mode overrides ─────
-       Previously these 54 brand variables had NO dark mode overrides,
-       causing dark-on-dark text (invisible) in dark mode. Values follow
-       the Flutter DarkModeColors palette for consistency. */
+    /* ───── Black-mode overrides for --ukuu-* variables ─────
+       Replaced all purple (#1C112F, #2A1B45, #130A25, #1A0F30) with
+       pure black / near-black grays for a true black dark mode. */
     --ukuu-ink: #FCFBFF;
-    --ukuu-ink-deep: #1A0F30;
-    --ukuu-ink-darker: #130A25;
+    --ukuu-ink-deep: #000000;
+    --ukuu-ink-darker: #000000;
     --ukuu-accent-cyan: #9C8FB8;
     --ukuu-accent-gold: #F4B942;
     --ukuu-accent-violet: #8B80FF;
     --ukuu-accent-lavender: #CFC6DE;
 
-    --ukuu-surface: #1C112F;
-    --ukuu-surface-alt: #2A1B45;
-    --ukuu-surface-strong: #3A2A55;
+    --ukuu-surface: #0a0a0a;
+    --ukuu-surface-alt: #141414;
+    --ukuu-surface-strong: #1a1a1a;
     --ukuu-surface-70: rgba(156, 143, 184, 0.7);
     --ukuu-surface-54: rgba(207, 198, 222, 0.54);
 
@@ -3290,7 +3289,7 @@ html[data-theme="dark"] {
     --ukuu-text-subtle: #9C8FB8;
     --ukuu-text-on-dark: #FCFBFF;
 
-    --ukuu-border-soft: #5A4A78;
+    --ukuu-border-soft: #2a2a2a;
     --ukuu-border-strong: #FCFBFF;
     --ukuu-divider: rgba(255, 255, 255, 0.08);
 
@@ -3303,32 +3302,32 @@ html[data-theme="dark"] {
     --ukuu-info: #8B80FF;
     --ukuu-info-bg: rgba(139, 128, 255, 0.15);
 
-    --ukuu-bg: #1C112F;
+    --ukuu-bg: #000000;
     --ukuu-radius-sm: 8px;
     --ukuu-radius-md: 12px;
     --ukuu-radius-lg: 16px;
     --ukuu-radius-xl: 24px;
-    --ukuu-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --ukuu-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --ukuu-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
-    --ukuu-shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.6);
+    --ukuu-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --ukuu-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --ukuu-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.7);
+    --ukuu-shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.8);
 
-    --ukuu-sidebar-bg: #130A25;
+    --ukuu-sidebar-bg: #000000;
     --ukuu-sidebar-item: rgba(255, 255, 255, 0.65);
     --ukuu-sidebar-item-active: #FCFBFF;
     --ukuu-sidebar-item-active-bg: rgba(255, 255, 255, 0.12);
 
-    /* MudBlazor palette dark mode overrides */
+    /* MudBlazor palette dark mode overrides — black */
     --mud-palette-primary: #9C8FB8;
     --mud-palette-primary-lighten: #CFC6DE;
     --mud-palette-primary-darken: #5E4B85;
     --mud-palette-text-primary: #FCFBFF;
     --mud-palette-text-secondary: #CFC6DE;
-    --mud-palette-background: #1C112F;
-    --mud-palette-surface: #2A1B45;
-    --mud-palette-appbar-background: #1C112F;
+    --mud-palette-background: #000000;
+    --mud-palette-surface: #0a0a0a;
+    --mud-palette-appbar-background: #000000;
     --mud-palette-appbar-text: #FCFBFF;
-    --mud-palette-drawer-background: #130A25;
+    --mud-palette-drawer-background: #000000;
     --mud-palette-drawer-text: #FCFBFF;
     --mud-palette-drawer-icon: #9C8FB8;
 }
@@ -3336,23 +3335,20 @@ html[data-theme="dark"] {
 html[data-theme="dark"] body,
 html[data-theme="dark"] .bk-body,
 html[data-theme="dark"] .bk-admin-body {
-    background:
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 72px),
-        linear-gradient(180deg, #0a0a0a 0%, #131313 54%, #0a0a0a 100%);
+    background: #000000;
     color: var(--bk-ink);
 }
 
-/* Dark mode: sidebar stays dark but slightly lighter */
+/* Dark mode: sidebar — pure black */
 html[data-theme="dark"] .bk-admin-sidebar {
-    background:
-        radial-gradient(ellipse 60% 40% at 20% 0%, rgba(244, 185, 66, 0.08) 0%, transparent 60%),
-        linear-gradient(180deg, #000000 0%, #0d0d0d 100%);
+    background: #000000;
+    border-right-color: rgba(255, 255, 255, 0.06);
 }
 
 /* Dark mode: topbar */
 html[data-theme="dark"] .bk-admin-topbar {
-    background: rgba(10, 10, 10, 0.78);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.85);
+    border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
 html[data-theme="dark"] .bk-admin-topbar-search input,
@@ -4775,15 +4771,13 @@ html[data-theme="dark"] .bk-mobile-bottomnav-item.active::before {
 
 /* Auth container background */
 html[data-theme="dark"] .bk-auth {
-    background:
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 72px),
-        linear-gradient(180deg, #0a0a0a 0%, #131313 54%, #0a0a0a 100%);
+    background: #000000;
     color: var(--bk-ink);
 }
 
 /* Form side panel (right side of login/register) */
 html[data-theme="dark"] .bk-auth-form-side {
-    background: #1C112F;
+    background: #000000;
 }
 
 /* Auth card (the form container) */
@@ -5323,4 +5317,60 @@ html[data-theme="dark"] .mud-table-cell {
 
 html[data-theme="dark"] .mud-table-head-cell {
     color: var(--ukuu-text-muted) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PAGE TRANSITION ANIMATION
+   Smooth fade + slide animation when navigating between pages.
+   Triggered by adding .page-entering class to .bk-admin-main or .bk-admin-fade-in
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Initial state — invisible + slightly translated down */
+.bk-admin-fade-in {
+    animation: pageEnter 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes pageEnter {
+    0% {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Reduced motion — respect user preference */
+@media (prefers-reduced-motion: reduce) {
+    .bk-admin-fade-in {
+        animation: none;
+    }
+}
+
+/* Page exit animation — applied via JS before navigation */
+.bk-page-leaving {
+    animation: pageLeave 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes pageLeave {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+
+/* Smooth theme transition — when toggling dark/light, animate the change */
+html {
+    transition: background-color 280ms ease, color 280ms ease;
+}
+
+body, .bk-admin-body, .bk-admin-sidebar, .bk-admin-topbar,
+.bk-admin-card, .bk-admin-kpi-card, .bk-admin-table thead th,
+.bk-input, .bk-btn, .bk-admin-stat-box, .bk-auth, .bk-auth-form-side {
+    transition: background-color 280ms ease, border-color 280ms ease, color 280ms ease;
 }

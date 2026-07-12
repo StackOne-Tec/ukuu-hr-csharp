@@ -197,6 +197,81 @@
                 });
             });
         }
+
+        // ───── Page transition animation ─────
+        // Intercepts clicks on internal links, plays a quick fade-out animation
+        // on the main content, then navigates. The new page plays a fade-in
+        // animation via the .bk-admin-fade-in CSS class.
+        // Theme state (dark/light) is preserved automatically via localStorage
+        // + the inline script in <head> that applies it before paint.
+        (function() {
+            var isNavigating = false;
+
+            function findMainContent() {
+                return document.querySelector('.bk-admin-fade-in') ||
+                       document.querySelector('.bk-admin-main') ||
+                       document.querySelector('.bk-auth') ||
+                       document.body;
+            }
+
+            function playExitAnimation(targetUrl) {
+                if (isNavigating) return;
+                isNavigating = true;
+                var main = findMainContent();
+                if (main && !main.classList.contains('bk-page-leaving')) {
+                    main.classList.add('bk-page-leaving');
+                    // Wait for animation to finish, then navigate
+                    setTimeout(function() {
+                        window.location.href = targetUrl;
+                    }, 180);
+                } else {
+                    // Fallback — navigate immediately
+                    window.location.href = targetUrl;
+                }
+            }
+
+            // Intercept link clicks for internal navigation
+            document.addEventListener('click', function(e) {
+                // Skip if already navigating, or if it's not a left-click
+                if (isNavigating) return;
+                if (e.button !== 0) return;
+                // Skip if modifier keys pressed (ctrl/cmd+click = new tab)
+                if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+                // Find the closest anchor element
+                var link = e.target.closest('a');
+                if (!link) return;
+
+                var href = link.getAttribute('href');
+                if (!href) return;
+
+                // Skip external links, mailto, tel, hash-only links, and downloads
+                if (href.startsWith('http://') || href.startsWith('https://')) {
+                    // Allow same-origin links to animate
+                    try {
+                        var url = new URL(href, window.location.origin);
+                        if (url.origin !== window.location.origin) return;
+                    } catch (e) { return; }
+                }
+                if (href.startsWith('mailto:') || href.startsWith('tel:')) return;
+                if (href.startsWith('#')) return;
+                if (link.hasAttribute('download')) return;
+                // Skip links with target="_blank"
+                if (link.target === '_blank') return;
+
+                // Skip form-submit buttons (they have onclick handlers, not navigation)
+                if (link.classList.contains('bk-btn') && link.tagName !== 'A') return;
+
+                // Play exit animation + navigate
+                e.preventDefault();
+                playExitAnimation(href);
+            }, true); // Use capture phase to intercept before Blazor's handler
+
+            // Reset navigation flag on page show (handles back/forward navigation)
+            window.addEventListener('pageshow', function() {
+                isNavigating = false;
+            });
+        })();
     </script>
 </body>
 </html>
