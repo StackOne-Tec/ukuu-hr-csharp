@@ -1,0 +1,297 @@
+@page "/overtime/add"
+@attribute [Authorize(Policy = "HrOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject OvertimeService OvertimeSvc
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IHttpContextAccessor HttpAccessor
+@inject ILogger<OvertimeAdd> Logger
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Overtime · Add Manual Entry</div>
+            <h1 class="bk-admin-h1">Add Overtime Record</h1>
+            <p class="bk-admin-sub">
+                Manually record overtime for an employee. The system calculates hours from the
+                time window and computes pay using the employee's hourly rate and the selected
+                rate multiplier.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/overtime" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                Back to Overtime
+            </a>
+        </div>
+    </div>
+
+    @if (_loadError != null)
+    {
+        <div class="bk-admin-card" style="padding:32px;text-align:center;">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:rgba(244,63,94,0.1);color:var(--bk-error);margin-bottom:16px;">
+                <span class="material-icons-round" style="font-size:32px;">error_outline</span>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--bk-ink);">Couldn't load the form</h3>
+            <p style="font-size:14px;color:var(--bk-ink-3);max-width:480px;margin:0 auto 20px;">@_loadError</p>
+            <a href="/overtime/add" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                Try again
+            </a>
+        </div>
+    }
+    else
+    {
+        <div style="display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start;">
+            @* ───── Form ───── *@
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>Overtime Details</h3>
+                    <p>Select an employee, the date, and the start/end times of the overtime period.</p>
+                </div>
+                <div class="bk-admin-card-content">
+                    <form method="post" action="/api/overtime/add" id="overtime-form">
+                        <input type="hidden" name="OrganizationId" value="@_orgId" />
+
+                        @* Employee *@
+                        <div class="bk-field">
+                            <label class="bk-label">Employee *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">person</span>
+                                <select name="EmployeeId" class="bk-input" style="padding-left:44px;" required>
+                                    <option value="">Select employee…</option>
+                                    @foreach (var emp in _employees)
+                                    {
+                                        <option value="@emp.Id">@emp.FullName — @emp.JobTitle (@emp.Department)</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        @* Date + Rate Type *@
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                            <div class="bk-field">
+                                <label class="bk-label">Date *</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">calendar_today</span>
+                                    <input type="date" name="Date" class="bk-input" style="padding-left:44px;" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Rate Type *</label>
+                                <select name="RateType" class="bk-input" id="rate-type-select">
+                                    <option value="Standard">Standard (1.5×) — weekday overtime</option>
+                                    <option value="RestDay">Rest Day (2.0×) — weekend</option>
+                                    <option value="PublicHoliday">Public Holiday (2.5×)</option>
+                                    <option value="DoubleTime">Double Time (2.0×)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        @* Time window *@
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                            <div class="bk-field">
+                                <label class="bk-label">Start Time *</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">play_circle</span>
+                                    <input type="time" name="StartTime" class="bk-input" style="padding-left:44px;" value="17:00" required />
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">End Time *</label>
+                                <div class="bk-input-wrap">
+                                    <span class="material-icons-round bk-input-icon">stop_circle</span>
+                                    <input type="time" name="EndTime" class="bk-input" style="padding-left:44px;" value="19:00" required />
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Reason *@
+                        <div class="bk-field">
+                            <label class="bk-label">Reason / Notes</label>
+                            <textarea name="Reason" class="bk-input" style="min-height:80px;padding:12px 16px;font-family:inherit;resize:vertical;" placeholder="Brief description of the work performed during overtime (optional)…"></textarea>
+                        </div>
+
+                        @* Submit *@
+                        <div style="display:flex;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);">
+                            <button type="submit" class="bk-btn bk-btn-primary" id="submit-btn">
+                                <span class="material-icons-round" style="font-size:16px;">save</span>
+                                Create Overtime Record
+                            </button>
+                            <a href="/overtime" class="bk-btn bk-btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            @* ───── Live preview + help ───── *@
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header">
+                        <h3>Live Preview</h3>
+                        <p>Updates as you fill the form.</p>
+                    </div>
+                    <div class="bk-admin-card-content">
+                        <div id="preview-hours" style="text-align:center;padding:20px;background:var(--bk-muted);border-radius:12px;margin-bottom:16px;">
+                            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:36px;font-weight:800;color:var(--bk-ink);" id="preview-hours-num">2.0h</div>
+                            <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;">Overtime hours</div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">Rate Type</div>
+                                <div style="font-size:14px;font-weight:600;margin-top:2px;" id="preview-rate">Standard (1.5×)</div>
+                            </div>
+                            <div>
+                                <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">Multiplier</div>
+                                <div style="font-size:14px;font-weight:600;margin-top:2px;" id="preview-mult">1.5×</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                            <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">Estimated Pay</div>
+                            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:800;color:var(--bk-accent-3);margin-top:4px;" id="preview-pay">ZMW 0</div>
+                            <div style="font-size:11px;color:var(--bk-ink-3);margin-top:4px;" id="preview-pay-detail">Hours × Hourly Rate × Multiplier</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header">
+                        <h3>Rate Guide</h3>
+                        <p>How rate types apply.</p>
+                    </div>
+                    <div class="bk-admin-card-content" style="font-size:13px;color:var(--bk-ink-2);line-height:1.6;">
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bk-line);">
+                            <span><strong>Standard</strong> — Mon–Fri after hours</span>
+                            <span style="color:var(--bk-accent);font-weight:700;">1.5×</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bk-line);">
+                            <span><strong>Rest Day</strong> — Saturday/Sunday</span>
+                            <span style="color:var(--bk-accent);font-weight:700;">2.0×</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bk-line);">
+                            <span><strong>Public Holiday</strong> — listed holidays</span>
+                            <span style="color:var(--bk-accent);font-weight:700;">2.5×</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;">
+                            <span><strong>Double Time</strong> — extended shift</span>
+                            <span style="color:var(--bk-accent);font-weight:700;">2.0×</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<script>
+    // Live preview: calculate hours + estimated pay as the user types
+    (function() {
+        var form = document.getElementById('overtime-form');
+        if (!form) return;
+
+        var startInput = form.querySelector('[name="StartTime"]');
+        var endInput = form.querySelector('[name="EndTime"]');
+        var rateSelect = form.getElementById('rate-type-select');
+        var empSelect = form.querySelector('[name="EmployeeId"]');
+
+        // Employee hourly rates (passed from server)
+        var empRates = {};
+        @foreach (var emp in _employees)
+        {
+            <text>empRates[@emp.Id] = { rate: @emp.EffectiveHourlyRate.ToString("F2", System.Globalization.CultureInfo.InvariantCulture), name: "@emp.FullName" };</text>
+        }
+
+        function updatePreview() {
+            var start = startInput.value;
+            var end = endInput.value;
+            var rateType = rateSelect.value;
+            var empId = parseInt(empSelect.value);
+
+            // Calculate hours
+            var hours = 0;
+            if (start && end) {
+                var s = start.split(':');
+                var e = end.split(':');
+                var sMins = parseInt(s[0]) * 60 + parseInt(s[1]);
+                var eMins = parseInt(e[0]) * 60 + parseInt(e[1]);
+                if (eMins > sMins) {
+                    hours = (eMins - sMins) / 60;
+                }
+            }
+
+            // Multiplier
+            var mult = 1.5;
+            var rateLabel = 'Standard (1.5×)';
+            switch (rateType) {
+                case 'RestDay': mult = 2.0; rateLabel = 'Rest Day (2.0×)'; break;
+                case 'PublicHoliday': mult = 2.5; rateLabel = 'Public Holiday (2.5×)'; break;
+                case 'DoubleTime': mult = 2.0; rateLabel = 'Double Time (2.0×)'; break;
+            }
+
+            // Pay
+            var hourlyRate = empId && empRates[empId] ? empRates[empId].rate : 0;
+            var pay = hours * hourlyRate * mult;
+
+            // Update DOM
+            var hoursEl = document.getElementById('preview-hours-num');
+            var rateEl = document.getElementById('preview-rate');
+            var multEl = document.getElementById('preview-mult');
+            var payEl = document.getElementById('preview-pay');
+            var payDetailEl = document.getElementById('preview-pay-detail');
+            if (hoursEl) hoursEl.textContent = hours.toFixed(1) + 'h';
+            if (rateEl) rateEl.textContent = rateLabel;
+            if (multEl) multEl.textContent = mult.toFixed(1) + '×';
+            if (payEl) payEl.textContent = 'ZMW ' + pay.toLocaleString('en-ZM', { maximumFractionDigits: 0 });
+            if (payDetailEl) payDetailEl.textContent = hours.toFixed(1) + 'h × ZMW ' + hourlyRate + ' × ' + mult + '×';
+        }
+
+        [startInput, endInput, rateSelect, empSelect].forEach(function(el) {
+            if (el) el.addEventListener('input', updatePreview);
+            if (el) el.addEventListener('change', updatePreview);
+        });
+        updatePreview();
+
+        // Form submit — disable button + show saving state
+        form.addEventListener('submit', function() {
+            var btn = document.getElementById('submit-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">sync</span> Saving…';
+            }
+        });
+    })();
+</script>
+
+@code {
+    private List<Employee> _employees = new();
+    private int _orgId;
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _loadError = "No organization found in the database.";
+                return;
+            }
+            _orgId = org.Id;
+
+            // Load active employees for the dropdown
+            _employees = await Db.Employees
+                .Where(e => e.OrganizationId == _orgId && e.Status != EmploymentStatus.Inactive)
+                .OrderBy(e => e.FirstName).ThenBy(e => e.Surname)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load OvertimeAdd page");
+            _loadError = "We couldn't load the form. Please try refreshing the page.";
+        }
+    }
+}

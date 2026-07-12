@@ -2041,6 +2041,81 @@ app.MapPost("/api/employees/save", async (
     }
 }).WithName("EmployeeSave").DisableAntiforgery();
 
+// ───── POST /api/overtime/add — manual overtime entry (works without Blazor circuit) ─────
+app.MapPost("/api/overtime/add", async (
+    HttpContext ctx,
+    OvertimeService svc,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    logger.LogInformation("Overtime add POST received");
+
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    // Parse employee
+    if (!int.TryParse(form["EmployeeId"].ToString(), out var empId) || empId <= 0)
+        return Results.BadRequest(new { error = "Please select an employee." });
+
+    var emp = await db.Employees.FirstOrDefaultAsync(e => e.Id == empId && e.OrganizationId == org.Id);
+    if (emp == null)
+        return Results.BadRequest(new { error = "Employee not found in this organization." });
+
+    // Parse date
+    if (!DateTime.TryParse(form["Date"].ToString(), out var date))
+        return Results.BadRequest(new { error = "Please provide a valid date." });
+
+    // Parse times — combine with the date
+    if (!TimeSpan.TryParse(form["StartTime"].ToString(), out var startTs))
+        return Results.BadRequest(new { error = "Please provide a valid start time." });
+    if (!TimeSpan.TryParse(form["EndTime"].ToString(), out var endTs))
+        return Results.BadRequest(new { error = "Please provide a valid end time." });
+
+    var startTime = date.Date.Add(startTs);
+    var endTime = date.Date.Add(endTs);
+
+    // Handle overnight overtime (end time is next day)
+    if (endTime < startTime)
+        endTime = endTime.AddDays(1);
+
+    if (endTime <= startTime)
+        return Results.BadRequest(new { error = "End time must be after start time." });
+
+    // Parse rate type
+    Enum.TryParse<OvertimeRateType>(form["RateType"].ToString(), out var rateType);
+    if (rateType == default) rateType = OvertimeRateType.Standard;
+
+    var record = new OvertimeRecord
+    {
+        OrganizationId = org.Id,
+        EmployeeId = emp.Id,
+        EmployeeName = emp.FullName,
+        Date = date.Date,
+        StartTime = startTime,
+        EndTime = endTime,
+        RateType = rateType,
+        HourlyRate = emp.EffectiveHourlyRate,
+        Source = OvertimeSource.Manual,
+        Status = OvertimeStatus.Pending,
+        Reason = string.IsNullOrWhiteSpace(form["Reason"].ToString()) ? null : form["Reason"].ToString(),
+        CreatedAt = DateTime.UtcNow
+    };
+
+    try
+    {
+        await svc.CreateManualAsync(record);
+        logger.LogInformation("Overtime record created: {Name} on {Date} ({Hours}h)", record.EmployeeName, record.Date.ToString("yyyy-MM-dd"), record.Hours);
+        // Redirect back to the overtime list with a success flag (traditional form POST flow)
+        return Results.Redirect("/overtime?added=1&tab=pending");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to create overtime record");
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).WithName("OvertimeAdd").DisableAntiforgery();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

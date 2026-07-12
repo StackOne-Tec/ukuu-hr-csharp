@@ -4,6 +4,7 @@
 @inject OvertimeService OvertimeSvc
 @inject UkuuHrDbContext Db
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -17,10 +18,10 @@
                 <span class="material-icons-round" style="font-size:16px;">calculate</span>
                 Auto-Calculate
             </button>
-            <button class="bk-btn bk-btn-primary" @onclick="ShowAddDialog">
+            <a href="/overtime/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
                 <span class="material-icons-round" style="font-size:16px;">add</span>
                 Add Overtime
-            </button>
+            </a>
         </div>
     </div>
 
@@ -180,6 +181,12 @@
             var qTab = query["tab"];
             if (!string.IsNullOrEmpty(qTab) && (qTab == "pending" || qTab == "approved" || qTab == "all"))
                 _tab = qTab;
+
+            // Show success toast if we just redirected from the Add Overtime page
+            if (query["added"] == "1")
+            {
+                Snackbar.Add("Overtime record created successfully.", Severity.Success);
+            }
         }
         catch { }
 
@@ -218,11 +225,6 @@
         await OvertimeSvc.RejectAsync(_orgId, id, "admin@ukuuhr.demo", "Rejected by admin.");
         Snackbar.Add("Overtime rejected.", Severity.Warning);
         await LoadData();
-    }
-
-    private void ShowAddDialog()
-    {
-        Snackbar.Add("Manual overtime entry — use the Add Employee wizard pattern to create.", Severity.Info);
     }
 
     private string GetInitials(string name)
