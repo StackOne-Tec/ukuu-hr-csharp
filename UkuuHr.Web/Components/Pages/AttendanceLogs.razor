@@ -331,7 +331,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to load attendance logs");
-            _loadError = $"Error: {ex.Message}";
+            _loadError = "We couldn't load the attendance data. Please try refreshing the page.";
         }
     }
 }
