@@ -97,9 +97,6 @@
                     <th>Workday OT</th>
                     <th>Weekend OT</th>
                     <th>Holiday OT</th>
-                    <th>Rate Type</th>
-                    <th>OT Pay</th>
-                    <th>Source</th>
                     <th>Status</th>
                     @if (_tab == "pending") { <th>Actions</th> }
                 </tr>
@@ -118,26 +115,6 @@
                         <td style="font-size:12px;">@GetOvertimeByCategory(ot, "workday")</td>
                         <td style="font-size:12px;">@GetOvertimeByCategory(ot, "weekend")</td>
                         <td style="font-size:12px;">@GetOvertimeByCategory(ot, "holiday")</td>
-                        <td>
-                            <span class="bk-admin-pill @(
-                                ot.RateType == OvertimeRateType.PublicHoliday ? "rejected" :
-                                ot.RateType == OvertimeRateType.RestDay ? "pending" :
-                                ot.RateType == OvertimeRateType.DoubleTime ? "approved" : "active"
-                            )" style="@(
-                                ot.RateType == OvertimeRateType.PublicHoliday ? "background:rgba(232,93,117,0.12);color:var(--bk-accent-4);" :
-                                ot.RateType == OvertimeRateType.RestDay ? "background:rgba(216,156,17,0.12);color:var(--bk-accent);" :
-                                ot.RateType == OvertimeRateType.DoubleTime ? "background:rgba(20,163,127,0.12);color:var(--bk-accent-3);" :
-                                "background:rgba(108,99,255,0.12);color:var(--bk-accent-2);"
-                            )">
-                                @ot.RateTypeDisplay
-                            </span>
-                        </td>
-                        <td style="font-weight:700;color:var(--bk-accent-3);font-size:13px;">ZMW @ot.Pay.ToString("N0")</td>
-                        <td>
-                            <span style="font-size:11px;color:var(--bk-ink-3);">
-                                @(ot.Source == OvertimeSource.AutoCalculated ? "Auto" : ot.Source == OvertimeSource.Hikvision ? "Hikvision" : "Manual")
-                            </span>
-                        </td>
                         <td>
                             <span class="bk-admin-pill @(ot.Status == OvertimeStatus.Approved || ot.Status == OvertimeStatus.AutoApproved ? "approved" : ot.Status == OvertimeStatus.Rejected ? "rejected" : "pending")">
                                 @ot.StatusDisplay
