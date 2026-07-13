@@ -616,7 +616,7 @@
         foreach (var a in existing)
         {
             a.IsActive = false;
-            a.EndDate = DateTime.Today;
+            a.EffectiveTo = DateTime.Today;
         }
 
         // Create new assignment
@@ -625,7 +625,8 @@
             OrganizationId = _model.OrganizationId,
             EmployeeId = employeeId,
             ShiftId = shiftId,
-            StartDate = DateTime.Today,
+            EffectiveFrom = DateTime.Today,
+            IsPrimary = true,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         });
