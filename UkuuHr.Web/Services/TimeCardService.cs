@@ -40,34 +40,25 @@ public class TimeCardService
             .ToListAsync();
         var empIds = employees.Select(e => e.Id).ToList();
 
-        // Load attendance for this date
-        var attendances = await _db.Attendances
-            .Where(a => a.OrganizationId == orgId && a.DateKey == dateKey)
-            .ToDictionaryAsync(a => a.EmployeeId);
+        // Load attendance for this date (resilient — empty if table error)
+        Dictionary<int, Attendance> attendances = new();
+        try { attendances = await _db.Attendances.Where(a => a.OrganizationId == orgId && a.DateKey == dateKey).ToDictionaryAsync(a => a.EmployeeId); } catch { }
 
         // Load approved leave that covers this date
-        var leaves = await _db.LeaveRequests
-            .Where(l => l.OrganizationId == orgId
-                && l.Status == LeaveRequestStatus.Approved
-                && l.StartDate <= dateOnly && l.EndDate >= dateOnly)
-            .ToDictionaryAsync(l => l.EmployeeId);
+        Dictionary<int, LeaveRequest> leaves = new();
+        try { leaves = await _db.LeaveRequests.Where(l => l.OrganizationId == orgId && l.Status == LeaveRequestStatus.Approved && l.StartDate <= dateOnly && l.EndDate >= dateOnly).ToDictionaryAsync(l => l.EmployeeId); } catch { }
 
         // Check if this date is a public holiday
-        var isHoliday = await _db.LeaveHolidays
-            .AnyAsync(h => h.OrganizationId == orgId && h.Date.Date == dateOnly);
+        var isHoliday = false;
+        try { isHoliday = await _db.LeaveHolidays.AnyAsync(h => h.OrganizationId == orgId && h.Date.Date == dateOnly); } catch { }
 
         // Load approved overtime for this date
-        var overtimes = await _db.OvertimeRecords
-            .Where(o => o.OrganizationId == orgId
-                && o.Date.Date == dateOnly
-                && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved))
-            .ToDictionaryAsync(o => o.EmployeeId);
+        Dictionary<int, OvertimeRecord> overtimes = new();
+        try { overtimes = await _db.OvertimeRecords.Where(o => o.OrganizationId == orgId && o.Date.Date == dateOnly && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved)).ToDictionaryAsync(o => o.EmployeeId); } catch { }
 
         // Load shift assignments
-        var shiftAssignments = await _db.EmployeeShiftAssignments
-            .Where(a => a.OrganizationId == orgId && a.IsActive && empIds.Contains(a.EmployeeId))
-            .Include(a => a.Shift)
-            .ToDictionaryAsync(a => a.EmployeeId);
+        Dictionary<int, EmployeeShiftAssignment> shiftAssignments = new();
+        try { shiftAssignments = await _db.EmployeeShiftAssignments.Where(a => a.OrganizationId == orgId && a.IsActive && empIds.Contains(a.EmployeeId)).Include(a => a.Shift).ToDictionaryAsync(a => a.EmployeeId); } catch { }
 
         var rows = new List<DailyAttendanceRow>();
         foreach (var emp in employees)
@@ -141,37 +132,25 @@ public class TimeCardService
             .ToListAsync();
         var empIds = employees.Select(e => e.Id).ToList();
 
-        // Load all attendance for the month
-        var attendances = await _db.Attendances
-            .Where(a => a.OrganizationId == orgId && a.Date >= firstDay && a.Date <= lastDay)
-            .ToListAsync();
+        // Load all attendance for the month (resilient)
+        List<Attendance> attendances = new();
+        try { attendances = await _db.Attendances.Where(a => a.OrganizationId == orgId && a.Date >= firstDay && a.Date <= lastDay).ToListAsync(); } catch { }
 
         // Load approved leave for the month
-        var leaves = await _db.LeaveRequests
-            .Where(l => l.OrganizationId == orgId
-                && l.Status == LeaveRequestStatus.Approved
-                && l.StartDate <= lastDay && l.EndDate >= firstDay)
-            .ToListAsync();
+        List<LeaveRequest> leaves = new();
+        try { leaves = await _db.LeaveRequests.Where(l => l.OrganizationId == orgId && l.Status == LeaveRequestStatus.Approved && l.StartDate <= lastDay && l.EndDate >= firstDay).ToListAsync(); } catch { }
 
         // Load holidays for the month
-        var holidays = await _db.LeaveHolidays
-            .Where(h => h.OrganizationId == orgId && h.Date >= firstDay && h.Date <= lastDay)
-            .Select(h => h.Date.Date)
-            .ToListAsync();
-        var holidaySet = new HashSet<DateTime>(holidays);
+        HashSet<DateTime> holidaySet = new();
+        try { var holidays = await _db.LeaveHolidays.Where(h => h.OrganizationId == orgId && h.Date >= firstDay && h.Date <= lastDay).Select(h => h.Date.Date).ToListAsync(); holidaySet = new HashSet<DateTime>(holidays); } catch { }
 
         // Load approved overtime for the month
-        var overtimes = await _db.OvertimeRecords
-            .Where(o => o.OrganizationId == orgId
-                && o.Date >= firstDay && o.Date <= lastDay
-                && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved))
-            .ToListAsync();
+        List<OvertimeRecord> overtimes = new();
+        try { overtimes = await _db.OvertimeRecords.Where(o => o.OrganizationId == orgId && o.Date >= firstDay && o.Date <= lastDay && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved)).ToListAsync(); } catch { }
 
         // Load shift assignments
-        var shiftAssignments = await _db.EmployeeShiftAssignments
-            .Where(a => a.OrganizationId == orgId && a.IsActive && empIds.Contains(a.EmployeeId))
-            .Include(a => a.Shift)
-            .ToDictionaryAsync(a => a.EmployeeId);
+        Dictionary<int, EmployeeShiftAssignment> shiftAssignments = new();
+        try { shiftAssignments = await _db.EmployeeShiftAssignments.Where(a => a.OrganizationId == orgId && a.IsActive && empIds.Contains(a.EmployeeId)).Include(a => a.Shift).ToDictionaryAsync(a => a.EmployeeId); } catch { }
 
         var rows = new List<MonthlyAttendanceRow>();
         foreach (var emp in employees)
@@ -269,32 +248,21 @@ public class TimeCardService
             .ToListAsync();
         var empIds = employees.Select(e => e.Id).ToList();
 
-        var attendances = await _db.Attendances
-            .Where(a => a.OrganizationId == orgId && a.Date >= start && a.Date <= end)
-            .ToListAsync();
+        // Resilient queries — each wrapped in try/catch
+        List<Attendance> attendances = new();
+        try { attendances = await _db.Attendances.Where(a => a.OrganizationId == orgId && a.Date >= start && a.Date <= end).ToListAsync(); } catch { }
 
-        var leaves = await _db.LeaveRequests
-            .Where(l => l.OrganizationId == orgId
-                && l.Status == LeaveRequestStatus.Approved
-                && l.StartDate <= end && l.EndDate >= start)
-            .ToListAsync();
+        List<LeaveRequest> leaves = new();
+        try { leaves = await _db.LeaveRequests.Where(l => l.OrganizationId == orgId && l.Status == LeaveRequestStatus.Approved && l.StartDate <= end && l.EndDate >= start).ToListAsync(); } catch { }
 
-        var holidays = await _db.LeaveHolidays
-            .Where(h => h.OrganizationId == orgId && h.Date >= start && h.Date <= end)
-            .Select(h => h.Date.Date)
-            .ToListAsync();
-        var holidaySet = new HashSet<DateTime>(holidays);
+        HashSet<DateTime> holidaySet = new();
+        try { var holidays = await _db.LeaveHolidays.Where(h => h.OrganizationId == orgId && h.Date >= start && h.Date <= end).Select(h => h.Date.Date).ToListAsync(); holidaySet = new HashSet<DateTime>(holidays); } catch { }
 
-        var overtimes = await _db.OvertimeRecords
-            .Where(o => o.OrganizationId == orgId
-                && o.Date >= start && o.Date <= end
-                && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved))
-            .ToListAsync();
+        List<OvertimeRecord> overtimes = new();
+        try { overtimes = await _db.OvertimeRecords.Where(o => o.OrganizationId == orgId && o.Date >= start && o.Date <= end && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved)).ToListAsync(); } catch { }
 
-        var shiftAssignments = await _db.EmployeeShiftAssignments
-            .Where(a => a.OrganizationId == orgId && a.IsActive && empIds.Contains(a.EmployeeId))
-            .Include(a => a.Shift)
-            .ToDictionaryAsync(a => a.EmployeeId);
+        Dictionary<int, EmployeeShiftAssignment> shiftAssignments = new();
+        try { shiftAssignments = await _db.EmployeeShiftAssignments.Where(a => a.OrganizationId == orgId && a.IsActive && empIds.Contains(a.EmployeeId)).Include(a => a.Shift).ToDictionaryAsync(a => a.EmployeeId); } catch { }
 
         var rows = new List<WeeklyAttendanceRow>();
         var days = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
