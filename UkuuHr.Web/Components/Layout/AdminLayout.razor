@@ -192,10 +192,6 @@
                 <div class="bk-admin-sidebar-section-label">Operations</div>
             }
 
-            <a href="/documents" class="bk-admin-sidebar-item @(IsActive("documents") ? "active" : "")">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">folder</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Documents</span> }
-            </a>
             <a href="/reports" class="bk-admin-sidebar-item @(IsActive("reports") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">bar_chart</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Reports</span> }
