@@ -77,6 +77,10 @@ public class Employee
     // ───────────────────────── Employment ─────────────────────────
     [MaxLength(50)]
     public string? EmployeeCode { get; set; }
+
+    /// <summary>Payroll ID — separate from Employee Code. Used for payroll processing.</summary>
+    [MaxLength(50)]
+    public string? PayrollId { get; set; }
     [MaxLength(150)]
     public string? JobTitle { get; set; }
     [MaxLength(150)]

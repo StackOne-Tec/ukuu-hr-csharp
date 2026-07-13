@@ -66,34 +66,11 @@
             <div class="bk-admin-card">
                 <div class="bk-admin-card-header">
                     <h3>Personal Information</h3>
-                    <p>Employee's identity and contact details.</p>
+                    <p>Employee identity and shift assignment.</p>
                 </div>
                 <div class="bk-admin-card-content">
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
-                        @* Name section *@
-                        <div class="bk-field">
-                            <label class="bk-label">Title</label>
-                            <InputSelect class="bk-input" @bind-Value="_model.Title">
-                                <option value="">Select title</option>
-                                <optgroup label="Common">
-                                    <option value="Mr.">Mr.</option>
-                                    <option value="Ms.">Ms.</option>
-                                    <option value="Mrs.">Mrs.</option>
-                                    <option value="Miss">Miss</option>
-                                    <option value="Mx">Mx (gender-neutral)</option>
-                                </optgroup>
-                                <optgroup label="Professional">
-                                    <option value="Dr.">Dr.</option>
-                                    <option value="Prof.">Prof.</option>
-                                    <option value="Eng.">Eng.</option>
-                                    <option value="Hon.">Hon.</option>
-                                    <option value="Rev.">Rev.</option>
-                                    <option value="Fr.">Fr.</option>
-                                    <option value="Capt.">Capt.</option>
-                                    <option value="Maj.">Maj.</option>
-                                </optgroup>
-                            </InputSelect>
-                        </div>
+                        @* First Name *@
                         <div class="bk-field">
                             <label class="bk-label">First Name *</label>
                             <div class="bk-input-wrap">
@@ -102,20 +79,24 @@
                             </div>
                             <ValidationMessage For="@(() => _model.FirstName)" />
                         </div>
+
+                        @* Last Name *@
                         <div class="bk-field">
-                            <label class="bk-label">Middle Names</label>
-                            <InputText class="bk-input" @bind-Value="_model.MiddleNames" placeholder="Middle names" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Surname *</label>
+                            <label class="bk-label">Last Name *</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">person</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Surname" placeholder="Surname" />
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Surname" placeholder="Last name" />
                             </div>
                             <ValidationMessage For="@(() => _model.Surname)" />
                         </div>
 
-                        @* Demographics *@
+                        @* Other Names *@
+                        <div class="bk-field">
+                            <label class="bk-label">Other Names</label>
+                            <InputText class="bk-input" @bind-Value="_model.MiddleNames" placeholder="Other / middle names" />
+                        </div>
+
+                        @* Gender *@
                         <div class="bk-field">
                             <label class="bk-label">Gender</label>
                             <InputSelect class="bk-input" @bind-Value="_model.Gender">
@@ -126,124 +107,48 @@
                                 <option value="Prefer not to say">Prefer not to say</option>
                             </InputSelect>
                         </div>
+
+                        @* Employee ID *@
                         <div class="bk-field">
-                            <label class="bk-label">Marital Status</label>
-                            <InputSelect class="bk-input" @bind-Value="_model.MaritalStatus">
-                                <option value="">Select status</option>
-                                <option value="Single">Single</option>
-                                <option value="Married">Married</option>
-                                <option value="Divorced">Divorced</option>
-                                <option value="Widowed">Widowed</option>
-                                <option value="Separated">Separated</option>
-                                <option value="Domestic Partnership">Domestic Partnership</option>
-                                <option value="Cohabiting">Cohabiting</option>
-                            </InputSelect>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Date of Birth</label>
-                            <InputDate class="bk-input" @bind-Value="_model.DateOfBirth" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Nationality</label>
-                            <InputSelect class="bk-input" @bind-Value="_model.Nationality">
-                                <option value="">Select nationality</option>
-                                <optgroup label="Southern Africa">
-                                    <option value="Zambian">Zambian</option>
-                                    <option value="Zimbabwean">Zimbabwean</option>
-                                    <option value="Malawian">Malawian</option>
-                                    <option value="South African">South African</option>
-                                    <option value="Mozambican">Mozambican</option>
-                                    <option value="Botswanan">Botswanan</option>
-                                    <option value="Namibian">Namibian</option>
-                                    <option value="Lesotho">Lesotho (Basotho)</option>
-                                    <option value="Swazi">Swazi (emaSwati)</option>
-                                    <option value="Angolan">Angolan</option>
-                                </optgroup>
-                                <optgroup label="East Africa">
-                                    <option value="Kenyan">Kenyan</option>
-                                    <option value="Tanzanian">Tanzanian</option>
-                                    <option value="Ugandan">Ugandan</option>
-                                    <option value="Rwandan">Rwandan</option>
-                                    <option value="Burundian">Burundian</option>
-                                    <option value="Ethiopian">Ethiopian</option>
-                                    <option value="Eritrean">Eritrean</option>
-                                    <option value="Somali">Somali</option>
-                                    <option value="South Sudanese">South Sudanese</option>
-                                    <option value="Sudanese">Sudanese</option>
-                                    <option value="Mauritian">Mauritian</option>
-                                    <option value="Seychellois">Seychellois</option>
-                                </optgroup>
-                                <optgroup label="Central Africa">
-                                    <option value="Congolese">Congolese (DRC)</option>
-                                    <option value="Congolese (Brazzaville)">Congolese (Republic)</option>
-                                    <option value="Cameroonian">Cameroonian</option>
-                                    <option value="Central African">Central African</option>
-                                    <option value="Chadian">Chadian</option>
-                                    <option value="Gabonese">Gabonese</option>
-                                    <option value="Equatoguinean">Equatoguinean</option>
-                                    <option value="São Toméan">São Toméan</option>
-                                </optgroup>
-                                <optgroup label="West Africa">
-                                    <option value="Nigerian">Nigerian</option>
-                                    <option value="Ghanaian">Ghanaian</option>
-                                    <option value="Ivorian">Ivorian</option>
-                                    <option value="Senegalese">Senegalese</option>
-                                    <option value="Malian">Malian</option>
-                                    <option value="Guinean">Guinean</option>
-                                    <option value="Bissau-Guinean">Bissau-Guinean</option>
-                                    <option value="Liberian">Liberian</option>
-                                    <option value="Sierra Leonean">Sierra Leonean</option>
-                                    <option value="Togolese">Togolese</option>
-                                    <option value="Beninese">Beninese</option>
-                                    <option value="Nigerien">Nigerien</option>
-                                    <option value="Burkinabé">Burkinabé</option>
-                                    <option value="Cape Verdean">Cape Verdean</option>
-                                    <option value="The Gambian">Gambian</option>
-                                    <option value="Mauritanian">Mauritanian</option>
-                                </optgroup>
-                                <optgroup label="North Africa">
-                                    <option value="Egyptian">Egyptian</option>
-                                    <option value="Libyan">Libyan</option>
-                                    <option value="Tunisian">Tunisian</option>
-                                    <option value="Algerian">Algerian</option>
-                                    <option value="Moroccan">Moroccan</option>
-                                </optgroup>
-                                <optgroup label="Major World">
-                                    <option value="British">British</option>
-                                    <option value="American">American</option>
-                                    <option value="Canadian">Canadian</option>
-                                    <option value="Australian">Australian</option>
-                                    <option value="New Zealander">New Zealander</option>
-                                    <option value="Indian">Indian</option>
-                                    <option value="Pakistani">Pakistani</option>
-                                    <option value="Chinese">Chinese</option>
-                                    <option value="Japanese">Japanese</option>
-                                    <option value="Filipino">Filipino</option>
-                                    <option value="German">German</option>
-                                    <option value="French">French</option>
-                                    <option value="Dutch">Dutch</option>
-                                    <option value="Portuguese">Portuguese</option>
-                                    <option value="Spanish">Spanish</option>
-                                    <option value="Italian">Italian</option>
-                                    <option value="Irish">Irish</option>
-                                    <option value="Brazilian">Brazilian</option>
-                                    <option value="Emirati">Emirati (UAE)</option>
-                                    <option value="Saudi">Saudi</option>
-                                    <option value="Lebanese">Lebanese</option>
-                                    <option value="Other">Other</option>
-                                </optgroup>
-                            </InputSelect>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">National ID (NRC)</label>
-                            <InputText class="bk-input" @bind-Value="_model.NationalIdentityNumber" placeholder="e.g. 123456/78/1" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Passport Number</label>
-                            <InputText class="bk-input" @bind-Value="_model.PassportNumber" placeholder="Passport number" />
+                            <label class="bk-label">Employee ID *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">badge</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.EmployeeCode" placeholder="e.g. EMP-001" />
+                            </div>
                         </div>
 
-                        @* Contact *@
+                        @* Payroll ID *@
+                        <div class="bk-field">
+                            <label class="bk-label">Payroll ID</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">payments</span>
+                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.PayrollId" placeholder="e.g. PAY-001" />
+                            </div>
+                        </div>
+
+                        @* Assign to Shift *@
+                        <div class="bk-field">
+                            <label class="bk-label">Assign to Shift</label>
+                            <InputSelect class="bk-input" @bind-Value="_selectedShiftId">
+                                <option value="">No shift assigned</option>
+                                @foreach (var shift in _availableShifts)
+                                {
+                                    <option value="@shift.Id">@shift.Name (@shift.StartTime–@shift.EndTime)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* ───── Contact Details (optional) ───── *@
+            <div class="bk-admin-card" style="margin-top:20px;">
+                <div class="bk-admin-card-header">
+                    <h3>Contact Details</h3>
+                    <p>Phone and email for this employee.</p>
+                </div>
+                <div class="bk-admin-card-content">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
                         <div class="bk-field">
                             <label class="bk-label">Phone Number</label>
                             <div class="bk-input-wrap">
@@ -252,242 +157,19 @@
                             </div>
                         </div>
                         <div class="bk-field">
-                            <label class="bk-label">Email Address *</label>
+                            <label class="bk-label">Email Address</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">mail</span>
                                 <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Email" placeholder="employee@company.com" />
                             </div>
-                            <ValidationMessage For="@(() => _model.Email)" />
-                        </div>
-                        <div class="bk-field" style="grid-column:1/-1;">
-                            <label class="bk-label">Street Address</label>
-                            <div class="bk-input-wrap">
-                                <span class="material-icons-round bk-input-icon">home</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.StreetAddress" placeholder="Street address" />
-                            </div>
                         </div>
                         <div class="bk-field">
-                            <label class="bk-label">City</label>
-                            <InputText class="bk-input" @bind-Value="_model.City" placeholder="City" />
+                            <label class="bk-label">Department</label>
+                            <InputText class="bk-input" @bind-Value="_model.Department" placeholder="e.g. Engineering" />
                         </div>
                         <div class="bk-field">
-                            <label class="bk-label">Postal Code</label>
-                            <InputText class="bk-input" @bind-Value="_model.PostalCode" placeholder="Postal code" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Country</label>
-                            <InputSelect class="bk-input" @bind-Value="_model.Country">
-                                <option value="">Select country</option>
-                                <optgroup label="Southern Africa">
-                                    <option value="Zambia">Zambia</option>
-                                    <option value="Zimbabwe">Zimbabwe</option>
-                                    <option value="Malawi">Malawi</option>
-                                    <option value="South Africa">South Africa</option>
-                                    <option value="Mozambique">Mozambique</option>
-                                    <option value="Botswana">Botswana</option>
-                                    <option value="Namibia">Namibia</option>
-                                    <option value="Lesotho">Lesotho</option>
-                                    <option value="Eswatini">Eswatini</option>
-                                    <option value="Angola">Angola</option>
-                                </optgroup>
-                                <optgroup label="East Africa">
-                                    <option value="Kenya">Kenya</option>
-                                    <option value="Tanzania">Tanzania</option>
-                                    <option value="Uganda">Uganda</option>
-                                    <option value="Rwanda">Rwanda</option>
-                                    <option value="Burundi">Burundi</option>
-                                    <option value="Ethiopia">Ethiopia</option>
-                                    <option value="Eritrea">Eritrea</option>
-                                    <option value="Somalia">Somalia</option>
-                                    <option value="South Sudan">South Sudan</option>
-                                    <option value="Sudan">Sudan</option>
-                                    <option value="Mauritius">Mauritius</option>
-                                    <option value="Seychelles">Seychelles</option>
-                                    <option value="Djibouti">Djibouti</option>
-                                    <option value="Comoros">Comoros</option>
-                                    <option value="Madagascar">Madagascar</option>
-                                </optgroup>
-                                <optgroup label="Central Africa">
-                                    <option value="Democratic Republic of the Congo">DR Congo</option>
-                                    <option value="Republic of the Congo">Republic of the Congo</option>
-                                    <option value="Cameroon">Cameroon</option>
-                                    <option value="Central African Republic">Central African Republic</option>
-                                    <option value="Chad">Chad</option>
-                                    <option value="Gabon">Gabon</option>
-                                    <option value="Equatorial Guinea">Equatorial Guinea</option>
-                                    <option value="São Tomé and Príncipe">São Tomé and Príncipe</option>
-                                </optgroup>
-                                <optgroup label="West Africa">
-                                    <option value="Nigeria">Nigeria</option>
-                                    <option value="Ghana">Ghana</option>
-                                    <option value="Côte d'Ivoire">Côte d'Ivoire</option>
-                                    <option value="Senegal">Senegal</option>
-                                    <option value="Mali">Mali</option>
-                                    <option value="Guinea">Guinea</option>
-                                    <option value="Guinea-Bissau">Guinea-Bissau</option>
-                                    <option value="Liberia">Liberia</option>
-                                    <option value="Sierra Leone">Sierra Leone</option>
-                                    <option value="Togo">Togo</option>
-                                    <option value="Benin">Benin</option>
-                                    <option value="Niger">Niger</option>
-                                    <option value="Burkina Faso">Burkina Faso</option>
-                                    <option value="Cape Verde">Cape Verde</option>
-                                    <option value="The Gambia">The Gambia</option>
-                                    <option value="Mauritania">Mauritania</option>
-                                </optgroup>
-                                <optgroup label="North Africa">
-                                    <option value="Egypt">Egypt</option>
-                                    <option value="Libya">Libya</option>
-                                    <option value="Tunisia">Tunisia</option>
-                                    <option value="Algeria">Algeria</option>
-                                    <option value="Morocco">Morocco</option>
-                                </optgroup>
-                                <optgroup label="Middle East">
-                                    <option value="United Arab Emirates">United Arab Emirates</option>
-                                    <option value="Saudi Arabia">Saudi Arabia</option>
-                                    <option value="Qatar">Qatar</option>
-                                    <option value="Oman">Oman</option>
-                                    <option value="Kuwait">Kuwait</option>
-                                    <option value="Bahrain">Bahrain</option>
-                                    <option value="Israel">Israel</option>
-                                    <option value="Jordan">Jordan</option>
-                                    <option value="Lebanon">Lebanon</option>
-                                    <option value="Palestine">Palestine</option>
-                                    <option value="Iraq">Iraq</option>
-                                    <option value="Iran">Iran</option>
-                                    <option value="Turkey">Turkey</option>
-                                </optgroup>
-                                <optgroup label="Europe">
-                                    <option value="United Kingdom">United Kingdom</option>
-                                    <option value="Ireland">Ireland</option>
-                                    <option value="France">France</option>
-                                    <option value="Germany">Germany</option>
-                                    <option value="Netherlands">Netherlands</option>
-                                    <option value="Belgium">Belgium</option>
-                                    <option value="Spain">Spain</option>
-                                    <option value="Portugal">Portugal</option>
-                                    <option value="Italy">Italy</option>
-                                    <option value="Switzerland">Switzerland</option>
-                                    <option value="Austria">Austria</option>
-                                    <option value="Sweden">Sweden</option>
-                                    <option value="Norway">Norway</option>
-                                    <option value="Denmark">Denmark</option>
-                                    <option value="Finland">Finland</option>
-                                    <option value="Poland">Poland</option>
-                                    <option value="Russia">Russia</option>
-                                    <option value="Ukraine">Ukraine</option>
-                                    <option value="Greece">Greece</option>
-                                    <option value="Czech Republic">Czech Republic</option>
-                                    <option value="Romania">Romania</option>
-                                </optgroup>
-                                <optgroup label="Asia">
-                                    <option value="India">India</option>
-                                    <option value="Pakistan">Pakistan</option>
-                                    <option value="Bangladesh">Bangladesh</option>
-                                    <option value="Sri Lanka">Sri Lanka</option>
-                                    <option value="Nepal">Nepal</option>
-                                    <option value="China">China</option>
-                                    <option value="Japan">Japan</option>
-                                    <option value="South Korea">South Korea</option>
-                                    <option value="Philippines">Philippines</option>
-                                    <option value="Vietnam">Vietnam</option>
-                                    <option value="Thailand">Thailand</option>
-                                    <option value="Singapore">Singapore</option>
-                                    <option value="Malaysia">Malaysia</option>
-                                    <option value="Indonesia">Indonesia</option>
-                                    <option value="Hong Kong">Hong Kong</option>
-                                    <option value="Taiwan">Taiwan</option>
-                                    <option value="Afghanistan">Afghanistan</option>
-                                </optgroup>
-                                <optgroup label="Americas">
-                                    <option value="United States">United States</option>
-                                    <option value="Canada">Canada</option>
-                                    <option value="Mexico">Mexico</option>
-                                    <option value="Brazil">Brazil</option>
-                                    <option value="Argentina">Argentina</option>
-                                    <option value="Chile">Chile</option>
-                                    <option value="Colombia">Colombia</option>
-                                    <option value="Peru">Peru</option>
-                                    <option value="Venezuela">Venezuela</option>
-                                    <option value="Ecuador">Ecuador</option>
-                                    <option value="Bolivia">Bolivia</option>
-                                    <option value="Paraguay">Paraguay</option>
-                                    <option value="Uruguay">Uruguay</option>
-                                    <option value="Cuba">Cuba</option>
-                                    <option value="Dominican Republic">Dominican Republic</option>
-                                    <option value="Jamaica">Jamaica</option>
-                                    <option value="Trinidad and Tobago">Trinidad and Tobago</option>
-                                    <option value="Barbados">Barbados</option>
-                                    <option value="Bahamas">Bahamas</option>
-                                </optgroup>
-                                <optgroup label="Oceania">
-                                    <option value="Australia">Australia</option>
-                                    <option value="New Zealand">New Zealand</option>
-                                    <option value="Fiji">Fiji</option>
-                                    <option value="Papua New Guinea">Papua New Guinea</option>
-                                </optgroup>
-                                <option value="Other">Other</option>
-                            </InputSelect>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            @* ───── Emergency Contact ───── *@
-            <div class="bk-admin-card" style="margin-top:20px;">
-                <div class="bk-admin-card-header">
-                    <h3>Emergency Contact</h3>
-                    <p>Person to notify in case of an emergency.</p>
-                </div>
-                <div class="bk-admin-card-content">
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
-                        <div class="bk-field">
-                            <label class="bk-label">Full Name</label>
-                            <InputText class="bk-input" @bind-Value="_model.EmergencyContactName" placeholder="Full name" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Relationship</label>
-                            <InputSelect class="bk-input" @bind-Value="_model.EmergencyContactRelationship">
-                                <option value="">Select relationship</option>
-                                <optgroup label="Immediate Family">
-                                    <option value="Spouse">Spouse</option>
-                                    <option value="Partner">Partner</option>
-                                    <option value="Parent">Parent</option>
-                                    <option value="Child">Child</option>
-                                    <option value="Sibling">Sibling</option>
-                                </optgroup>
-                                <optgroup label="Extended Family">
-                                    <option value="Grandparent">Grandparent</option>
-                                    <option value="Grandchild">Grandchild</option>
-                                    <option value="Aunt">Aunt</option>
-                                    <option value="Uncle">Uncle</option>
-                                    <option value="Cousin">Cousin</option>
-                                    <option value="Niece">Niece</option>
-                                    <option value="Nephew">Nephew</option>
-                                    <option value="In-law">In-law</option>
-                                </optgroup>
-                                <optgroup label="Other">
-                                    <option value="Friend">Friend</option>
-                                    <option value="Guardian">Guardian</option>
-                                    <option value="Next of Kin">Next of Kin</option>
-                                    <option value="Caregiver">Caregiver</option>
-                                    <option value="Other">Other</option>
-                                </optgroup>
-                            </InputSelect>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Phone</label>
-                            <div class="bk-input-wrap">
-                                <span class="material-icons-round bk-input-icon">phone</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.EmergencyContactPhone" placeholder="Emergency phone" />
-                            </div>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Email</label>
-                            <div class="bk-input-wrap">
-                                <span class="material-icons-round bk-input-icon">mail</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.EmergencyContactEmail" placeholder="Emergency email" />
-                            </div>
+                            <label class="bk-label">Job Title</label>
+                            <InputText class="bk-input" @bind-Value="_model.JobTitle" placeholder="e.g. Software Engineer" />
                         </div>
                     </div>
                 </div>
@@ -784,6 +466,8 @@
     private bool _isSaving;
     private string[] _steps = { "Personal Info", "Employment", "Banking & Pay", "Tax & Statutory" };
     private PayrollCalculation? _preview;
+    private List<Shift> _availableShifts = new();
+    private int? _selectedShiftId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -803,6 +487,12 @@
             var org = await Db.Organizations.FirstOrDefaultAsync();
             if (org == null) return;
 
+            // Load available shifts for the dropdown
+            _availableShifts = await Db.Shifts
+                .Where(s => s.OrganizationId == org.Id && s.IsActive)
+                .OrderBy(s => s.Name)
+                .ToListAsync();
+
             if (_isEdit)
             {
                 var existing = await EmployeeSvc.GetAsync(org.Id, Id!.Value);
@@ -810,6 +500,11 @@
                 {
                     _model = existing;
                     RecomputePreview();
+                    // Load existing shift assignment
+                    var existingAssignment = await Db.EmployeeShiftAssignments
+                        .Where(a => a.EmployeeId == existing.Id && a.IsActive)
+                        .FirstOrDefaultAsync();
+                    _selectedShiftId = existingAssignment?.ShiftId;
                 }
             }
             else
@@ -887,12 +582,14 @@
             if (_isEdit)
             {
                 await EmployeeSvc.UpdateAsync(_model);
+                await SaveShiftAssignment(_model.Id);
                 Snackbar.Add("Employee updated successfully!", Severity.Success);
             }
             else
             {
                 _model.CreatedAt = DateTime.UtcNow;
-                await EmployeeSvc.CreateAsync(_model);
+                var created = await EmployeeSvc.CreateAsync(_model);
+                await SaveShiftAssignment(created.Id);
                 Snackbar.Add($"{_model.FullName} added successfully!", Severity.Success);
             }
             Nav.NavigateTo("/employees");
@@ -905,5 +602,33 @@
         {
             _isSaving = false;
         }
+    }
+
+    /// <summary>Persist the selected shift assignment for this employee.</summary>
+    private async Task SaveShiftAssignment(int employeeId)
+    {
+        if (_selectedShiftId is not int shiftId) return;
+
+        // Deactivate any existing active assignment
+        var existing = await Db.EmployeeShiftAssignments
+            .Where(a => a.EmployeeId == employeeId && a.IsActive)
+            .ToListAsync();
+        foreach (var a in existing)
+        {
+            a.IsActive = false;
+            a.EndDate = DateTime.Today;
+        }
+
+        // Create new assignment
+        Db.EmployeeShiftAssignments.Add(new EmployeeShiftAssignment
+        {
+            OrganizationId = _model.OrganizationId,
+            EmployeeId = employeeId,
+            ShiftId = shiftId,
+            StartDate = DateTime.Today,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await Db.SaveChangesAsync();
     }
 }

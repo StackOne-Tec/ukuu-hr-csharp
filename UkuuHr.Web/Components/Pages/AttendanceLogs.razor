@@ -1,0 +1,337 @@
+@page "/attendance-logs"
+@attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@inject TimeCardService TimeCardSvc
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+@inject ILogger<AttendanceLogs> Logger
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Attendance Logs · @_tab.ToUpper()</div>
+            <h1 class="bk-admin-h1">Attendance Logs</h1>
+            <p class="bk-admin-sub">
+                Daily, weekly, and monthly attendance with leave, holiday, and overtime interlinking.
+                Time cards are generated from the same data with approved overtime included.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/attendance-logs/time-cards" class="bk-btn bk-btn-primary" style="text-decoration:none;">
+                <span class="material-icons-round" style="font-size:16px;">badge</span>
+                View Time Cards
+            </a>
+        </div>
+    </div>
+
+    @if (_loadError != null)
+    {
+        <div class="bk-admin-card" style="padding:32px;text-align:center;">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:rgba(244,63,94,0.1);color:var(--bk-error);margin-bottom:16px;">
+                <span class="material-icons-round" style="font-size:32px;">error_outline</span>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--bk-ink);">Couldn't load attendance data</h3>
+            <p style="font-size:14px;color:var(--bk-ink-3);max-width:480px;margin:0 auto 20px;">@_loadError</p>
+            <a href="/attendance-logs" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                Try again
+            </a>
+        </div>
+    }
+    else
+    {
+        @* ───── Tab navigation ───── *@
+        <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:20px;overflow-x:auto;">
+            <a href="/attendance-logs?tab=daily&date=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "daily" ? "var(--bk-ink)" : "transparent");color:@(_tab == "daily" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
+                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">today</span>
+                Daily
+            </a>
+            <a href="/attendance-logs?tab=weekly&date=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "weekly" ? "var(--bk-ink)" : "transparent");color:@(_tab == "weekly" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
+                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">date_range</span>
+                Weekly
+            </a>
+            <a href="/attendance-logs?tab=monthly&date=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "monthly" ? "var(--bk-ink)" : "transparent");color:@(_tab == "monthly" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
+                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">calendar_month</span>
+                Monthly
+            </a>
+        </div>
+
+        @* ───── Date filter ───── *@
+        <div class="bk-admin-card" style="padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">filter_list</span>
+                <span style="font-size:13px;font-weight:600;color:var(--bk-ink);">Filter by date:</span>
+            </div>
+            <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;">
+                <input type="hidden" name="tab" value="@_tab" />
+                <input type="date" name="date" value="@_dateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
+                <button type="submit" class="bk-btn bk-btn-primary" style="font-size:12px;padding:6px 14px;height:38px;">
+                    <span class="material-icons-round" style="font-size:14px;">search</span>
+                    Apply
+                </button>
+            </form>
+            <div style="margin-left:auto;display:flex;gap:6px;">
+                <a href="/attendance-logs?tab=@_tab&date=@_prevDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
+                    <span class="material-icons-round" style="font-size:14px;">chevron_left</span>
+                    @(_tab == "daily" ? "Prev Day" : _tab == "weekly" ? "Prev Week" : "Prev Month")
+                </a>
+                <a href="/attendance-logs?tab=@_tab&date=@_nextDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
+                    @(_tab == "daily" ? "Next Day" : _tab == "weekly" ? "Next Week" : "Next Month")
+                    <span class="material-icons-round" style="font-size:14px;">chevron_right</span>
+                </a>
+            </div>
+        </div>
+
+        @* ───── Legend ───── *@
+        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;font-size:11px;color:var(--bk-ink-3);">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(45,212,167,0.3);margin-right:4px;"></span>P = Present</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(139,128,255,0.3);margin-right:4px;"></span>L = On Leave</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(244,185,66,0.3);margin-right:4px;"></span>H = Holiday</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,122,145,0.3);margin-right:4px;"></span>A = Absent</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,255,255,0.1);margin-right:4px;"></span>— = Weekend</span>
+        </div>
+
+        @* ───── Daily tab ───── *@
+        @if (_tab == "daily")
+        {
+            <div class="bk-admin-card" style="overflow:hidden;">
+                <div style="overflow-x:auto;">
+                    <table class="bk-admin-table bk-mobile-card-view">
+                        <thead>
+                            <tr>
+                                <th>First Name</th>
+                                <th>Last Name</th>
+                                <th>Employee ID</th>
+                                <th>Clock In</th>
+                                <th>Clock Out</th>
+                                <th>Worked Hrs</th>
+                                <th>Late Hrs</th>
+                                <th>Overtime Hrs</th>
+                                <th>Status</th>
+                                <th>Shift</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _daily)
+                            {
+                                <tr>
+                                    <td style="font-weight:600;font-size:13px;">@row.FirstName</td>
+                                    <td style="font-size:13px;">@row.LastName</td>
+                                    <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@row.EmployeeCode</td>
+                                    <td style="font-size:12px;font-family:'JetBrains Mono',monospace;">@row.CheckInLabel</td>
+                                    <td style="font-size:12px;font-family:'JetBrains Mono',monospace;">@row.CheckOutLabel</td>
+                                    <td style="font-weight:700;color:var(--bk-accent);font-size:13px;">@row.WorkedHoursLabel</td>
+                                    <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.LateHoursLabel</td>
+                                    <td style="font-size:12px;color:@(row.OvertimeHours > 0 ? "var(--bk-accent-3)" : "var(--bk-ink-3)");font-weight:@(row.OvertimeHours > 0 ? "700" : "400")">@row.OvertimeHoursLabel</td>
+                                    <td>
+                                        <span class="bk-admin-pill @(
+                                            row.Status == "LEAVE" ? "pending" :
+                                            row.Status == "HOLIDAY" ? "active" :
+                                            row.Status == "ABSENT" ? "rejected" : "approved"
+                                        )" style="@(
+                                            row.Status == "LEAVE" ? "background:rgba(139,128,255,0.12);color:var(--bk-accent-2);" :
+                                            row.Status == "HOLIDAY" ? "background:rgba(244,185,66,0.12);color:var(--bk-accent);" :
+                                            row.Status == "ABSENT" ? "background:rgba(255,122,145,0.12);color:var(--bk-accent-4);" :
+                                            "background:rgba(45,212,167,0.12);color:var(--bk-accent-3);"
+                                        )">
+                                            @row.Status
+                                        </span>
+                                    </td>
+                                    <td style="font-size:11px;color:var(--bk-ink-3);">@row.ShiftName</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (!_daily.Any())
+                {
+                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                        <span class="material-icons-round" style="font-size:32px;">event_busy</span>
+                        <p style="font-size:13px;margin-top:8px;">No attendance data for this date.</p>
+                    </div>
+                }
+            </div>
+        }
+
+        @* ───── Weekly tab ───── *@
+        @if (_tab == "weekly")
+        {
+            <div class="bk-admin-card" style="overflow:hidden;">
+                <div style="overflow-x:auto;">
+                    <table class="bk-admin-table bk-mobile-card-view">
+                        <thead>
+                            <tr>
+                                <th>First Name</th>
+                                <th>Last Name</th>
+                                <th>Employee ID</th>
+                                <th>Department</th>
+                                <th>Mon</th>
+                                <th>Tue</th>
+                                <th>Wed</th>
+                                <th>Thu</th>
+                                <th>Fri</th>
+                                <th>Sat</th>
+                                <th>Sun</th>
+                                <th>Late Hrs</th>
+                                <th>Total Worked</th>
+                                <th>OT Workday</th>
+                                <th>OT Weekend</th>
+                                <th>OT Holiday</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _weekly)
+                            {
+                                <tr>
+                                    <td style="font-weight:600;font-size:13px;">@row.FirstName</td>
+                                    <td style="font-size:13px;">@row.LastName</td>
+                                    <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@row.EmployeeCode</td>
+                                    <td style="font-size:12px;color:var(--bk-ink-3);">@row.Department</td>
+                                    @for (int i = 0; i < 7; i++)
+                                    {
+                                        var status = row.DailyStatus[i];
+                                        var bg = status == "L" ? "rgba(139,128,255,0.08)" :
+                                                 status == "H" ? "rgba(244,185,66,0.08)" :
+                                                 status == "A" ? "rgba(255,122,145,0.08)" :
+                                                 status == "P" ? "rgba(45,212,167,0.08)" : "transparent";
+                                        <td style="font-size:11px;text-align:center;font-family:'JetBrains Mono',monospace;background:@bg;">
+                                            @row.DayLabel(i)
+                                        </td>
+                                    }
+                                    <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.LateLabel</td>
+                                    <td style="font-weight:700;color:var(--bk-accent);font-size:13px;">@row.TotalWorkedLabel</td>
+                                    <td style="font-size:12px;color:@(row.OvertimeWorkday > 0 ? "var(--bk-accent-2)" : "var(--bk-ink-3)");">@row.OtWorkdayLabel</td>
+                                    <td style="font-size:12px;color:@(row.OvertimeWeekend > 0 ? "var(--bk-accent)" : "var(--bk-ink-3)");">@row.OtWeekendLabel</td>
+                                    <td style="font-size:12px;color:@(row.OvertimeHoliday > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.OtHolidayLabel</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (!_weekly.Any())
+                {
+                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                        <span class="material-icons-round" style="font-size:32px;">date_range</span>
+                        <p style="font-size:13px;margin-top:8px;">No attendance data for this week.</p>
+                    </div>
+                }
+            </div>
+        }
+
+        @* ───── Monthly tab ───── *@
+        @if (_tab == "monthly")
+        {
+            <div class="bk-admin-card" style="overflow:hidden;">
+                <div style="overflow-x:auto;">
+                    <table class="bk-admin-table" style="font-size:11px;">
+                        <thead>
+                            <tr>
+                                <th style="position:sticky;left:0;background:var(--bk-muted);z-index:1;">First Name</th>
+                                <th style="position:sticky;left:80px;background:var(--bk-muted);z-index:1;">Last Name</th>
+                                <th style="position:sticky;left:160px;background:var(--bk-muted);z-index:1;">Employee ID</th>
+                                @for (int d = 1; d <= _daysInMonth; d++)
+                                {
+                                    <th style="text-align:center;min-width:36px;">@d.ToString("00")</th>
+                                }
+                                <th>Total</th>
+                                <th>OT W</th>
+                                <th>OT WE</th>
+                                <th>OT H</th>
+                                <th>Late</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _monthly)
+                            {
+                                <tr>
+                                    <td style="position:sticky;left:0;background:var(--bk-bg-strong);z-index:1;font-weight:600;">@row.FirstName</td>
+                                    <td style="position:sticky;left:80px;background:var(--bk-bg-strong);z-index:1;">@row.LastName</td>
+                                    <td style="position:sticky;left:160px;background:var(--bk-bg-strong);z-index:1;font-family:'JetBrains Mono',monospace;font-size:10px;">@row.EmployeeCode</td>
+                                    @for (int i = 0; i < _daysInMonth; i++)
+                                    {
+                                        var status = row.DailyStatus[i];
+                                        var bg = status == "L" ? "rgba(139,128,255,0.1)" :
+                                                 status == "H" ? "rgba(244,185,66,0.1)" :
+                                                 status == "A" ? "rgba(255,122,145,0.1)" :
+                                                 status == "P" ? "rgba(45,212,167,0.1)" : "transparent";
+                                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;background:@bg;">
+                                            @(row.DailyHours[i] > 0 ? row.DailyHours[i]!.Value.ToString("F1") : status)
+                                        </td>
+                                    }
+                                    <td style="font-weight:700;color:var(--bk-accent);">@row.TotalWorkedLabel</td>
+                                    <td style="color:var(--bk-accent-2);">@row.OtWorkdayLabel</td>
+                                    <td style="color:var(--bk-accent);">@row.OtWeekendLabel</td>
+                                    <td style="color:var(--bk-accent-4);">@row.OtHolidayLabel</td>
+                                    <td style="color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.LateLabel</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (!_monthly.Any())
+                {
+                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                        <span class="material-icons-round" style="font-size:32px;">calendar_month</span>
+                        <p style="font-size:13px;margin-top:8px;">No attendance data for this month.</p>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private string _tab = "daily";
+    private DateTime _date = DateTime.Today;
+    private string _dateStr = DateTime.Today.ToString("yyyy-MM-dd");
+    private string _prevDateStr = "";
+    private string _nextDateStr = "";
+    private int _daysInMonth;
+    private string? _loadError;
+
+    private List<DailyAttendanceRow> _daily = new();
+    private List<WeeklyAttendanceRow> _weekly = new();
+    private List<MonthlyAttendanceRow> _monthly = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Parse query string
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var qTab = query["tab"];
+            var qDate = query["date"];
+            if (!string.IsNullOrEmpty(qTab) && (qTab == "daily" || qTab == "weekly" || qTab == "monthly"))
+                _tab = qTab;
+            if (DateTime.TryParse(qDate, out var parsedDate))
+                _date = parsedDate;
+            _dateStr = _date.ToString("yyyy-MM-dd");
+
+            // Compute prev/next dates
+            _prevDateStr = (_tab switch { "weekly" => _date.AddDays(-7), "monthly" => _date.AddMonths(-1), _ => _date.AddDays(-1) }).ToString("yyyy-MM-dd");
+            _nextDateStr = (_tab switch { "weekly" => _date.AddDays(7), "monthly" => _date.AddMonths(1), _ => _date.AddDays(1) }).ToString("yyyy-MM-dd");
+
+            _daysInMonth = DateTime.DaysInMonth(_date.Year, _date.Month);
+
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _loadError = "No organization found.";
+                return;
+            }
+
+            if (_tab == "daily")
+                _daily = await TimeCardSvc.GetDailyAsync(org.Id, _date);
+            else if (_tab == "weekly")
+                _weekly = await TimeCardSvc.GetWeeklyAsync(org.Id, _date);
+            else
+                _monthly = await TimeCardSvc.GetMonthlyAsync(org.Id, _date);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load attendance logs");
+            _loadError = "We couldn't load the attendance data. Please try refreshing the page.";
+        }
+    }
+}

@@ -146,6 +146,7 @@ builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<HikvisionSyncService>();
 builder.Services.AddScoped<OvertimeService>();
+builder.Services.AddScoped<TimeCardService>();
 builder.Services.AddHttpClient("KeepAlive");
 
 // ───── Phase 1: FR-003 / FR-004 / FR-005 — Shifts & Tolerance ─────
@@ -280,6 +281,8 @@ static async Task RunIdempotentMigrationsAsync(UkuuHrDbContext db, ILogger logge
     {
         ("LeaveHolidays", "IsRecurring",
             @"ALTER TABLE ""LeaveHolidays"" ADD COLUMN IF NOT EXISTS ""IsRecurring"" boolean NOT NULL DEFAULT false"),
+        ("Employees", "PayrollId",
+            @"ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""PayrollId"" varchar(50)"),
     };
 
     foreach (var (table, column, sql) in migrations)
@@ -1984,6 +1987,7 @@ app.MapPost("/api/employees/save", async (
 
     // Employment
     emp.EmployeeCode = form["EmployeeCode"].ToString();
+    emp.PayrollId = form["PayrollId"].ToString();
     emp.JobTitle = form["JobTitle"].ToString();
     emp.Department = form["Department"].ToString();
     emp.EmploymentType = form["EmploymentType"].ToString();
@@ -2182,6 +2186,62 @@ static string EscapeCsvField(string? value)
         return $"\"{value.Replace("\"", "\"\"")}\"";
     return value;
 }
+
+// ───── GET /api/time-cards/export — export time cards as CSV ─────
+app.MapGet("/api/time-cards/export", async (
+    TimeCardService svc,
+    UkuuHrDbContext db,
+    string? tab,
+    string? date) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var parsedDate = DateTime.TryParse(date, out var d) ? d : DateTime.Today;
+    var mode = tab ?? "daily";
+
+    var sb = new StringBuilder();
+    sb.AppendLine("Ukuu HR");
+    sb.AppendLine($"Time Cards ({mode})");
+    sb.AppendLine($"Export Time: {DateTime.Now:yyyy-MM-dd HH:mm}");
+    sb.AppendLine();
+
+    if (mode == "daily")
+    {
+        var rows = await svc.GetDailyAsync(org.Id, parsedDate);
+        sb.AppendLine("First Name,Last Name,Employee ID,Clock In,Clock Out,Worked Hrs,Late Hrs,Overtime Hrs,Status,Shift");
+        foreach (var r in rows)
+        {
+            sb.AppendLine($"{EscapeCsvField(r.FirstName)},{EscapeCsvField(r.LastName)},{EscapeCsvField(r.EmployeeCode)},{r.CheckInLabel},{r.CheckOutLabel},{r.WorkedHours:F1}h,{r.LateHours:F2}h,{r.OvertimeHours:F1}h,{r.Status},{EscapeCsvField(r.ShiftName)}");
+        }
+    }
+    else if (mode == "weekly")
+    {
+        var rows = await svc.GetWeeklyAsync(org.Id, parsedDate);
+        sb.AppendLine("First Name,Last Name,Employee ID,Department,Mon,Tue,Wed,Thu,Fri,Sat,Sun,Late Hrs,Total Worked,OT Workday,OT Weekend,OT Holiday");
+        foreach (var r in rows)
+        {
+            var days = string.Join(",", Enumerable.Range(0, 7).Select(i => r.DailyHours[i] > 0 ? $"{r.DailyHours[i]:F1}h" : r.DailyStatus[i] ?? "—"));
+            sb.AppendLine($"{EscapeCsvField(r.FirstName)},{EscapeCsvField(r.LastName)},{EscapeCsvField(r.EmployeeCode)},{EscapeCsvField(r.Department)},{days},{r.LateHours:F2}h,{r.TotalWorkedHours:F1}h,{r.OvertimeWorkday:F1}h,{r.OvertimeWeekend:F1}h,{r.OvertimeHoliday:F1}h");
+        }
+    }
+    else
+    {
+        var rows = await svc.GetMonthlyAsync(org.Id, parsedDate);
+        var daysInMonth = DateTime.DaysInMonth(parsedDate.Year, parsedDate.Month);
+        var headers = Enumerable.Range(1, daysInMonth).Select(d => d.ToString("00"));
+        sb.AppendLine($"First Name,Last Name,Employee ID,{string.Join(",", headers)},Total Worked,OT Workday,OT Weekend,OT Holiday,Late Hrs");
+        foreach (var r in rows)
+        {
+            var days = string.Join(",", Enumerable.Range(0, daysInMonth).Select(i => r.DailyHours[i] > 0 ? $"{r.DailyHours[i]:F1}h" : r.DailyStatus[i] ?? "—"));
+            sb.AppendLine($"{EscapeCsvField(r.FirstName)},{EscapeCsvField(r.LastName)},{EscapeCsvField(r.EmployeeCode)},{days},{r.TotalWorkedHours:F1}h,{r.OvertimeWorkday:F1}h,{r.OvertimeWeekend:F1}h,{r.OvertimeHoliday:F1}h,{r.LateHours:F2}h");
+        }
+    }
+
+    var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    var filename = $"time-card-{mode}-{parsedDate:yyyyMMdd}.csv";
+    return Results.File(bytes, "text/csv; charset=utf-8", filename);
+}).WithName("TimeCardExport");
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
