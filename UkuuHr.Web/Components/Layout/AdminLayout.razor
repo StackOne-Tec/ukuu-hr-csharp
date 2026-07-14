@@ -158,13 +158,9 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">groups</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Employees</span> }
             </a>
-            <a href="/attendance" class="bk-admin-sidebar-item @(IsActive("attendance") && !IsActive("attendance/search") && !IsActive("attendance-logs") ? "active" : "")">
+            <a href="/attendance-logs" class="bk-admin-sidebar-item @(IsActive("attendance-logs") || IsActive("attendance") || IsActive("attendance/search") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">schedule</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Attendance</span> }
-            </a>
-            <a href="/attendance-logs" class="bk-admin-sidebar-item @(IsActive("attendance-logs") ? "active" : "")">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">fact_check</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Attendance Logs</span> }
             </a>
             <a href="/leave" class="bk-admin-sidebar-item @(IsActive("leave") ? "active" : "")">
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">event_available</span></span>
@@ -312,9 +308,9 @@
                 <span class="material-icons-round">groups</span>
                 <span>Team</span>
             </a>
-            <a href="/attendance" class="bk-mobile-bottomnav-item @(IsActive("attendance") && !IsActive("attendance/search") ? "active" : "")" aria-label="Attendance">
+            <a href="/attendance-logs" class="bk-mobile-bottomnav-item @(IsActive("attendance-logs") || IsActive("attendance") || IsActive("attendance/search") ? "active" : "")" aria-label="Attendance">
                 <span class="material-icons-round">schedule</span>
-                <span>Clock</span>
+                <span>Attendance</span>
             </a>
             <a href="/leave" class="bk-mobile-bottomnav-item @(IsActive("leave") ? "active" : "")" aria-label="Leave">
                 <span class="material-icons-round">event_available</span>
