@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
+@inject NavigationManager Nav
 
 <div class="ukuu-fade-in">
     @if (_emp == null)
@@ -9,7 +10,7 @@
         <div class="ukuu-empty">
             <div class="ukuu-empty-icon"><span class="material-icons-round">person_off</span></div>
             <h3 style="font-size:16px;margin-bottom:4px;">Employee not found</h3>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/employees"))">Back to Employees</MudButton>
+            <a href="/employees" class="bk-btn bk-btn-primary" style="text-decoration:none;">Back to Employees</a>
         </div>
     }
     else
@@ -23,8 +24,14 @@
                 <p>@_emp.JobTitle · @_emp.Department · @_emp.EmployeeCode</p>
             </div>
             <div style="display:flex;gap:8px;">
-                <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Download">Download Profile</MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => Nav.NavigateTo($"/employees/{_emp.Id}/edit"))" Style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%) !important;">Edit Profile</MudButton>
+                <a href="/api/employees/@_emp.Id/export" class="bk-btn bk-btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+                    <span class="material-icons-round" style="font-size:16px;">download</span>
+                    Download Profile
+                </a>
+                <a href="/employees/@_emp.Id/edit" class="bk-btn bk-btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+                    <span class="material-icons-round" style="font-size:16px;">edit</span>
+                    Edit Profile
+                </a>
             </div>
         </div>
 
@@ -80,13 +87,13 @@
             </div>
         </div>
 
-        <!-- Tabs -->
+        <!-- Tabs — plain <a href> links (works without Blazor circuit) -->
         <div style="display:flex;gap:4px;border-bottom:1px solid var(--ukuu-border-soft);margin-bottom:24px;overflow-x:auto;">
-            <div class="ukuu-tab @(_tab == "overview" ? "active" : "")" @onclick="@(() => _tab = "overview")">Overview</div>
-            <div class="ukuu-tab @(_tab == "employment" ? "active" : "")" @onclick="@(() => _tab = "employment")">Employment</div>
-            <div class="ukuu-tab @(_tab == "banking" ? "active" : "")" @onclick="@(() => _tab = "banking")">Banking</div>
-            <div class="ukuu-tab @(_tab == "payroll" ? "active" : "")" @onclick="@(() => _tab = "payroll")">Payroll History</div>
-            <div class="ukuu-tab @(_tab == "documents" ? "active" : "")" @onclick="@(() => _tab = "documents")">Documents</div>
+            <a href="/employees/@Id?tab=overview" class="ukuu-tab @(_tab == "overview" ? "active" : "")" style="text-decoration:none;">Overview</a>
+            <a href="/employees/@Id?tab=employment" class="ukuu-tab @(_tab == "employment" ? "active" : "")" style="text-decoration:none;">Employment</a>
+            <a href="/employees/@Id?tab=banking" class="ukuu-tab @(_tab == "banking" ? "active" : "")" style="text-decoration:none;">Banking</a>
+            <a href="/employees/@Id?tab=payroll" class="ukuu-tab @(_tab == "payroll" ? "active" : "")" style="text-decoration:none;">Payroll History</a>
+            <a href="/employees/@Id?tab=documents" class="ukuu-tab @(_tab == "documents" ? "active" : "")" style="text-decoration:none;">Documents</a>
         </div>
 
         @if (_tab == "overview")
@@ -260,6 +267,17 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Read tab from query string (?tab=banking) — works without Blazor circuit
+        try
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var qTab = query["tab"];
+            if (!string.IsNullOrEmpty(qTab) && (qTab == "overview" || qTab == "employment" || qTab == "banking" || qTab == "payroll" || qTab == "documents"))
+                _tab = qTab;
+        }
+        catch { }
+
         var org = await Db.Organizations.FirstOrDefaultAsync();
         if (org == null) return;
         _emp = await Db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == org.Id && e.Id == Id);
