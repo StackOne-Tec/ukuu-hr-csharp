@@ -18,14 +18,16 @@
             </p>
         </div>
         <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary" @onclick="SyncAll">
-                <span class="material-icons-round" style="font-size:16px;">sync</span>
-                Sync All
-            </button>
-            <button class="bk-btn bk-btn-primary" @onclick="() => OpenDeviceDialog(null)">
+            <form method="post" action="/api/devices/sync-all" style="display:inline;">
+                <button type="submit" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">sync</span>
+                    Sync All
+                </button>
+            </form>
+            <a href="/devices/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
                 <span class="material-icons-round" style="font-size:16px;">add</span>
                 Add Device
-            </button>
+            </a>
         </div>
     </div>
 
@@ -50,10 +52,12 @@
                     <span class="material-icons-round" style="font-size:16px;">business</span>
                     Organization Settings
                 </a>
-                <button type="button" class="bk-btn bk-btn-primary" @onclick="SeedOrg">
-                    <span class="material-icons-round" style="font-size:16px;">add_business</span>
-                    Create Default Organization
-                </button>
+                <form method="post" action="/api/organization/seed" style="display:inline;">
+                    <button type="submit" class="bk-btn bk-btn-primary">
+                        <span class="material-icons-round" style="font-size:16px;">add_business</span>
+                        Create Default Organization
+                    </button>
+                </form>
             </div>
         </div>
     }
@@ -171,20 +175,21 @@
                         </div>
                     }
                     <div style="display:flex;gap:6px;margin-top:12px;">
-                        <button class="bk-btn bk-btn-secondary" style="flex:1;font-size:11px;padding:6px 10px;" @onclick="() => TestConnection(d)">
-                            <span class="material-icons-round" style="font-size:13px;">wifi_find</span>
-                            Test
-                        </button>
-                        <button class="bk-btn bk-btn-primary" style="flex:1;font-size:11px;padding:6px 10px;" @onclick="() => SyncDevice(d)">
-                            <span class="material-icons-round" style="font-size:13px;">sync</span>
-                            Sync
-                        </button>
-                        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;" @onclick="() => OpenDeviceDialog(d)">
+                        <form method="post" action="/api/devices/sync/@d.Id" style="flex:1;">
+                            <button type="submit" class="bk-btn bk-btn-primary" style="width:100%;font-size:11px;padding:6px 10px;">
+                                <span class="material-icons-round" style="font-size:13px;">sync</span>
+                                Sync
+                            </button>
+                        </form>
+                        <a href="/devices/@d.Id/edit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;text-decoration:none;">
                             <span class="material-icons-round" style="font-size:13px;">edit</span>
-                        </button>
-                        <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;color:var(--bk-error);" @onclick="() => DeleteDevice(d)">
-                            <span class="material-icons-round" style="font-size:13px;">delete</span>
-                        </button>
+                        </a>
+                        <form method="post" action="/api/devices/delete/@d.Id" style="display:inline;"
+                              onsubmit="return confirm('Delete device @d.Name?');">
+                            <button type="submit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;color:var(--bk-error);">
+                                <span class="material-icons-round" style="font-size:13px;">delete</span>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -195,108 +200,17 @@
                 <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">devices</span>
                 <h3 style="margin-top:16px;">No devices configured yet</h3>
                 <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Add your first attendance device to start syncing clock events.</p>
-                <button class="bk-btn bk-btn-primary" @onclick="() => OpenDeviceDialog(null)">
+                <a href="/devices/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
                     <span class="material-icons-round" style="font-size:16px;">add</span>
                     Add First Device
-                </button>
+                </a>
             </div>
         }
     </div>
     }
 </div>
 
-@* ───── Device create/edit dialog ───── *@
-@if (_showDeviceDialog)
-{
-    <div class="bk-modal-backdrop" @onclick="CloseDeviceDialog">
-        <div class="bk-modal" @onclick:stopPropagation style="max-width:640px;">
-            <div class="bk-modal-header">
-                <h3>@(_editingDevice?.Id > 0 ? "Edit Device" : "New Attendance Device")</h3>
-                <button class="bk-modal-close" @onclick="CloseDeviceDialog"><span class="material-icons-round">close</span></button>
-            </div>
-            <div class="bk-modal-body">
-                <EditForm Model="@_deviceForm" OnValidSubmit="SaveDevice">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                        <div class="bk-field" style="grid-column:1/-1;">
-                            <label class="bk-label">Device Name *</label>
-                            <InputText class="bk-input" @bind-Value="_deviceForm.Name" placeholder="e.g. Main Entrance — Hikvision" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Vendor *</label>
-                            <InputSelect class="bk-input" @bind-Value="_deviceForm.Vendor">
-                                @foreach (var v in Enum.GetValues<DeviceVendor>())
-                                {
-                                    <option value="@v">@v</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Integration Mode *</label>
-                            <InputSelect class="bk-input" @bind-Value="_deviceForm.Mode">
-                                @foreach (var m in Enum.GetValues<DeviceIntegrationMode>())
-                                {
-                                    <option value="@m">@m</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        @if (_deviceForm.Mode != DeviceIntegrationMode.CsvFile)
-                        {
-                            <div class="bk-field">
-                                <label class="bk-label">IP Address</label>
-                                <InputText class="bk-input" @bind-Value="_deviceForm.IpAddress" placeholder="192.168.1.100" />
-                            </div>
-                            <div class="bk-field">
-                                <label class="bk-label">Port</label>
-                                <InputNumber class="bk-input" @bind-Value="_deviceForm.Port" placeholder="80" />
-                            </div>
-                            <div class="bk-field">
-                                <label class="bk-label">Username</label>
-                                <InputText class="bk-input" @bind-Value="_deviceForm.Username" placeholder="admin" />
-                            </div>
-                            <div class="bk-field">
-                                <label class="bk-label">Password / API Key</label>
-                                <InputText class="bk-input" type="password" @bind-Value="_deviceForm.Password" placeholder="••••••••" />
-                            </div>
-                        }
-                        <div class="bk-field">
-                            <label class="bk-label">Device Serial</label>
-                            <InputText class="bk-input" @bind-Value="_deviceForm.DeviceSerial" placeholder="DS-K1T804MF-..." />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Location</label>
-                            <InputText class="bk-input" @bind-Value="_deviceForm.Location" placeholder="Main entrance, 2nd floor" />
-                        </div>
-                        @if (_deviceForm.Mode == DeviceIntegrationMode.CsvFile)
-                        {
-                            <div class="bk-field" style="grid-column:1/-1;">
-                                <label class="bk-label">CSV File Path (in ConnectionJson)</label>
-                                <InputText class="bk-input" @bind-Value="_csvFilePath" placeholder="/var/data/device-export.csv" />
-                                <small style="color:var(--bk-ink-3);font-size:11px;display:block;margin-top:4px;">
-                                    CSV format: <code style="font-family:var(--ukuu-font-mono);">EmployeeCode,EventTime,EventType,VerifyMode</code>
-                                </small>
-                            </div>
-                        }
-                        <div class="bk-field">
-                            <label class="bk-label">Auto-Sync Interval (minutes)</label>
-                            <InputNumber class="bk-input" @bind-Value="_deviceForm.SyncIntervalMinutes" />
-                        </div>
-                        <div class="bk-field" style="display:flex;align-items:center;gap:8px;padding-top:24px;">
-                            <InputCheckbox @bind-Value="_deviceForm.AutoSyncEnabled" id="autoSync" />
-                            <label for="autoSync" style="font-size:13px;color:var(--bk-ink-2);">Enable automatic sync</label>
-                        </div>
-                    </div>
-                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
-                        <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseDeviceDialog">Cancel</button>
-                        <button type="submit" class="bk-btn bk-btn-primary">
-                            <span class="material-icons-round" style="font-size:16px;">save</span>
-                            @(_editingDevice?.Id > 0 ? "Update Device" : "Add Device")
-                        </button>
-                    </div>
-                </EditForm>
-            </div>
-        </div>
-    </div>
-}
+
 
 @code {
     private List<AttendanceDevice> _devices = new();
@@ -319,6 +233,22 @@
     {
         try
         {
+            // Show success/error toasts from query string (after redirect from API endpoints)
+            try
+            {
+                var uri = Nav.ToAbsoluteUri(Nav.Uri);
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                if (query["saved"] == "1")
+                    Snackbar.Add($"Device '{query["name"]}' saved successfully.", Severity.Success);
+                else if (query["synced"] == "1")
+                    Snackbar.Add($"Sync complete: {query["name"]}.", Severity.Success);
+                else if (query["synced"] == "0")
+                    Snackbar.Add($"Sync failed: {query["error"]}", Severity.Error);
+                else if (query["deleted"] == "1")
+                    Snackbar.Add($"Device '{query["name"]}' deleted.", Severity.Info);
+            }
+            catch { }
+
             var org = await Db.Organizations.FirstOrDefaultAsync();
             if (org == null)
             {

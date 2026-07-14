@@ -1667,6 +1667,155 @@ app.MapGet("/api/devices", async (UkuuHrDbContext db, int? orgId) =>
     return Results.Ok(new { total = devices.Count, devices });
 }).WithName("DevicesList");
 
+// ───── POST /api/organization/seed — create a default organization ─────
+app.MapPost("/api/organization/seed", async (UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var existing = await db.Organizations.FirstOrDefaultAsync();
+    if (existing != null)
+        return Results.Redirect("/devices?saved=1&name=org_exists");
+
+    var org = new Organization
+    {
+        Name = "My Organization",
+        Country = "Zambia",
+        Currency = "ZMW",
+        Industry = "Human Resources",
+        OwnerUserId = "system",
+        CreatedAt = DateTime.UtcNow
+    };
+    db.Organizations.Add(org);
+    await db.SaveChangesAsync();
+    logger.LogInformation("Default organization created: {Id}", org.Id);
+    return Results.Redirect("/devices?saved=1&name=org_created");
+}).WithName("OrganizationSeed").DisableAntiforgery();
+
+// ───── POST /api/devices/sync/{id} — sync a single device (works without Blazor circuit) ─────
+app.MapPost("/api/devices/sync/{id:int}", async (
+    int id,
+    DeviceSyncOrchestrator orchestrator,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    logger.LogInformation("Device sync requested for device {Id}", id);
+    var result = await orchestrator.SyncDeviceAsync(org.Id, id);
+    if (result.Success)
+        return Results.Redirect($"/devices?synced=1&name={Uri.EscapeDataString(result.EventsFetched.ToString())}");
+    else
+        return Results.Redirect($"/devices?synced=0&error={Uri.EscapeDataString(result.ErrorMessage ?? "Unknown error")}");
+}).WithName("DeviceSync");
+
+// ───── POST /api/devices/sync-all — sync all active devices ─────
+app.MapPost("/api/devices/sync-all", async (
+    DeviceSyncOrchestrator orchestrator,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    logger.LogInformation("Sync-all requested for org {OrgId}", org.Id);
+    var results = await orchestrator.SyncAllDevicesAsync(org.Id);
+    var ok = results.Count(r => r.Success);
+    var fail = results.Count - ok;
+    return Results.Redirect($"/devices?synced=1&name={ok}succeeded_{fail}failed");
+}).WithName("DeviceSyncAll");
+
+// ───── POST /api/devices/delete/{id} — delete a device ─────
+app.MapPost("/api/devices/delete/{id:int}", async (
+    int id,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id);
+    if (device == null) return Results.NotFound(new { error = "Device not found." });
+
+    var name = device.Name;
+    db.AttendanceDevices.Remove(device);
+    await db.SaveChangesAsync();
+    logger.LogInformation("Device {Id} ({Name}) deleted", id, name);
+    return Results.Redirect($"/devices?deleted=1&name={Uri.EscapeDataString(name)}");
+}).WithName("DeviceDelete");
+
+// ───── POST /api/devices/save — create or update a device (traditional form POST) ─────
+app.MapPost("/api/devices/save", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var idStr = form["Id"].ToString();
+    var isEdit = int.TryParse(idStr, out var deviceId) && deviceId > 0;
+
+    AttendanceDevice device;
+    if (isEdit)
+    {
+        device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == deviceId && d.OrganizationId == org.Id);
+        if (device == null) return Results.NotFound(new { error = "Device not found." });
+    }
+    else
+    {
+        device = new AttendanceDevice
+        {
+            OrganizationId = org.Id,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByEmail = "admin@ukuuhr.demo"
+        };
+    }
+
+    device.Name = form["Name"].ToString();
+    Enum.TryParse<DeviceVendor>(form["Vendor"].ToString(), out var vendor);
+    device.Vendor = vendor;
+    Enum.TryParse<DeviceIntegrationMode>(form["Mode"].ToString(), out var mode);
+    device.Mode = mode;
+    device.IpAddress = form["IpAddress"].ToString();
+    device.Port = int.TryParse(form["Port"], out var port) ? port : 80;
+    device.Username = form["Username"].ToString();
+    device.Password = form["Password"].ToString();
+    device.DeviceSerial = form["DeviceSerial"].ToString();
+    device.Location = form["Location"].ToString();
+    device.AutoSyncEnabled = form["AutoSyncEnabled"] == "true" || form["AutoSyncEnabled"] == "on";
+    device.SyncIntervalMinutes = int.TryParse(form["SyncIntervalMinutes"], out var interval) ? interval : 5;
+    device.IsActive = true;
+    device.UpdatedAt = DateTime.UtcNow;
+
+    // CSV file path stored in ConnectionJson
+    var csvPath = form["CsvFilePath"].ToString();
+    if (device.Mode == DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(csvPath))
+    {
+        device.ConnectionJson = $"{{\"filePath\":\"{csvPath}\"}}";
+    }
+
+    try
+    {
+        if (isEdit)
+        {
+            await db.SaveChangesAsync();
+            logger.LogInformation("Device {Id} updated", deviceId);
+        }
+        else
+        {
+            db.AttendanceDevices.Add(device);
+            await db.SaveChangesAsync();
+            logger.LogInformation("Device {Id} created", device.Id);
+        }
+        return Results.Redirect($"/devices?saved=1&name={Uri.EscapeDataString(device.Name)}");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to save device");
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).WithName("DeviceSave").DisableAntiforgery();
+
 // ───── FR-010: Attendance report download endpoints ─────
 // These endpoints allow Blazor pages to download CSV/Excel reports via a simple redirect,
 // avoiding the need to write files to a server-side path.
