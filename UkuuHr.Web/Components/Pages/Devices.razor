@@ -217,17 +217,12 @@
     private int _orgId;
     private bool _loaded;
     private bool _orgMissing;
-    private bool _seeding;
     private const int _vendorsSupported = 7;
 
     // Vendor matrix data (computed once).
     private List<VendorMatrixItem> _vendorMatrix = new();
 
     // Dialog state.
-    private bool _showDeviceDialog;
-    private AttendanceDevice? _editingDevice;
-    private AttendanceDevice _deviceForm = new();
-    private string _csvFilePath = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -267,37 +262,6 @@
         finally
         {
             _loaded = true;
-        }
-    }
-
-    private async Task SeedOrg()
-    {
-        if (_seeding) return;
-        _seeding = true;
-        try
-        {
-            var org = new Organization
-            {
-                Name = "My Organization",
-                Country = "Zambia",
-                Currency = "ZMW",
-                Industry = "Human Resources",
-                OwnerUserId = "system",
-                CreatedAt = DateTime.UtcNow
-            };
-            Db.Organizations.Add(org);
-            await Db.SaveChangesAsync();
-
-            Snackbar.Add("Default organization created. Refreshing…", Severity.Success);
-            Nav.NavigateTo("/devices", forceLoad: true);
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to create organization: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _seeding = false;
         }
     }
 
@@ -342,146 +306,6 @@
         DeviceVendor.eSSL => "#6E5F92",
         _ => "#6B7280"
     };
-
-    private void OpenDeviceDialog(AttendanceDevice? existing)
-    {
-        _editingDevice = existing;
-        if (existing != null)
-        {
-            _deviceForm = new AttendanceDevice
-            {
-                Id = existing.Id,
-                Name = existing.Name,
-                Vendor = existing.Vendor,
-                Mode = existing.Mode,
-                IpAddress = existing.IpAddress,
-                Port = existing.Port,
-                Username = existing.Username,
-                Password = existing.Password,
-                DeviceSerial = existing.DeviceSerial,
-                Location = existing.Location,
-                AutoSyncEnabled = existing.AutoSyncEnabled,
-                SyncIntervalMinutes = existing.SyncIntervalMinutes,
-                IsActive = existing.IsActive,
-                ConnectionJson = existing.ConnectionJson
-            };
-            // Try to extract CSV path from ConnectionJson.
-            if (!string.IsNullOrEmpty(existing.ConnectionJson))
-            {
-                try
-                {
-                    using var doc = System.Text.Json.JsonDocument.Parse(existing.ConnectionJson);
-                    _csvFilePath = doc.RootElement.TryGetProperty("filePath", out var p) ? p.GetString() ?? "" : "";
-                }
-                catch { _csvFilePath = ""; }
-            }
-        }
-        else
-        {
-            _deviceForm = new AttendanceDevice
-            {
-                Vendor = DeviceVendor.Hikvision,
-                Mode = DeviceIntegrationMode.RestApi,
-                Username = "admin",
-                Port = 80,
-                AutoSyncEnabled = true,
-                SyncIntervalMinutes = 5,
-                IsActive = true
-            };
-            _csvFilePath = "";
-        }
-        _showDeviceDialog = true;
-    }
-
-    private void CloseDeviceDialog() => _showDeviceDialog = false;
-
-    private async Task SaveDevice()
-    {
-        try
-        {
-            // For CSV mode, store the file path in ConnectionJson.
-            if (_deviceForm.Mode == DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(_csvFilePath))
-            {
-                _deviceForm.ConnectionJson = $"{{\"filePath\":\"{_csvFilePath}\"}}";
-            }
-
-            if (_editingDevice != null && _editingDevice.Id > 0)
-            {
-                var existing = await Db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == _editingDevice.Id);
-                if (existing != null)
-                {
-                    existing.Name = _deviceForm.Name;
-                    existing.Vendor = _deviceForm.Vendor;
-                    existing.Mode = _deviceForm.Mode;
-                    existing.IpAddress = _deviceForm.IpAddress;
-                    existing.Port = _deviceForm.Port;
-                    existing.Username = _deviceForm.Username;
-                    existing.Password = _deviceForm.Password;
-                    existing.DeviceSerial = _deviceForm.DeviceSerial;
-                    existing.Location = _deviceForm.Location;
-                    existing.ConnectionJson = _deviceForm.ConnectionJson;
-                    existing.AutoSyncEnabled = _deviceForm.AutoSyncEnabled;
-                    existing.SyncIntervalMinutes = _deviceForm.SyncIntervalMinutes;
-                    existing.UpdatedAt = DateTime.UtcNow;
-                }
-                Snackbar.Add($"Device '{_deviceForm.Name}' updated.", Severity.Success);
-            }
-            else
-            {
-                _deviceForm.OrganizationId = _orgId;
-                _deviceForm.CreatedAt = DateTime.UtcNow;
-                _deviceForm.CreatedByEmail = "admin@ukuuhr.demo";
-                Db.AttendanceDevices.Add(_deviceForm);
-                Snackbar.Add($"Device '{_deviceForm.Name}' added.", Severity.Success);
-            }
-            await Db.SaveChangesAsync();
-            _showDeviceDialog = false;
-            await LoadData();
-            BuildVendorMatrix();
-        }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
-    }
-
-    private async Task DeleteDevice(AttendanceDevice d)
-    {
-        Db.AttendanceDevices.Remove(d);
-        await Db.SaveChangesAsync();
-        Snackbar.Add($"Device '{d.Name}' removed.", Severity.Info);
-        await LoadData();
-        BuildVendorMatrix();
-    }
-
-    private async Task TestConnection(AttendanceDevice d)
-    {
-        Snackbar.Add($"Testing connection to {d.Name}...", Severity.Info);
-        var (reachable, error) = await Orchestrator.PingAsync(_orgId, d.Id);
-        if (reachable)
-            Snackbar.Add($"✓ {d.Name} is reachable.", Severity.Success);
-        else
-            Snackbar.Add($"✗ {d.Name}: {error}", Severity.Error);
-    }
-
-    private async Task SyncDevice(AttendanceDevice d)
-    {
-        Snackbar.Add($"Syncing {d.Name}...", Severity.Info);
-        var result = await Orchestrator.SyncDeviceAsync(_orgId, d.Id);
-        if (result.Success)
-            Snackbar.Add($"✓ {d.Name}: {result.EventsFetched} fetched, {result.EventsImported} imported, {result.DuplicatesSkipped} duplicates.", Severity.Success);
-        else
-            Snackbar.Add($"✗ {d.Name}: {result.ErrorMessage}", Severity.Error);
-        await LoadData();
-        BuildVendorMatrix();
-    }
-
-    private async Task SyncAll()
-    {
-        Snackbar.Add($"Syncing all active devices...", Severity.Info);
-        var results = await Orchestrator.SyncAllDevicesAsync(_orgId);
-        var ok = results.Count(r => r.Success);
-        var fail = results.Count - ok;
-        Snackbar.Add($"Sync complete: {ok} succeeded, {fail} failed.", ok > 0 ? Severity.Success : Severity.Warning);
-        await LoadData();
-    }
 
     private static string DeviceStatusClass(AttendanceDevice d) => d.StatusDisplay switch
     {
