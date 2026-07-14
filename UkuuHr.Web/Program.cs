@@ -9,6 +9,7 @@ using UkuuHr.Components;
 using UkuuHr.Data;
 using UkuuHr.Models;
 using UkuuHr.Services;
+using UkuuHr.Services.Devices;
 
 // Use legacy timestamp behavior so DateTime is treated as 'timestamp without time zone'
 // This avoids the "Cannot apply binary operation on types 'timestamp with time zone' and 'timestamp without time zone'" error
