@@ -57,8 +57,7 @@
         }
     </div>
 
-    <EditForm Model="@_model" OnValidSubmit="@Save">
-        <DataAnnotationsValidator />
+    <form id="employee-form" method="post" action="/api/employees/save">
 
     @* ──────────────────────────────── Step 0: Personal Info ──────────────────────────────── *@
     @if (_currentStep == 0)
@@ -75,9 +74,9 @@
                             <label class="bk-label">First Name *</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">person</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.FirstName" placeholder="First name" />
+                                <input type="text" class="bk-input" style="padding-left:36px;" name="FirstName" value="@(_model.FirstName)" placeholder="First name"  />
                             </div>
-                            <ValidationMessage For="@(() => _model.FirstName)" />
+                            
                         </div>
 
                         @* Last Name *@
@@ -85,27 +84,27 @@
                             <label class="bk-label">Last Name *</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">person</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Surname" placeholder="Last name" />
+                                <input type="text" class="bk-input" style="padding-left:36px;" name="Surname" value="@(_model.Surname)" placeholder="Last name"  />
                             </div>
-                            <ValidationMessage For="@(() => _model.Surname)" />
+                            
                         </div>
 
                         @* Other Names *@
                         <div class="bk-field">
                             <label class="bk-label">Other Names</label>
-                            <InputText class="bk-input" @bind-Value="_model.MiddleNames" placeholder="Other / middle names" />
+                            <input type="text" class="bk-input" name="MiddleNames" value="@(_model.MiddleNames)" placeholder="Other / middle names"  />
                         </div>
 
                         @* Gender *@
                         <div class="bk-field">
                             <label class="bk-label">Gender</label>
-                            <InputSelect class="bk-input" @bind-Value="_model.Gender">
+                            <select class="bk-input" name="Gender">
                                 <option value="">Select gender</option>
                                 <option value="Male">Male</option>
                                 <option value="Female">Female</option>
                                 <option value="Other">Other</option>
                                 <option value="Prefer not to say">Prefer not to say</option>
-                            </InputSelect>
+                            </select>
                         </div>
 
                         @* Employee ID *@
@@ -113,7 +112,7 @@
                             <label class="bk-label">Employee ID *</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">badge</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.EmployeeCode" placeholder="e.g. EMP-001" />
+                                <input type="text" class="bk-input" style="padding-left:36px;" name="EmployeeCode" value="@(_model.EmployeeCode)" placeholder="e.g. EMP-001"  />
                             </div>
                         </div>
 
@@ -122,20 +121,20 @@
                             <label class="bk-label">Payroll ID</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">payments</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.PayrollId" placeholder="e.g. PAY-001" />
+                                <input type="text" class="bk-input" style="padding-left:36px;" name="PayrollId" value="@(_model.PayrollId)" placeholder="e.g. PAY-001"  />
                             </div>
                         </div>
 
                         @* Assign to Shift *@
                         <div class="bk-field">
                             <label class="bk-label">Assign to Shift</label>
-                            <InputSelect class="bk-input" @bind-Value="_selectedShiftId">
+                            <select class="bk-input" name="ShiftId">
                                 <option value="">No shift assigned</option>
                                 @foreach (var shift in _availableShifts)
                                 {
                                     <option value="@shift.Id">@shift.Name (@shift.StartTime–@shift.EndTime)</option>
                                 }
-                            </InputSelect>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -153,23 +152,23 @@
                             <label class="bk-label">Phone Number</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">phone</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Phone" placeholder="+260 97 123 4567" />
+                                <input type="text" class="bk-input" style="padding-left:36px;" name="Phone" value="@(_model.Phone)" placeholder="+260 97 123 4567"  />
                             </div>
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Email Address</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">mail</span>
-                                <InputText class="bk-input" style="padding-left:36px;" @bind-Value="_model.Email" placeholder="employee@company.com" />
+                                <input type="text" class="bk-input" style="padding-left:36px;" name="Email" value="@(_model.Email)" placeholder="employee@company.com"  />
                             </div>
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Department</label>
-                            <InputText class="bk-input" @bind-Value="_model.Department" placeholder="e.g. Engineering" />
+                            <input type="text" class="bk-input" name="Department" value="@(_model.Department)" placeholder="e.g. Engineering"  />
                         </div>
                         <div class="bk-field">
                             <label class="bk-label">Job Title</label>
-                            <InputText class="bk-input" @bind-Value="_model.JobTitle" placeholder="e.g. Software Engineer" />
+                            <input type="text" class="bk-input" name="JobTitle" value="@(_model.JobTitle)" placeholder="e.g. Software Engineer"  />
                         </div>
                     </div>
                 </div>
@@ -188,69 +187,69 @@
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
                     <div class="bk-field">
                         <label class="bk-label">Employee Code *</label>
-                        <InputText class="bk-input" @bind-Value="_model.EmployeeCode" placeholder="e.g. EMP-001" />
+                        <input type="text" class="bk-input" name="EmployeeCode" value="@(_model.EmployeeCode)" placeholder="e.g. EMP-001"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Job Title *</label>
-                        <InputText class="bk-input" @bind-Value="_model.JobTitle" placeholder="e.g. Software Engineer" />
+                        <input type="text" class="bk-input" name="JobTitle" value="@(_model.JobTitle)" placeholder="e.g. Software Engineer"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Department *</label>
-                        <InputText class="bk-input" @bind-Value="_model.Department" placeholder="e.g. Engineering" />
+                        <input type="text" class="bk-input" name="Department" value="@(_model.Department)" placeholder="e.g. Engineering"  />
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Employment Status</label>                            <InputSelect class="bk-input" @bind-Value="_model.Status">
+                        <label class="bk-label">Employment Status</label>                            <select class="bk-input" name="Status">
                                 <option value="@EmploymentStatus.Active">Active</option>
                                 <option value="@EmploymentStatus.Probation">Probation</option>
                                 <option value="@EmploymentStatus.Inactive">Inactive</option>
                                 <option value="@EmploymentStatus.Terminated">Terminated</option>
-                            </InputSelect>
+                            </select>
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Contract Type</label>                            <InputSelect class="bk-input" @bind-Value="_model.ContractType">
+                        <label class="bk-label">Contract Type</label>                            <select class="bk-input" name="ContractType">
                                 <option value="Permanent">Permanent</option>
                                 <option value="Fixed Term">Fixed Term</option>
                                 <option value="Contract">Contract</option>
-                            </InputSelect>
+                            </select>
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Joining Date *</label>                            <InputDate class="bk-input" @bind-Value="_model.JoiningDate" />
+                        <label class="bk-label">Joining Date *</label>                            <input type="date" class="bk-input" name="JoiningDate" value="@(_model.JoiningDate?.ToString("yyyy-MM-dd"))" />
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Contract End Date</label>                            <InputDate class="bk-input" @bind-Value="_model.ContractEndDate" />
+                        <label class="bk-label">Contract End Date</label>                            <input type="date" class="bk-input" name="ContractEndDate" value="@(_model.ContractEndDate?.ToString("yyyy-MM-dd"))" />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Reporting Manager</label>
-                        <InputText class="bk-input" @bind-Value="_model.ReportingManagerName" placeholder="Manager's name" />
+                        <input type="text" class="bk-input" name="ReportingManagerName" value="@(_model.ReportingManagerName)" placeholder="Manager's name"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Manager's Title</label>
-                        <InputText class="bk-input" @bind-Value="_model.ReportingManagerTitle" placeholder="e.g. Head of Engineering" />
+                        <input type="text" class="bk-input" name="ReportingManagerTitle" value="@(_model.ReportingManagerTitle)" placeholder="e.g. Head of Engineering"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Place of Work</label>
-                        <InputText class="bk-input" @bind-Value="_model.PlaceOfWork" placeholder="e.g. Head Office, Lusaka" />
+                        <input type="text" class="bk-input" name="PlaceOfWork" value="@(_model.PlaceOfWork)" placeholder="e.g. Head Office, Lusaka"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Work Hours / Week</label>
-                        <InputNumber class="bk-input" @bind-Value="_model.WorkHoursPerWeek" step="1" />
+                        <input type="number" class="bk-input" name="WorkHoursPerWeek" value="@(_model.WorkHoursPerWeek)" step="1"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Holiday Entitlement (days)</label>
-                        <InputNumber class="bk-input" @bind-Value="_model.HolidayEntitlementDays" step="1" />
+                        <input type="number" class="bk-input" name="HolidayEntitlementDays" value="@(_model.HolidayEntitlementDays)" step="1"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Probation (months)</label>
-                        <InputNumber class="bk-input" @bind-Value="_model.ProbationaryPeriodMonths" step="1" />
+                        <input type="number" class="bk-input" name="ProbationaryPeriodMonths" value="@(_model.ProbationaryPeriodMonths)" step="1"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Notice Period</label>
-                        <InputText class="bk-input" @bind-Value="_model.TerminationNoticePeriod" placeholder="e.g. 1 month" />
+                        <input type="text" class="bk-input" name="TerminationNoticePeriod" value="@(_model.TerminationNoticePeriod)" placeholder="e.g. 1 month"  />
                     </div>
                 </div>
                 <div class="bk-field" style="margin-top:16px;">
                     <label class="bk-label">Job Description Summary</label>
-                    <InputTextArea class="bk-input" @bind-Value="_model.JobDescription" style="min-height:80px;" placeholder="Brief job description..." />
+                    <textarea class="bk-input" name="JobDescription" style="min-height:80px;" placeholder="Brief job description..." />@(_model.JobDescription)</textarea>
                 </div>
             </div>
         </div>
@@ -270,21 +269,21 @@
                         <label class="bk-label">Basic Salary (monthly) *</label>
                         <div class="bk-input-wrap">
                             <span class="material-icons-round bk-input-icon">payments</span>
-                            <InputNumber class="bk-input" style="padding-left:36px;" @bind-Value="_model.BasicSalary" step="100" />
+                            <input type="number" class="bk-input" style="padding-left:36px;" name="BasicSalary" value="@(_model.BasicSalary)" step="100"  />
                         </div>
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Hourly Rate</label>
-                        <InputNumber class="bk-input" @bind-Value="_model.HourlyRate" step="0.5" />
+                        <input type="number" class="bk-input" name="HourlyRate" value="@(_model.HourlyRate)" step="0.5"  />
                         <small style="color:var(--bk-ink-3);font-size:11px;">Auto-calculated if blank</small>
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Currency</label>                            <InputSelect class="bk-input" @bind-Value="_model.Currency">
+                        <label class="bk-label">Currency</label>                            <select class="bk-input" name="Currency">
                                 <option value="ZMW">ZMW — Zambian Kwacha</option>
                                 <option value="USD">USD — US Dollar</option>
                                 <option value="TZS">TZS — Tanzanian Shilling</option>
                                 <option value="MWK">MWK — Malawian Kwacha</option>
-                            </InputSelect>
+                            </select>
                     </div>
                 </div>
 
@@ -294,7 +293,7 @@
                         <h4 style="font-size:14px;font-weight:700;margin:0;">Allowances</h4>
                         <p style="font-size:12px;color:var(--bk-ink-3);margin:2px 0 0;">Housing, transport, and other recurring allowances.</p>
                     </div>
-                    <button type="button" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;" @onclick="AddAllowance">
+                    <button type="button" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;" onclick="ukuuAddAllowance()">
                         <span class="material-icons-round" style="font-size:14px;">add</span>
                         Add Allowance
                     </button>
@@ -315,26 +314,26 @@
                             <div style="display:grid;grid-template-columns:1fr 100px 120px 80px 40px;gap:8px;align-items:end;margin-bottom:10px;padding:12px;border:1px solid var(--bk-line);border-radius:8px;background:var(--bk-card-bg);">
                                 <div class="bk-field" style="margin:0;">
                                     <label class="bk-label" style="font-size:10px;">Name</label>
-                                    <InputText class="bk-input" @bind-Value="allowance.Name" placeholder="e.g. Housing" />
+                                    <input type="text" class="bk-input" name="Name" value="@(allowance.Name)" placeholder="e.g. Housing"  />
                                 </div>
                                 <div class="bk-field" style="margin:0;">
                                     <label class="bk-label" style="font-size:10px;">Amount</label>
-                                    <InputNumber class="bk-input" @bind-Value="allowance.Amount" step="100" />
+                                    <input type="number" class="bk-input" name="Amount" value="@(allowance.Amount)" step="100"  />
                                 </div>
                                 <div class="bk-field" style="margin:0;">
                                     <label class="bk-label" style="font-size:10px;">Type</label>
-                                    <InputSelect class="bk-input" @bind-Value="allowance.Type">
+                                    <select class="bk-input" name="Type">
                                         <option value="@AllowanceType.Fixed">Fixed</option>
                                         <option value="@AllowanceType.Percentage">%</option>
-                                    </InputSelect>
+                                    </select>
                                 </div>
                                 <div class="bk-field" style="margin:0;">
                                     <label class="bk-label" style="font-size:10px;">Taxable</label>
                                     <div style="display:flex;align-items:center;justify-content:center;height:42px;">
-                                        <input type="checkbox" checked="@allowance.Taxable" @onchange="e => { if (e.Value is bool b) allowance.Taxable = b; }" style="width:18px;height:18px;accent-color:var(--bk-accent);" />
+                                        <input type="checkbox" name="Taxable" checked="@allowance.Taxable" style="width:18px;height:18px;accent-color:var(--bk-accent);" />
                                     </div>
                                 </div>
-                                <button type="button" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);margin-bottom:2px;" @onclick="() => _model.Allowances.Remove(allowance)">
+                                <button type="button" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);margin-bottom:2px;" onclick="this.closest('div[style*=\"grid-template-columns\"]').remove()">
                                     <span class="material-icons-round" style="font-size:14px;">delete</span>
                                 </button>
                             </div>
@@ -366,15 +365,15 @@
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
                     <div class="bk-field">
                         <label class="bk-label">TPIN (Taxpayer Identification)</label>
-                        <InputText class="bk-input" @bind-Value="_model.Tpin" placeholder="e.g. 1001234567" />
+                        <input type="text" class="bk-input" name="Tpin" value="@(_model.Tpin)" placeholder="e.g. 1001234567"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">NAPSA Number</label>
-                        <InputText class="bk-input" @bind-Value="_model.NapsaNumber" placeholder="NAPSA contribution number" />
+                        <input type="text" class="bk-input" name="NapsaNumber" value="@(_model.NapsaNumber)" placeholder="NAPSA contribution number"  />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">NHIMA / Health Insurance No.</label>
-                        <InputText class="bk-input" @bind-Value="_model.HealthInsuranceNumber" placeholder="Health insurance number" />
+                        <input type="text" class="bk-input" name="HealthInsuranceNumber" value="@(_model.HealthInsuranceNumber)" placeholder="Health insurance number"  />
                     </div>
                 </div>
             </div>
@@ -455,7 +454,7 @@
             }
         </div>
     </div>
-    </EditForm>
+    </form>
 </div>
 
 @code {

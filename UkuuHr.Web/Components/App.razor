@@ -135,17 +135,53 @@
         })();
 
 
+        // Add allowance row (works without Blazor circuit)
+        window.ukuuAddAllowance = function() {
+            var container = document.getElementById('allowances-list');
+            if (!container) {
+                // Find the allowances section by looking for the "No allowances" text or existing rows
+                container = document.querySelector('[data-allowances]');
+            }
+            if (!container) return;
+
+            var row = document.createElement('div');
+            row.style.cssText = 'display:grid;grid-template-columns:1fr 100px 120px 80px 40px;gap:8px;align-items:end;margin-bottom:10px;padding:12px;border:1px solid var(--bk-line);border-radius:8px;background:var(--bk-card-bg);';
+            row.innerHTML =
+                '<div class="bk-field" style="margin:0;">' +
+                '<label class="bk-label" style="font-size:10px;">Name</label>' +
+                '<input type="text" class="bk-input" name="AllowanceName" placeholder="e.g. Housing" />' +
+                '</div>' +
+                '<div class="bk-field" style="margin:0;">' +
+                '<label class="bk-label" style="font-size:10px;">Amount</label>' +
+                '<input type="number" class="bk-input" name="AllowanceAmount" step="100" value="0" />' +
+                '</div>' +
+                '<div class="bk-field" style="margin:0;">' +
+                '<label class="bk-label" style="font-size:10px;">Type</label>' +
+                '<select class="bk-input" name="AllowanceType"><option value="Fixed">Fixed</option><option value="Percentage">%</option></select>' +
+                '</div>' +
+                '<div class="bk-field" style="margin:0;">' +
+                '<label class="bk-label" style="font-size:10px;">Taxable</label>' +
+                '<div style="display:flex;align-items:center;justify-content:center;height:42px;">' +
+                '<input type="checkbox" name="AllowanceTaxable" checked style="width:18px;height:18px;accent-color:var(--bk-accent);" />' +
+                '</div>' +
+                '</div>' +
+                '<button type="button" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);margin-bottom:2px;" onclick="this.parentElement.remove();">' +
+                '<span class="material-icons-round" style="font-size:14px;">delete</span>' +
+                '</button>';
+            container.appendChild(row);
+        };
+
         // Phase 28: Save employee via JS (works without Blazor circuit)
         // Collects all form inputs and POSTs to /api/employees/save
         window.ukuuSaveEmployee = async function(btn, isEdit, empId) {
             btn.disabled = true;
             btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">sync</span> Saving…';
-            
+
             try {
-                // Find the EditForm (Blazor renders it as <form>)
+                // Find the form
                 var form = btn.closest('form');
                 if (!form) { alert('Form not found'); return; }
-                
+
                 // Collect ALL form data
                 var formData = new FormData(form);
                 formData.set('isEdit', isEdit);
