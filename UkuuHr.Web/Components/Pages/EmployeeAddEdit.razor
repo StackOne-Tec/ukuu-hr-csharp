@@ -27,41 +27,10 @@
         </div>
     </div>
 
-    @* ───── Step indicator ───── *@
-    <div style="display:flex;gap:0;margin-bottom:28px;background:var(--bk-card-bg);border:1px solid var(--bk-line);border-radius:12px;overflow:hidden;">
-        @for (int i = 0; i < _steps.Length; i++)
-        {
-            var idx = i;
-            var isActive = i == _currentStep;
-            var isComplete = i < _currentStep;
-            <a href="?step=@idx" style="flex:1;padding:16px 20px;display:flex;align-items:center;gap:12px;background:@(isActive ? "rgba(37,22,63,0.03)" : "transparent");border-bottom:@(isActive ? "2px solid var(--bk-accent)" : "2px solid transparent");cursor:pointer;transition:all 0.2s ease;text-decoration:none;">
-                <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:@(isComplete ? "var(--bk-success)" : isActive ? "var(--bk-accent)" : "var(--bk-line)");color:@(isComplete || isActive ? "white" : "var(--bk-ink-3)");flex-shrink:0;transition:all 0.2s ease;">
-                    @if (isComplete)
-                    {
-                        <span class="material-icons-round" style="font-size:16px;">check</span>
-                    }
-                    else
-                    {
-                        <span>@(i + 1)</span>
-                    }
-                </div>
-                <div style="min-width:0;">
-                    <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">Step @(i + 1)</div>
-                    <div style="font-size:13px;font-weight:700;color:@(isActive ? "var(--bk-ink)" : "var(--bk-ink-3)");">@_steps[i]</div>
-                </div>
-                @if (i < _steps.Length - 1)
-                {
-                    <span class="material-icons-round" style="font-size:16px;color:var(--bk-ink-3);margin-left:auto;">chevron_right</span>
-                }
-            </a>
-        }
-    </div>
 
     <form id="employee-form" method="post" action="/api/employees/save">
 
-    @* ──────────────────────────────── Step 0: Personal Info ──────────────────────────────── *@
-    @if (_currentStep == 0)
-    {
+    @* ──────────────────────────────── Personal Info ──────────────────────────────── *@
             <div class="bk-admin-card">
                 <div class="bk-admin-card-header">
                     <h3>Personal Information</h3>
@@ -173,256 +142,9 @@
                     </div>
                 </div>
             </div>
-    }
 
-    @* ──────────────────────────────── Step 1: Employment ──────────────────────────────── *@
-    @if (_currentStep == 1)
-    {
-        <div class="bk-admin-card">
-            <div class="bk-admin-card-header">
-                <h3>Employment Information</h3>
-                <p>Job, contract, and reporting details.</p>
-            </div>
-            <div class="bk-admin-card-content">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
-                    <div class="bk-field">
-                        <label class="bk-label">Employee Code *</label>
-                        <input type="text" class="bk-input" name="EmployeeCode" value="@(_model.EmployeeCode)" placeholder="e.g. EMP-001"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Job Title *</label>
-                        <input type="text" class="bk-input" name="JobTitle" value="@(_model.JobTitle)" placeholder="e.g. Software Engineer"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Department *</label>
-                        <input type="text" class="bk-input" name="Department" value="@(_model.Department)" placeholder="e.g. Engineering"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Employment Status</label>                            <select class="bk-input" name="Status">
-                                <option value="@EmploymentStatus.Active">Active</option>
-                                <option value="@EmploymentStatus.Probation">Probation</option>
-                                <option value="@EmploymentStatus.Inactive">Inactive</option>
-                                <option value="@EmploymentStatus.Terminated">Terminated</option>
-                            </select>
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Contract Type</label>                            <select class="bk-input" name="ContractType">
-                                <option value="Permanent">Permanent</option>
-                                <option value="Fixed Term">Fixed Term</option>
-                                <option value="Contract">Contract</option>
-                            </select>
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Joining Date *</label>                            <input type="date" class="bk-input" name="JoiningDate" value="@FormatDate(_model.JoiningDate)" />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Contract End Date</label>                            <input type="date" class="bk-input" name="ContractEndDate" value="@FormatDate(_model.ContractEndDate)" />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Reporting Manager</label>
-                        <input type="text" class="bk-input" name="ReportingManagerName" value="@(_model.ReportingManagerName)" placeholder="Manager's name"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Manager's Title</label>
-                        <input type="text" class="bk-input" name="ReportingManagerTitle" value="@(_model.ReportingManagerTitle)" placeholder="e.g. Head of Engineering"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Place of Work</label>
-                        <input type="text" class="bk-input" name="PlaceOfWork" value="@(_model.PlaceOfWork)" placeholder="e.g. Head Office, Lusaka"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Work Hours / Week</label>
-                        <input type="number" class="bk-input" name="WorkHoursPerWeek" value="@(_model.WorkHoursPerWeek)" step="1"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Holiday Entitlement (days)</label>
-                        <input type="number" class="bk-input" name="HolidayEntitlementDays" value="@(_model.HolidayEntitlementDays)" step="1"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Probation (months)</label>
-                        <input type="number" class="bk-input" name="ProbationaryPeriodMonths" value="@(_model.ProbationaryPeriodMonths)" step="1"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Notice Period</label>
-                        <input type="text" class="bk-input" name="TerminationNoticePeriod" value="@(_model.TerminationNoticePeriod)" placeholder="e.g. 1 month"  />
-                    </div>
-                </div>
-                <div class="bk-field" style="margin-top:16px;">
-                    <label class="bk-label">Job Description Summary</label>
-                    <textarea class="bk-input" name="JobDescription" style="min-height:80px;" placeholder="Brief job description...">@_model.JobDescription</textarea>
-                </div>
-            </div>
-        </div>
-    }
 
-    @* ──────────────────────────────── Step 2: Banking & Pay ──────────────────────────────── *@
-    @if (_currentStep == 2)
-    {
-        <div class="bk-admin-card">
-            <div class="bk-admin-card-header">
-                <h3>Compensation</h3>
-                <p>Salary, allowances, and payment details.</p>
-            </div>
-            <div class="bk-admin-card-content">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
-                    <div class="bk-field">
-                        <label class="bk-label">Basic Salary (monthly) *</label>
-                        <div class="bk-input-wrap">
-                            <span class="material-icons-round bk-input-icon">payments</span>
-                            <input type="number" class="bk-input" style="padding-left:36px;" name="BasicSalary" value="@(_model.BasicSalary)" step="100"  />
-                        </div>
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Hourly Rate</label>
-                        <input type="number" class="bk-input" name="HourlyRate" value="@(_model.HourlyRate)" step="0.5"  />
-                        <small style="color:var(--bk-ink-3);font-size:11px;">Auto-calculated if blank</small>
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">Currency</label>                            <select class="bk-input" name="Currency">
-                                <option value="ZMW">ZMW — Zambian Kwacha</option>
-                                <option value="USD">USD — US Dollar</option>
-                                <option value="TZS">TZS — Tanzanian Shilling</option>
-                                <option value="MWK">MWK — Malawian Kwacha</option>
-                            </select>
-                    </div>
-                </div>
-
-                @* Allowances *@
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);">
-                    <div>
-                        <h4 style="font-size:14px;font-weight:700;margin:0;">Allowances</h4>
-                        <p style="font-size:12px;color:var(--bk-ink-3);margin:2px 0 0;">Housing, transport, and other recurring allowances.</p>
-                    </div>
-                    <button type="button" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;" onclick="ukuuAddAllowance()">
-                        <span class="material-icons-round" style="font-size:14px;">add</span>
-                        Add Allowance
-                    </button>
-                </div>
-
-                @if (!_model.Allowances.Any())
-                {
-                    <div style="padding:24px;text-align:center;color:var(--bk-ink-3);font-size:13px;">
-                        <span class="material-icons-round" style="font-size:24px;vertical-align:middle;margin-right:6px;">add_card</span>
-                        No allowances added yet.
-                    </div>
-                }
-                else
-                {
-                    <div style="margin-top:12px;">
-                        @foreach (var allowance in _model.Allowances)
-                        {
-                            <div style="display:grid;grid-template-columns:1fr 100px 120px 80px 40px;gap:8px;align-items:end;margin-bottom:10px;padding:12px;border:1px solid var(--bk-line);border-radius:8px;background:var(--bk-card-bg);">
-                                <div class="bk-field" style="margin:0;">
-                                    <label class="bk-label" style="font-size:10px;">Name</label>
-                                    <input type="text" class="bk-input" name="Name" value="@(allowance.Name)" placeholder="e.g. Housing"  />
-                                </div>
-                                <div class="bk-field" style="margin:0;">
-                                    <label class="bk-label" style="font-size:10px;">Amount</label>
-                                    <input type="number" class="bk-input" name="Amount" value="@(allowance.Amount)" step="100"  />
-                                </div>
-                                <div class="bk-field" style="margin:0;">
-                                    <label class="bk-label" style="font-size:10px;">Type</label>
-                                    <select class="bk-input" name="Type">
-                                        <option value="@AllowanceType.Fixed">Fixed</option>
-                                        <option value="@AllowanceType.Percentage">%</option>
-                                    </select>
-                                </div>
-                                <div class="bk-field" style="margin:0;">
-                                    <label class="bk-label" style="font-size:10px;">Taxable</label>
-                                    <div style="display:flex;align-items:center;justify-content:center;height:42px;">
-                                        <input type="checkbox" name="Taxable" checked="@allowance.Taxable" style="width:18px;height:18px;accent-color:var(--bk-accent);" />
-                                    </div>
-                                </div>
-                                <button type="button" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);margin-bottom:2px;" onclick="this.closest('div[style*=\"grid-template-columns\"]').remove()">
-                                    <span class="material-icons-round" style="font-size:14px;">delete</span>
-                                </button>
-                            </div>
-                        }
-                        <div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:8px;border-top:1px solid var(--bk-line);font-weight:600;font-size:14px;">
-                            <span>Total Allowances</span>
-                            <span>@_model.DisplayCurrency @_model.TotalAllowances.ToString("N0")</span>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:16px;color:var(--bk-ink);">
-                            <span>Gross Salary</span>
-                            <span>@_model.DisplayCurrency @_model.GrossSalary.ToString("N0")</span>
-                        </div>
-                    </div>
-                }
-
-            </div>
-        </div>
-    }
-
-    @* ──────────────────────────────── Step 3: Tax & Statutory ──────────────────────────────── *@
-    @if (_currentStep == 3)
-    {
-        <div class="bk-admin-card">
-            <div class="bk-admin-card-header">
-                <h3>Tax & Statutory</h3>
-                <p>Compliance with local tax authorities (ZRA / NAPSA / NHIMA).</p>
-            </div>
-            <div class="bk-admin-card-content">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
-                    <div class="bk-field">
-                        <label class="bk-label">TPIN (Taxpayer Identification)</label>
-                        <input type="text" class="bk-input" name="Tpin" value="@(_model.Tpin)" placeholder="e.g. 1001234567"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">NAPSA Number</label>
-                        <input type="text" class="bk-input" name="NapsaNumber" value="@(_model.NapsaNumber)" placeholder="NAPSA contribution number"  />
-                    </div>
-                    <div class="bk-field">
-                        <label class="bk-label">NHIMA / Health Insurance No.</label>
-                        <input type="text" class="bk-input" name="HealthInsuranceNumber" value="@(_model.HealthInsuranceNumber)" placeholder="Health insurance number"  />
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        @* ───── Live payroll preview ───── *@
-        <div class="bk-admin-card" style="margin-top:20px;">
-            <div class="bk-admin-card-header">
-                <h3>Live Payroll Preview</h3>
-                <p>Based on @(!string.IsNullOrEmpty(_model.Country) ? _model.Country : "Zambia") PAYE bands and statutory rates.</p>
-            </div>
-            <div class="bk-admin-card-content">
-                @if (_preview != null)
-                {
-                    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
-                        <div class="bk-admin-kpi-card">
-                            <div class="bk-admin-kpi-value">@_preview.Gross.ToString("N0")</div>
-                            <div class="bk-admin-kpi-label">Gross</div>
-                        </div>
-                        <div class="bk-admin-kpi-card">
-                            <div class="bk-admin-kpi-value" style="color:var(--bk-warning);">@_preview.Napsa.ToString("N0")</div>
-                            <div class="bk-admin-kpi-label">NAPSA</div>
-                        </div>
-                        <div class="bk-admin-kpi-card">
-                            <div class="bk-admin-kpi-value" style="color:var(--bk-warning);">@_preview.Nhima.ToString("N0")</div>
-                            <div class="bk-admin-kpi-label">NHIMA</div>
-                        </div>
-                        <div class="bk-admin-kpi-card">
-                            <div class="bk-admin-kpi-value" style="color:var(--bk-error);">@_preview.Paye.ToString("N0")</div>
-                            <div class="bk-admin-kpi-label">PAYE</div>
-                        </div>
-                        <div class="bk-admin-kpi-card" style="background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);color:#FCFBFF;">
-                            <div class="bk-admin-kpi-value" style="color:#FCFBFF;">@_preview.Net.ToString("N0")</div>
-                            <div class="bk-admin-kpi-label" style="color:rgba(252,251,255,0.6);">Net Pay</div>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <div style="padding:20px;text-align:center;color:var(--bk-ink-3);font-size:13px;">
-                        <span class="material-icons-round" style="font-size:24px;vertical-align:middle;margin-right:6px;">calculate</span>
-                        Enter a basic salary in the Banking & Pay step to see a preview.
-                    </div>
-                }
-            </div>
-        </div>
-    }
-
-    @* ───── Navigation buttons ───── *@
+    @* ───── Navigation buttons ───── *
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
         <div>
             <a href="/employees" class="bk-btn bk-btn-secondary" style="text-decoration:none;">
@@ -431,27 +153,10 @@
             </a>
         </div>
         <div style="display:flex;gap:8px;">
-            @if (_currentStep > 0)
-            {
-                <a href="?step=@(_currentStep - 1)" class="bk-btn bk-btn-secondary">
-                    <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
-                    Previous
-                </a>
-            }
-            @if (_currentStep < _steps.Length - 1)
-            {
-                <a href="?step=@(_currentStep + 1)" class="bk-btn bk-btn-primary">
-                    <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
-                    Next: @_steps[_currentStep + 1]
-                </a>
-            }
-            else
-            {
-                <button type="button" class="bk-btn bk-btn-primary" style="background:linear-gradient(135deg,var(--bk-success),#16A34A);" onclick="ukuuSaveEmployee(this, @(_isEdit ? "true" : "false"), @(_isEdit ? Id.ToString() : "0"));">
-                    <span class="material-icons-round" style="font-size:16px;">check</span>
-                    @(_isEdit ? "Save Changes" : "Create Employee")
-                </button>
-            }
+            <button type="button" class="bk-btn bk-btn-primary" style="background:linear-gradient(135deg,var(--bk-success),#16A34A);" onclick="ukuuSaveEmployee(this, @(_isEdit ? "true" : "false"), @(_isEdit ? Id.ToString() : "0"));">
+                <span class="material-icons-round" style="font-size:16px;">check</span>
+                @(_isEdit ? "Save Changes" : "Create Employee")
+            </button>
         </div>
     </div>
     </form>
@@ -463,7 +168,7 @@
     private Employee _model = new();
     private int _currentStep = 0;
     private bool _isSaving;
-    private string[] _steps = { "Personal Info", "Employment", "Banking & Pay", "Tax & Statutory" };
+    private string[] _steps = { "Personal Info" };
 
     private static string FormatDate(DateTime? date) => date?.ToString("yyyy-MM-dd") ?? "";
     private PayrollCalculation? _preview;
