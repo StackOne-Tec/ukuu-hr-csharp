@@ -132,7 +132,7 @@
                                 <option value="">No shift assigned</option>
                                 @foreach (var shift in _availableShifts)
                                 {
-                                    <option value="@shift.Id">@shift.Name (@shift.StartTime–@shift.EndTime)</option>
+                                    <option value="@shift.Id">@shift.Name (@shift.StartTime.ToString(@"hh\:mm")–@shift.EndTime.ToString(@"hh\:mm"))</option>
                                 }
                             </select>
                         </div>
