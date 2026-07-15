@@ -107,6 +107,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 #blazor-error-ui {
+    display: none !important;
     background: var(--ukuu-error-bg);
     color: var(--ukuu-error);
     border: 1px solid var(--ukuu-error);
