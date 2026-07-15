@@ -213,10 +213,10 @@
                             </select>
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Joining Date *</label>                            <input type="date" class="bk-input" name="JoiningDate" value="@(_model.JoiningDate?.ToString("yyyy-MM-dd"))" />
+                        <label class="bk-label">Joining Date *</label>                            <input type="date" class="bk-input" name="JoiningDate" value="@FormatDate(_model.JoiningDate)" />
                     </div>
                     <div class="bk-field">
-                        <label class="bk-label">Contract End Date</label>                            <input type="date" class="bk-input" name="ContractEndDate" value="@(_model.ContractEndDate?.ToString("yyyy-MM-dd"))" />
+                        <label class="bk-label">Contract End Date</label>                            <input type="date" class="bk-input" name="ContractEndDate" value="@FormatDate(_model.ContractEndDate)" />
                     </div>
                     <div class="bk-field">
                         <label class="bk-label">Reporting Manager</label>
@@ -249,7 +249,7 @@
                 </div>
                 <div class="bk-field" style="margin-top:16px;">
                     <label class="bk-label">Job Description Summary</label>
-                    <textarea class="bk-input" name="JobDescription" style="min-height:80px;" placeholder="Brief job description..." />@(_model.JobDescription)</textarea>
+                    <textarea class="bk-input" name="JobDescription" style="min-height:80px;" placeholder="Brief job description...">@_model.JobDescription</textarea>
                 </div>
             </div>
         </div>
@@ -464,6 +464,8 @@
     private int _currentStep = 0;
     private bool _isSaving;
     private string[] _steps = { "Personal Info", "Employment", "Banking & Pay", "Tax & Statutory" };
+
+    private static string FormatDate(DateTime? date) => date?.ToString("yyyy-MM-dd") ?? "";
     private PayrollCalculation? _preview;
     private List<Shift> _availableShifts = new();
     private int? _selectedShiftId;
