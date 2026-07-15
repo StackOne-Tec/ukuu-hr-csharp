@@ -6,8 +6,6 @@
 @using System.ComponentModel.DataAnnotations
 @inject EmployeeService EmployeeSvc
 @inject UkuuHrDbContext Db
-@inject ISnackbar Snackbar
-@inject NavigationManager Nav
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -166,30 +164,15 @@
     [Parameter] public int? Id { get; set; }
     private bool _isEdit => Id.HasValue && Id.Value > 0;
     private Employee _model = new();
-    private int _currentStep = 0;
-    private bool _isSaving;
-    private string[] _steps = { "Personal Info" };
-
-    private static string FormatDate(DateTime? date) => date?.ToString("yyyy-MM-dd") ?? "";
-    private PayrollCalculation? _preview;
     private List<Shift> _availableShifts = new();
     private int? _selectedShiftId;
+
+    private static string FormatDate(DateTime? date) => date?.ToString("yyyy-MM-dd") ?? "";
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Read step from query string (?step=1) — works without Blazor circuit
-            try
-            {
-                var uri = Nav.ToAbsoluteUri(Nav.Uri);
-                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-                var stepStr = query["step"];
-                if (int.TryParse(stepStr, out var s) && s >= 0 && s < _steps.Length)
-                    _currentStep = s;
-            }
-            catch { }
-
             var org = await Db.Organizations.FirstOrDefaultAsync();
             if (org == null) return;
 
@@ -205,7 +188,6 @@
                 if (existing != null)
                 {
                     _model = existing;
-                    RecomputePreview();
                     // Load existing shift assignment
                     var existingAssignment = await Db.EmployeeShiftAssignments
                         .Where(a => a.EmployeeId == existing.Id && a.IsActive)
@@ -221,121 +203,11 @@
                 _model.Status = EmploymentStatus.Active;
                 _model.ContractType = "Permanent";
                 _model.WorkHoursPerWeek = 40;
-                _model.Allowances = new List<Allowance>();
             }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"[EmployeeAddEdit] Failed to load: {ex.Message}");
-            Snackbar.Add("Failed to load employee data.", Severity.Error);
         }
-    }
-
-    private void NextStep()
-    {
-        if (_currentStep < _steps.Length - 1)
-        {
-            _currentStep++;
-            RecomputePreview();
-        }
-    }
-
-    private void PreviousStep()
-    {
-        if (_currentStep > 0)
-        {
-            _currentStep--;
-        }
-    }
-
-    private void GoToStep(int idx)
-    {
-        if (idx >= 0 && idx < _steps.Length)
-        {
-            _currentStep = idx;
-            RecomputePreview();
-        }
-    }
-
-    private void AddAllowance()
-    {
-        _model.Allowances.Add(new Allowance { Name = "", Amount = 0, Type = AllowanceType.Fixed, Taxable = true });
-        RecomputePreview();
-    }
-
-    private void RecomputePreview()
-    {
-        if (_model.BasicSalary <= 0) { _preview = null; return; }
-        var allowances = _model.Allowances.Select(a => new AllowanceInput
-        {
-            Name = a.Name, Amount = a.Amount,
-            Type = a.Type == AllowanceType.Percentage ? AllowanceTypeInput.Percentage : AllowanceTypeInput.Fixed,
-            Taxable = a.Taxable
-        }).ToList();
-        _preview = PayrollCalculator.Calculate(_model.BasicSalary, allowances, countryConfig: PayrollCountryConfig.Zambia());
-    }
-
-    private async Task Save()
-    {
-        try
-        {
-            _isSaving = true;
-            RecomputePreview();
-            var org = await Db.Organizations.FirstOrDefaultAsync();
-            if (org == null) return;
-            _model.OrganizationId = org.Id;
-
-            if (_isEdit)
-            {
-                await EmployeeSvc.UpdateAsync(_model);
-                await SaveShiftAssignment(_model.Id);
-                Snackbar.Add("Employee updated successfully!", Severity.Success);
-            }
-            else
-            {
-                _model.CreatedAt = DateTime.UtcNow;
-                var created = await EmployeeSvc.CreateAsync(_model);
-                await SaveShiftAssignment(created.Id);
-                Snackbar.Add($"{_model.FullName} added successfully!", Severity.Success);
-            }
-            Nav.NavigateTo("/employees");
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to save: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _isSaving = false;
-        }
-    }
-
-    /// <summary>Persist the selected shift assignment for this employee.</summary>
-    private async Task SaveShiftAssignment(int employeeId)
-    {
-        if (_selectedShiftId is not int shiftId) return;
-
-        // Deactivate any existing active assignment
-        var existing = await Db.EmployeeShiftAssignments
-            .Where(a => a.EmployeeId == employeeId && a.IsActive)
-            .ToListAsync();
-        foreach (var a in existing)
-        {
-            a.IsActive = false;
-            a.EffectiveTo = DateTime.Today;
-        }
-
-        // Create new assignment
-        Db.EmployeeShiftAssignments.Add(new EmployeeShiftAssignment
-        {
-            OrganizationId = _model.OrganizationId,
-            EmployeeId = employeeId,
-            ShiftId = shiftId,
-            EffectiveFrom = DateTime.Today,
-            IsPrimary = true,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await Db.SaveChangesAsync();
     }
 }
