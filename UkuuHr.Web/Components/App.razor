@@ -135,6 +135,24 @@
         })();
 
 
+        // Sidebar toggle (works without Blazor circuit)
+        window.ukuuToggleSidebar = function() {
+            var sidebar = document.querySelector('.bk-admin-sidebar');
+            var main = document.querySelector('.bk-admin-main');
+            if (sidebar) {
+                sidebar.classList.toggle('collapsed');
+                if (main) main.classList.toggle('collapsed');
+            }
+        };
+
+        // Mobile sidebar close (works without Blazor circuit)
+        window.ukuuCloseMobile = function() {
+            var sidebar = document.querySelector('.bk-admin-sidebar');
+            if (sidebar) sidebar.classList.remove('mobile-open');
+            var overlay = document.querySelector('[onclick="ukuuCloseMobile()"]');
+            if (overlay) overlay.style.display = 'none';
+        };
+
         // Add allowance row (works without Blazor circuit)
         window.ukuuAddAllowance = function() {
             var container = document.getElementById('allowances-list');

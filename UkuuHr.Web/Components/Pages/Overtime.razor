@@ -14,10 +14,12 @@
             <p class="bk-admin-sub">Track, calculate, and approve overtime. Auto-calculated from attendance + Hikvision clock events.</p>
         </div>
         <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary" @onclick="AutoCalculate">
-                <span class="material-icons-round" style="font-size:16px;">calculate</span>
-                Auto-Calculate
-            </button>
+            <form method="post" action="/api/overtime/auto-calculate" style="display:inline;">
+                <button type="submit" class="bk-btn bk-btn-secondary">
+                    <span class="material-icons-round" style="font-size:16px;">calculate</span>
+                    Auto-Calculate
+                </button>
+            </form>
             <a href="/overtime/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
                 <span class="material-icons-round" style="font-size:16px;">add</span>
                 Add Overtime
@@ -124,13 +126,17 @@
                         {
                             <td>
                                 <div style="display:flex;gap:4px;">
-                                    <button class="bk-btn bk-btn-primary" style="font-size:11px;padding:6px 12px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;" @onclick="@(() => Approve(ot.Id))">
-                                        <span class="material-icons-round" style="font-size:14px;">check</span>
-                                        Approve
-                                    </button>
-                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;min-height:32px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);" @onclick="@(() => Reject(ot.Id))">
-                                        <span class="material-icons-round" style="font-size:14px;">close</span>
-                                    </button>
+                                    <form method="post" action="/api/overtime/@ot.Id/approve" style="display:inline;">
+                                        <button type="submit" class="bk-btn bk-btn-primary" style="font-size:11px;padding:6px 12px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;">
+                                            <span class="material-icons-round" style="font-size:14px;">check</span>
+                                            Approve
+                                        </button>
+                                    </form>
+                                    <form method="post" action="/api/overtime/@ot.Id/reject" style="display:inline;">
+                                        <button type="submit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;min-height:32px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);">
+                                            <span class="material-icons-round" style="font-size:14px;">close</span>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         }

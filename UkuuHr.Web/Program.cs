@@ -1321,7 +1321,7 @@ app.MapPost("/api/leave", async (
     return Results.Created($"/api/leave/{created.Id}", new { id = created.Id, status = created.Status });
 }).WithName("LeaveCreate");
 
-// POST /api/leave/{id}/approve — approve a leave request
+// POST /api/leave/{id}/approve — approve a leave request (form POST or JSON)
 app.MapPost("/api/leave/{id:int}/approve", async (
     HttpContext ctx,
     LeaveService svc,
@@ -1331,15 +1331,21 @@ app.MapPost("/api/leave/{id:int}/approve", async (
     var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
-    var body = await ctx.Request.ReadFromJsonAsync<ApprovalBody>();
-    var reviewerEmail = body?.ReviewerEmail ?? "api-client";
+    var reviewerEmail = "admin@ukuuhr.demo";
+    string? notes = null;
+    if (ctx.Request.ContentType?.Contains("application/json") == true)
+    {
+        var body = await ctx.Request.ReadFromJsonAsync<ApprovalBody>();
+        reviewerEmail = body?.ReviewerEmail ?? reviewerEmail;
+        notes = body?.Notes;
+    }
 
-    var result = await svc.ReviewAsync(oid, id, approve: true, reviewerEmail, notes: body?.Notes);
+    var result = await svc.ReviewAsync(oid, id, approve: true, reviewerEmail, notes);
     if (!result) return Results.NotFound(new { error = "Leave request not found." });
-    return Results.Ok(new { status = "approved", id });
-}).WithName("LeaveApprove");
+    return Results.Redirect("/leave?tab=approved&reviewed=1");
+}).WithName("LeaveApprove").DisableAntiforgery();
 
-// POST /api/leave/{id}/reject — reject a leave request
+// POST /api/leave/{id}/reject — reject a leave request (form POST or JSON)
 app.MapPost("/api/leave/{id:int}/reject", async (
     HttpContext ctx,
     LeaveService svc,
@@ -1349,13 +1355,56 @@ app.MapPost("/api/leave/{id:int}/reject", async (
     var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
-    var body = await ctx.Request.ReadFromJsonAsync<ApprovalBody>();
-    var reviewerEmail = body?.ReviewerEmail ?? "api-client";
+    var reviewerEmail = "admin@ukuuhr.demo";
+    string? notes = null;
+    if (ctx.Request.ContentType?.Contains("application/json") == true)
+    {
+        var body = await ctx.Request.ReadFromJsonAsync<ApprovalBody>();
+        reviewerEmail = body?.ReviewerEmail ?? reviewerEmail;
+        notes = body?.Notes;
+    }
 
-    var result = await svc.ReviewAsync(oid, id, approve: false, reviewerEmail, notes: body?.Notes);
+    var result = await svc.ReviewAsync(oid, id, approve: false, reviewerEmail, notes);
     if (!result) return Results.NotFound(new { error = "Leave request not found." });
-    return Results.Ok(new { status = "rejected", id });
-}).WithName("LeaveReject");
+    return Results.Redirect("/leave?tab=rejected&reviewed=1");
+}).WithName("LeaveReject").DisableAntiforgery();
+
+// ───── POST /api/overtime/{id}/approve — approve overtime (form POST) ─────
+app.MapPost("/api/overtime/{id:int}/approve", async (
+    OvertimeService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+    await svc.ApproveAsync(oid, id, "admin@ukuuhr.demo", "Approved.");
+    return Results.Redirect("/overtime?tab=approved&reviewed=1");
+}).WithName("OvertimeApprove").DisableAntiforgery();
+
+// ───── POST /api/overtime/{id}/reject — reject overtime (form POST) ─────
+app.MapPost("/api/overtime/{id:int}/reject", async (
+    OvertimeService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+    await svc.RejectAsync(oid, id, "admin@ukuuhr.demo", "Rejected by admin.");
+    return Results.Redirect("/overtime?tab=pending&reviewed=1");
+}).WithName("OvertimeReject").DisableAntiforgery();
+
+// ───── POST /api/overtime/auto-calculate ─────
+app.MapPost("/api/overtime/auto-calculate", async (
+    OvertimeService svc,
+    UkuuHrDbContext db) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+    var from = DateTime.Today.AddDays(-30);
+    var to = DateTime.Today;
+    var count = await svc.AutoCalculateForDateRangeAsync(oid, from, to);
+    return Results.Redirect($"/overtime?tab=all&calculated={count}");
+}).WithName("OvertimeAutoCalculate").DisableAntiforgery();
 
 // POST /api/leave/{id}/cancel — cancel a leave request
 app.MapPost("/api/leave/{id:int}/cancel", async (

@@ -255,8 +255,8 @@
 
     <div class="bk-admin-main @(_collapsed ? "collapsed" : "")">
         <header class="bk-admin-topbar">
-            <button class="bk-admin-topbar-toggle" @onclick="ToggleSidebar" aria-label="Open menu">
-                <MudIcon Icon="@Icons.Material.Filled.Menu" Size="Size.Medium" />
+            <button class="bk-admin-topbar-toggle" onclick="ukuuToggleSidebar()" aria-label="Open menu">
+                <span class="material-icons-round" style="font-size:22px;">menu</span>
             </button>
 
             @* Mobile brand (visible < 1024px) — replaces the desktop search bar *@
@@ -289,7 +289,7 @@
 
         @if (_mobileOpen)
         {
-            <div @onclick="CloseMobile" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);"></div>
+            <div onclick="ukuuCloseMobile()" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);cursor:pointer;"></div>
         }
 
         <main class="bk-admin-content bk-admin-fade-in">

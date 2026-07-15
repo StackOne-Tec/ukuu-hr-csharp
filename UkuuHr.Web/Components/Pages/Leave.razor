@@ -237,12 +237,16 @@
                             {
                                 <td>
                                     <div style="display:flex;gap:4px;">
-                                        <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;color:var(--bk-accent-3);border-color:var(--bk-accent-3);" @onclick="@(() => Approve(l.Id))" title="Approve">
-                                            <span class="material-icons-round" style="font-size:16px;">check</span>
-                                        </button>
-                                        <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);" @onclick="@(() => Reject(l.Id))" title="Reject">
-                                            <span class="material-icons-round" style="font-size:16px;">close</span>
-                                        </button>
+                                        <form method="post" action="/api/leave/@l.Id/approve" style="display:inline;">
+                                            <button type="submit" class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;color:var(--bk-accent-3);border-color:var(--bk-accent-3);" title="Approve">
+                                                <span class="material-icons-round" style="font-size:16px;">check</span>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="/api/leave/@l.Id/reject" style="display:inline;">
+                                            <button type="submit" class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);" title="Reject">
+                                                <span class="material-icons-round" style="font-size:16px;">close</span>
+                                            </button>
+                                        </form>
                                     </div>
                                 </td>
                             }
