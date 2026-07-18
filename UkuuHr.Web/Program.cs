@@ -1073,6 +1073,20 @@ app.MapDelete("/api/shifts/{id:int}", async (
     return Results.Ok(new { status = "deactivated" });
 }).WithName("ShiftsDelete");
 
+// ───── POST /api/shifts/delete/{id} — delete shift via form POST (works without Blazor circuit) ─────
+app.MapPost("/api/shifts/delete/{id:int}", async (
+    ShiftService svc,
+    UkuuHrDbContext db,
+    int id) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    var deleted = await svc.DeleteShiftAsync(oid, id, actorEmail: "admin@ukuuhr.demo");
+    if (!deleted) return Results.NotFound(new { error = "Shift not found." });
+    return Results.Redirect("/shifts?deleted=1");
+}).WithName("ShiftsDeleteForm").DisableAntiforgery();
+
 // POST /api/shifts/tolerance — save attendance tolerance policy (traditional form POST)
 app.MapPost("/api/shifts/tolerance", async (
     HttpContext ctx,

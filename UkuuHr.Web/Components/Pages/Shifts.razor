@@ -24,13 +24,12 @@
             <p style="color:var(--bk-ink-3);margin:8px 0 20px;max-width:400px;">
                 You need to create an organization before you can manage shifts.
             </p>
-            <button class="bk-btn bk-btn-primary" @onclick="SeedOrg" disabled="@_seeding">
-                @if (_seeding)
-                {
-                    <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;display:inline-block;animation:bk-spin 0.8s linear infinite;"></span>
-                }
-                <span>Create Default Organization</span>
-            </button>
+            <form method="post" action="/api/organization/seed" style="display:inline;">
+                <button type="submit" class="bk-btn bk-btn-primary">
+                    <span class="material-icons-round" style="font-size:16px;">add_business</span>
+                    Create Default Organization
+                </button>
+            </form>
         </div>
     }
     else
@@ -57,7 +56,10 @@
                     <span class="material-icons-round" style="font-size:16px;">calendar_view_week</span>
                     Coverage
                 </a>
-                <button class="bk-btn bk-btn-primary" @onclick="() => OpenShiftDialog(null)">
+                <a href="/shifts/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
+                    <span class="material-icons-round" style="font-size:16px;">add</span>
+                    New Shift
+                </a>
                     <span class="material-icons-round" style="font-size:16px;">add</span>
                     New Shift
                 </button>
@@ -176,11 +178,19 @@
                         </div>
                     }
                     <div style="display:flex;gap:8px;margin-top:16px;">
-                        <button class="bk-btn bk-btn-secondary" style="flex:1;font-size:12px;padding:8px 12px;" @onclick="() => OpenShiftDialog(s)">
+                        <a href="/shifts/@s.Id/edit" class="bk-btn bk-btn-secondary" style="flex:1;font-size:12px;padding:8px 12px;text-decoration:none;text-align:center;">
+                            <span class="material-icons-round" style="font-size:14px;">edit</span>
+                            Edit
+                        </a>
                             <span class="material-icons-round" style="font-size:14px;">edit</span>
                             Edit
                         </button>
-                        <button class="bk-btn bk-btn-secondary" style="flex:1;font-size:12px;padding:8px 12px;color:var(--bk-error);" @onclick="() => DeleteShift(s)">
+                        <form method="post" action="/api/shifts/delete/@s.Id" style="flex:1;" onsubmit="return confirm('Delete shift @s.Name?');">
+                            <button type="submit" class="bk-btn bk-btn-secondary" style="width:100%;font-size:12px;padding:8px 12px;color:var(--bk-error);">
+                                <span class="material-icons-round" style="font-size:14px;">delete</span>
+                                Delete
+                            </button>
+                        </form>
                             <span class="material-icons-round" style="font-size:14px;">delete</span>
                             Delete
                         </button>
@@ -194,7 +204,6 @@
                 <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">schedule</span>
                 <h3 style="margin-top:16px;">No shifts defined yet</h3>
                 <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Create your first shift to start assigning employees. Morning, mid, night — or any custom window.</p>
-                <button class="bk-btn bk-btn-primary" @onclick="() => OpenShiftDialog(null)">
                     <span class="material-icons-round" style="font-size:18px;">add</span>
                     Create First Shift
                 </button>
@@ -203,119 +212,6 @@
     </div>
 }
 
-@* ───── Shift create/edit dialog ───── *@
-@if (_showShiftDialog)
-{
-    <div class="bk-modal-backdrop" @onclick="CloseShiftDialog">
-        <div class="bk-modal" @onclick:stopPropagation style="max-width:640px;">
-            <div class="bk-modal-header">
-                <h3>@(_editingShift?.Id > 0 ? "Edit Shift" : "New Shift")</h3>
-                <button class="bk-modal-close" @onclick="CloseShiftDialog"><span class="material-icons-round">close</span></button>
-            </div>
-            <div class="bk-modal-body">
-                @if (!string.IsNullOrEmpty(_dialogError))
-                {
-                    <div style="margin-bottom:16px;padding:10px 14px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;color:#991b1b;font-size:13px;display:flex;align-items:flex-start;gap:8px;">
-                        <span class="material-icons-round" style="font-size:16px;flex-shrink:0;margin-top:1px;">error_outline</span>
-                        <span>@_dialogError</span>
-                    </div>
-                }
-                <EditForm Model="@_shiftForm" OnValidSubmit="SaveShift">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                        <div class="bk-field" style="grid-column:1/-1;">
-                            <label class="bk-label">Shift Name *</label>
-                            <InputText class="bk-input" @bind-Value="_shiftForm.Name" placeholder="e.g. Day Shift (08:00-17:00)" />
-                        </div>
-                        <div class="bk-field" style="grid-column:1/-1;">
-                            <label class="bk-label">Description</label>
-                            <InputTextArea class="bk-input" @bind-Value="_shiftForm.Description" rows="2" placeholder="Optional notes about this shift" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Shift Type</label>
-                            <InputSelect class="bk-input" @bind-Value="_shiftForm.Kind">
-                                <option value="@ShiftKind.Fixed">Fixed (same time every day)</option>
-                                <option value="@ShiftKind.Rotating">Rotating (cycles between slots)</option>
-                                <option value="@ShiftKind.Flexible">Flexible (employee chooses within core hours)</option>
-                                <option value="@ShiftKind.Overnight">Overnight (crosses midnight)</option>
-                            </InputSelect>
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Color</label>
-                            <input type="color" class="bk-input" style="height:42px;padding:4px;" value="@_shiftForm.Color" @oninput="OnColorInput" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Start Time</label>
-                            <input type="time" class="bk-input" value="@_startTimeStr" @oninput="OnStartTimeInput" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">End Time</label>
-                            <input type="time" class="bk-input" value="@_endTimeStr" @oninput="OnEndTimeInput" />
-                            @if (_shiftForm.IsOvernight)
-                            {
-                                <small style="color:var(--bk-info);font-size:11px;">⚠ Crosses midnight — check-out rolls into next calendar day.</small>
-                            }
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Break (minutes)</label>
-                            <InputNumber class="bk-input" @bind-Value="_shiftForm.BreakMinutes" />
-                        </div>
-                        <div class="bk-field">
-                            <label class="bk-label">Active Days</label>
-                            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-                                @for (int i = 0; i < 7; i++)
-                                {
-                                    var dayIdx = i;
-                                    var dayName = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" }[i];
-                                    var isActive = (_shiftForm.DaysOfWeekMask & (1 << i)) != 0;
-                                    <button type="button" @onclick="() => ToggleShiftDay(dayIdx)"
-                                            style="padding:6px 10px;border-radius:6px;border:1px solid @(isActive ? "var(--bk-ink)" : "var(--bk-line)");background:@(isActive ? "var(--bk-ink)" : "transparent");color:@(isActive ? "white" : "var(--bk-ink-2)");font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">
-                                        @dayName
-                                    </button>
-                                }
-                            </div>
-                        </div>
-                        @if (_shiftForm.Kind == ShiftKind.Rotating)
-                        {
-                            <div class="bk-field">
-                                <label class="bk-label">Rotation Slots</label>
-                                <InputNumber class="bk-input" @bind-Value="_shiftForm.RotationSlots" />
-                            </div>
-                            <div class="bk-field">
-                                <label class="bk-label">Cycle Days</label>
-                                <InputNumber class="bk-input" @bind-Value="_shiftForm.RotationCycleDays" />
-                            </div>
-                        }
-                        @if (_shiftForm.Kind == ShiftKind.Flexible)
-                        {
-                            <div class="bk-field">
-                                <label class="bk-label">Min Hours</label>
-                                <InputNumber class="bk-input" @bind-Value="_shiftForm.FlexibleMinHours" />
-                            </div>
-                            <div class="bk-field">
-                                <label class="bk-label">Max Hours</label>
-                                <InputNumber class="bk-input" @bind-Value="_shiftForm.FlexibleMaxHours" />
-                            </div>
-                        }
-                    </div>
-                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
-                        <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseShiftDialog" disabled="@_isSaving">Cancel</button>
-                        <button type="submit" class="bk-btn bk-btn-primary" disabled="@_isSaving" style="@(_isSaving ? "opacity:0.7;cursor:not-allowed;" : "")">
-                            @if (_isSaving)
-                            {
-                                <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;display:inline-block;animation:bk-spin 0.8s linear infinite;"></span>
-                            }
-                            else
-                            {
-                                <span class="material-icons-round" style="font-size:16px;">save</span>
-                            }
-                            @(_editingShift?.Id > 0 ? "Update Shift" : "Create Shift")
-                        </button>
-                    </div>
-                </EditForm>
-            </div>
-        </div>
-    </div>
-}
 </div>
 
 @code {
@@ -326,14 +222,9 @@
     // Loading & org state
     private bool _loaded;
     private bool _orgMissing;
-    private bool _seeding;
 
     // Shift dialog state
-    private bool _showShiftDialog;
-    private bool _isSaving;
     private string _dialogError = "";
-    private Shift? _editingShift;
-    private Shift _shiftForm = new();
     private string _startTimeStr = "08:00";
     private string _endTimeStr = "17:00";
 
@@ -366,157 +257,3 @@
         }
     }
 
-    private async Task SeedOrg()
-    {
-        if (_seeding) return;
-        _seeding = true;
-        try
-        {
-            Db.Organizations.Add(new Organization
-            {
-                Name = "My Organization",
-                Country = "Zambia",
-                Industry = "Technology",
-                OwnerUserId = "system",
-                CreatedAt = DateTime.UtcNow
-            });
-            await Db.SaveChangesAsync();
-            Nav.NavigateTo("/shifts", forceLoad: true);
-        }
-        finally
-        {
-            _seeding = false;
-        }
-    }
-
-    // ───── Shift dialog handlers ─────
-    private void OpenShiftDialog(Shift? existing)
-    {
-        _dialogError = "";
-        _editingShift = existing;
-        if (existing != null)
-        {
-            _shiftForm = new Shift
-            {
-                Id = existing.Id,
-                Name = existing.Name,
-                Description = existing.Description,
-                Kind = existing.Kind,
-                Color = existing.Color,
-                StartMinutes = existing.StartMinutes,
-                EndMinutes = existing.EndMinutes,
-                BreakMinutes = existing.BreakMinutes,
-                DaysOfWeekMask = existing.DaysOfWeekMask,
-                RotationCycleDays = existing.RotationCycleDays,
-                RotationSlots = existing.RotationSlots,
-                FlexibleMinHours = existing.FlexibleMinHours,
-                FlexibleMaxHours = existing.FlexibleMaxHours,
-                FlexibleCoreStartMinutes = existing.FlexibleCoreStartMinutes,
-                FlexibleCoreEndMinutes = existing.FlexibleCoreEndMinutes,
-                IsActive = existing.IsActive
-            };
-            _startTimeStr = TimeSpan.FromMinutes(existing.StartMinutes).ToString(@"hh\:mm");
-            _endTimeStr = TimeSpan.FromMinutes(existing.EndMinutes).ToString(@"hh\:mm");
-        }
-        else
-        {
-            _shiftForm = new Shift
-            {
-                Color = "#25163F",
-                StartMinutes = 8 * 60,
-                EndMinutes = 17 * 60,
-                BreakMinutes = 60,
-                DaysOfWeekMask = 0b0011111,
-                RotationCycleDays = 7,
-                RotationSlots = 2,
-                FlexibleMinHours = 6.0,
-                FlexibleMaxHours = 9.0,
-                IsActive = true
-            };
-            _startTimeStr = "08:00";
-            _endTimeStr = "17:00";
-        }
-        _showShiftDialog = true;
-    }
-
-    private void CloseShiftDialog() => _showShiftDialog = false;
-
-    private async Task SaveShift()
-    {
-        _dialogError = "";
-        _isSaving = true;
-        try
-        {
-            // Parse times.
-            if (TimeSpan.TryParse(_startTimeStr, out var st)) _shiftForm.StartMinutes = (int)st.TotalMinutes;
-            if (TimeSpan.TryParse(_endTimeStr, out var et)) _shiftForm.EndMinutes = (int)et.TotalMinutes;
-
-            // Validate via engine.
-            var errors = ShiftEngine.ValidateShift(_shiftForm);
-            if (errors.Count > 0)
-            {
-                _dialogError = string.Join(" ", errors);
-                return;
-            }
-
-            if (_editingShift != null && _editingShift.Id > 0)
-            {
-                await ShiftSvc.UpdateShiftAsync(_orgId, _shiftForm, "admin@ukuuhr.demo");
-                Snackbar.Add($"Shift '{_shiftForm.Name}' updated.", Severity.Success);
-            }
-            else
-            {
-                await ShiftSvc.CreateShiftAsync(_orgId, _shiftForm, "admin@ukuuhr.demo");
-                Snackbar.Add($"Shift '{_shiftForm.Name}' created.", Severity.Success);
-            }
-            _shifts = await Db.Shifts.Where(s => s.OrganizationId == _orgId && s.IsActive).OrderBy(s => s.Name).ToListAsync();
-            _showShiftDialog = false;
-        }
-        catch (Exception ex)
-        {
-            _dialogError = ex.Message;
-        }
-        finally
-        {
-            _isSaving = false;
-        }
-    }
-
-    private async Task DeleteShift(Shift s)
-    {
-        try
-        {
-            await ShiftSvc.DeleteShiftAsync(_orgId, s.Id, "admin@ukuuhr.demo");
-            _shifts = await Db.Shifts.Where(x => x.OrganizationId == _orgId && x.IsActive).OrderBy(x => x.Name).ToListAsync();
-            _assignments = await Db.EmployeeShiftAssignments.Include(a => a.Shift).Include(a => a.Employee)
-                .Where(a => a.OrganizationId == _orgId && a.IsActive).ToListAsync();
-            Snackbar.Add($"Shift '{s.Name}' deactivated.", Severity.Info);
-        }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
-    }
-
-    private void ToggleShiftDay(int dayIdx)
-    {
-        _shiftForm.DaysOfWeekMask ^= (1 << dayIdx);
-    }
-
-    // ───── Helpers ─────
-    private static string ShiftKindClass(ShiftKind kind) => kind switch
-    {
-        ShiftKind.Fixed => "approved",
-        ShiftKind.Rotating => "pending",
-        ShiftKind.Overnight => "rejected",
-        ShiftKind.Flexible => "info",
-        _ => ""
-    };
-
-    // ───── Input handlers ─────
-    private void OnColorInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-        => _shiftForm.Color = e.Value?.ToString() ?? "#25163F";
-
-    private void OnStartTimeInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-        => _startTimeStr = e.Value?.ToString() ?? "08:00";
-
-    private void OnEndTimeInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-        => _endTimeStr = e.Value?.ToString() ?? "17:00";
-}
