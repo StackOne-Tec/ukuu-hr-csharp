@@ -3,10 +3,8 @@
 @page "/scheduling"
 @attribute [Authorize(Policy = "HrOrAdmin")]
 @using Microsoft.EntityFrameworkCore
-@inject NavigationManager Nav
 @inject ShiftService ShiftSvc
 @inject UkuuHrDbContext Db
-@inject ISnackbar Snackbar
 
 <div class="bk-admin-fade-in">
     @if (!_loaded)
