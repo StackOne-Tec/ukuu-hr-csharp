@@ -252,4 +252,12 @@
         }
     }
 
+    private static string ShiftKindClass(ShiftKind kind) => kind switch
+    {
+        ShiftKind.Fixed => "active",
+        ShiftKind.Rotating => "pending",
+        ShiftKind.Overnight => "approved",
+        ShiftKind.Flexible => "active",
+        _ => "active"
+    };
 }
