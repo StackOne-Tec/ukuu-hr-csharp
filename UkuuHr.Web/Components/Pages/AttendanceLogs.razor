@@ -54,6 +54,10 @@
                 <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">calendar_month</span>
                 Monthly
             </a>
+            <a href="/attendance-logs?tab=custom&from=@_dateStr&to=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "custom" ? "var(--bk-ink)" : "transparent");color:@(_tab == "custom" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
+                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">tune</span>
+                Custom
+            </a>
         </div>
 
         @* ───── Date filter ───── *@
@@ -62,24 +66,41 @@
                 <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">filter_list</span>
                 <span style="font-size:13px;font-weight:600;color:var(--bk-ink);">Filter by date:</span>
             </div>
-            <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;">
-                <input type="hidden" name="tab" value="@_tab" />
-                <input type="date" name="date" value="@_dateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
-                <button type="submit" class="bk-btn bk-btn-primary" style="font-size:12px;padding:6px 14px;height:38px;">
-                    <span class="material-icons-round" style="font-size:14px;">search</span>
-                    Apply
-                </button>
-            </form>
-            <div style="margin-left:auto;display:flex;gap:6px;">
-                <a href="/attendance-logs?tab=@_tab&date=@_prevDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
-                    <span class="material-icons-round" style="font-size:14px;">chevron_left</span>
-                    @(_tab == "daily" ? "Prev Day" : _tab == "weekly" ? "Prev Week" : "Prev Month")
-                </a>
-                <a href="/attendance-logs?tab=@_tab&date=@_nextDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
-                    @(_tab == "daily" ? "Next Day" : _tab == "weekly" ? "Next Week" : "Next Month")
-                    <span class="material-icons-round" style="font-size:14px;">chevron_right</span>
-                </a>
-            </div>
+            @if (_tab == "custom")
+            {
+                <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input type="hidden" name="tab" value="custom" />
+                    <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">From:</label>
+                    <input type="date" name="from" value="@_fromDateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
+                    <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">To:</label>
+                    <input type="date" name="to" value="@_toDateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
+                    <button type="submit" class="bk-btn bk-btn-primary" style="font-size:12px;padding:6px 14px;height:38px;">
+                        <span class="material-icons-round" style="font-size:14px;">search</span>
+                        Apply
+                    </button>
+                </form>
+            }
+            else
+            {
+                <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;">
+                    <input type="hidden" name="tab" value="@_tab" />
+                    <input type="date" name="date" value="@_dateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
+                    <button type="submit" class="bk-btn bk-btn-primary" style="font-size:12px;padding:6px 14px;height:38px;">
+                        <span class="material-icons-round" style="font-size:14px;">search</span>
+                        Apply
+                    </button>
+                </form>
+                <div style="margin-left:auto;display:flex;gap:6px;">
+                    <a href="/attendance-logs?tab=@_tab&date=@_prevDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
+                        <span class="material-icons-round" style="font-size:14px;">chevron_left</span>
+                        @(_tab == "daily" ? "Prev Day" : _tab == "weekly" ? "Prev Week" : "Prev Month")
+                    </a>
+                    <a href="/attendance-logs?tab=@_tab&date=@_nextDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
+                        @(_tab == "daily" ? "Next Day" : _tab == "weekly" ? "Next Week" : "Next Month")
+                        <span class="material-icons-round" style="font-size:14px;">chevron_right</span>
+                    </a>
+                </div>
+            }
         </div>
 
         @* ───── Legend ───── *@
@@ -277,6 +298,59 @@
                 }
             </div>
         }
+
+        @* ───── Custom tab ───── *@
+        @if (_tab == "custom")
+        {
+            <div class="bk-admin-card" style="overflow:hidden;">
+                <div style="padding:16px 20px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <h3 style="font-size:14px;font-weight:700;margin:0;">Custom Range — @_fromDate.ToString("dd MMM yyyy") to @_toDate.ToString("dd MMM yyyy")</h3>
+                        <p style="font-size:12px;color:var(--bk-ink-3);margin:2px 0 0;">@_customRows.Count employees · @((_toDate - _fromDate).Days + 1) days</p>
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="bk-admin-table bk-mobile-card-view">
+                        <thead>
+                            <tr>
+                                <th>First Name</th>
+                                <th>Last Name</th>
+                                <th>Employee ID</th>
+                                <th>Department</th>
+                                <th>Total Worked Hrs</th>
+                                <th>Late Hrs</th>
+                                <th>OT Workday</th>
+                                <th>OT Weekend</th>
+                                <th>OT Holiday</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _customRows)
+                            {
+                                <tr>
+                                    <td style="font-weight:600;font-size:13px;">@row.FirstName</td>
+                                    <td style="font-size:13px;">@row.LastName</td>
+                                    <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@row.EmployeeCode</td>
+                                    <td style="font-size:12px;color:var(--bk-ink-3);">@row.Department</td>
+                                    <td style="font-weight:700;color:var(--bk-accent);font-size:13px;">@row.TotalWorkedLabel</td>
+                                    <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.LateLabel</td>
+                                    <td style="font-size:12px;color:@(row.OvertimeWorkday > 0 ? "var(--bk-accent-2)" : "var(--bk-ink-3)");">@row.OtWorkdayLabel</td>
+                                    <td style="font-size:12px;color:@(row.OvertimeWeekend > 0 ? "var(--bk-accent)" : "var(--bk-ink-3)");">@row.OtWeekendLabel</td>
+                                    <td style="font-size:12px;color:@(row.OvertimeHoliday > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.OtHolidayLabel</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (!_customRows.Any())
+                {
+                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                        <span class="material-icons-round" style="font-size:32px;">date_range</span>
+                        <p style="font-size:13px;margin-top:8px;">No attendance data for this date range.</p>
+                    </div>
+                }
+            </div>
+        }
     }
 </div>
 
@@ -286,12 +360,17 @@
     private string _dateStr = DateTime.Today.ToString("yyyy-MM-dd");
     private string _prevDateStr = "";
     private string _nextDateStr = "";
+    private DateTime _fromDate = DateTime.Today.AddDays(-7);
+    private DateTime _toDate = DateTime.Today;
+    private string _fromDateStr = DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd");
+    private string _toDateStr = DateTime.Today.ToString("yyyy-MM-dd");
     private int _daysInMonth;
     private string? _loadError;
 
     private List<DailyAttendanceRow> _daily = new();
     private List<WeeklyAttendanceRow> _weekly = new();
     private List<MonthlyAttendanceRow> _monthly = new();
+    private List<WeeklyAttendanceRow> _customRows = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -302,11 +381,19 @@
             var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
             var qTab = query["tab"];
             var qDate = query["date"];
-            if (!string.IsNullOrEmpty(qTab) && (qTab == "daily" || qTab == "weekly" || qTab == "monthly"))
+            var qFrom = query["from"];
+            var qTo = query["to"];
+            if (!string.IsNullOrEmpty(qTab) && (qTab == "daily" || qTab == "weekly" || qTab == "monthly" || qTab == "custom"))
                 _tab = qTab;
             if (DateTime.TryParse(qDate, out var parsedDate))
                 _date = parsedDate;
+            if (DateTime.TryParse(qFrom, out var parsedFrom))
+                _fromDate = parsedFrom;
+            if (DateTime.TryParse(qTo, out var parsedTo))
+                _toDate = parsedTo;
             _dateStr = _date.ToString("yyyy-MM-dd");
+            _fromDateStr = _fromDate.ToString("yyyy-MM-dd");
+            _toDateStr = _toDate.ToString("yyyy-MM-dd");
 
             // Compute prev/next dates
             _prevDateStr = (_tab switch { "weekly" => _date.AddDays(-7), "monthly" => _date.AddMonths(-1), _ => _date.AddDays(-1) }).ToString("yyyy-MM-dd");
@@ -325,8 +412,10 @@
                 _daily = await TimeCardSvc.GetDailyAsync(org.Id, _date);
             else if (_tab == "weekly")
                 _weekly = await TimeCardSvc.GetWeeklyAsync(org.Id, _date);
-            else
+            else if (_tab == "monthly")
                 _monthly = await TimeCardSvc.GetMonthlyAsync(org.Id, _date);
+            else if (_tab == "custom")
+                _customRows = await TimeCardSvc.GetCustomRangeAsync(org.Id, _fromDate, _toDate);
         }
         catch (Exception ex)
         {

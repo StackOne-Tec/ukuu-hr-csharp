@@ -113,6 +113,16 @@ public class TimeCardService
         return await GetRangeAsync(orgId, monday, sunday, "weekly");
     }
 
+    // ───────────── Custom Date Range ─────────────
+
+    /// <summary>
+    /// Custom date range attendance. Same format as weekly but with arbitrary start/end dates.
+    /// </summary>
+    public async Task<List<WeeklyAttendanceRow>> GetCustomRangeAsync(int orgId, DateTime fromDate, DateTime toDate)
+    {
+        return await GetRangeAsync(orgId, fromDate.Date, toDate.Date, "custom");
+    }
+
     // ───────────── Monthly Attendance ─────────────
 
     /// <summary>
