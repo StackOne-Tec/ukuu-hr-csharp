@@ -39,37 +39,66 @@
             <p>Select the period and parameters for your report.</p>
         </div>
         <div class="bk-admin-card-content">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--bk-line);margin-bottom:18px;padding-bottom:12px;">
+                @foreach (var option in _periodOptions)
+                {
+                    var isActive = _selectedPeriod == option.Value;
+                    <button type="button"
+                            @onclick="() => SelectPeriod(option.Value)"
+                            style="@GetPeriodButtonStyle(isActive)">
+                        <span class="material-icons-round" style="font-size:20px;">@option.Icon</span>
+                        <span>@option.Label</span>
+                    </button>
+                }
+            </div>
+
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;">
                 <div class="bk-field">
                     <label class="bk-label">Report Period</label>
-                    <div class="bk-input-wrap">
-                        <span class="material-icons-round bk-input-icon">calendar_month</span>
-                        <select class="bk-input" @bind="_selectedPeriod" @bind:event="onchange" style="padding-left:44px;">
-                            <option value="Daily">Daily</option>
-                            <option value="Weekly">Weekly (Last 7 Days)</option>
-                            <option value="Monthly">Monthly</option>
-                            <option value="Custom">Custom Range</option>
-                        </select>
+                    <div class="bk-input" style="display:flex;align-items:center;gap:10px;padding-left:16px;background:var(--bk-bg);">
+                        <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">calendar_month</span>
+                        <span>@GetPeriodDisplayName()</span>
                     </div>
                 </div>
 
-                <div class="bk-field">
-                    <label class="bk-label">From Date</label>
-                    <div class="bk-input-wrap">
-                        <span class="material-icons-round bk-input-icon">today</span>
-                        <input type="date" class="bk-input" @bind="_fromDate" @bind:event="onchange"
-                               style="padding-left:44px;" />
+                @if (_selectedPeriod == "Custom")
+                {
+                    <div class="bk-field">
+                        <label class="bk-label">Start Date</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon">today</span>
+                            <input type="date" class="bk-input" @bind="_fromDate" @bind:event="onchange"
+                                   style="padding-left:44px;" />
+                        </div>
                     </div>
-                </div>
 
-                <div class="bk-field">
-                    <label class="bk-label">To Date</label>
-                    <div class="bk-input-wrap">
-                        <span class="material-icons-round bk-input-icon">event</span>
-                        <input type="date" class="bk-input" @bind="_toDate" @bind:event="onchange"
-                               style="padding-left:44px;" />
+                    <div class="bk-field">
+                        <label class="bk-label">End Date</label>
+                        <div class="bk-input-wrap">
+                            <span class="material-icons-round bk-input-icon">event</span>
+                            <input type="date" class="bk-input" @bind="_toDate" @bind:event="onchange"
+                                   style="padding-left:44px;" />
+                        </div>
                     </div>
-                </div>
+                }
+                else
+                {
+                    <div class="bk-field">
+                        <label class="bk-label">Start Date</label>
+                        <div class="bk-input" style="display:flex;align-items:center;gap:10px;padding-left:16px;background:var(--bk-bg);">
+                            <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">today</span>
+                            <span>@_fromDate.ToString("dd MMM yyyy")</span>
+                        </div>
+                    </div>
+
+                    <div class="bk-field">
+                        <label class="bk-label">End Date</label>
+                        <div class="bk-input" style="display:flex;align-items:center;gap:10px;padding-left:16px;background:var(--bk-bg);">
+                            <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">event</span>
+                            <span>@_toDate.ToString("dd MMM yyyy")</span>
+                        </div>
+                    </div>
+                }
             </div>
 
             @if (_selectedPeriod == "Custom")
@@ -227,6 +256,13 @@
     private AttendanceReport? _report;
     private bool _loading;
     private int _orgId;
+    private readonly (string Value, string Label, string Icon)[] _periodOptions =
+    {
+        ("Daily", "Daily", "calendar_today"),
+        ("Weekly", "Weekly", "date_range"),
+        ("Monthly", "Monthly", "calendar_view_month"),
+        ("Custom", "Custom", "edit_calendar")
+    };
     private string _periodLabel => _selectedPeriod switch
     {
         "Daily" => $"Today ({_fromDate:dd MMM yyyy})",
@@ -245,6 +281,12 @@
     }
 
     private bool CanGenerate() => _toDate >= _fromDate;
+
+    private void SelectPeriod(string period)
+    {
+        _selectedPeriod = period;
+        UpdateDateRange();
+    }
 
     private void UpdateDateRange()
     {
@@ -265,6 +307,17 @@
             // Custom: keep existing _fromDate/_toDate
         }
     }
+
+    private string GetPeriodDisplayName() => _selectedPeriod switch
+    {
+        "Weekly" => "Weekly (Last 7 Days)",
+        "Custom" => "Custom Range",
+        _ => _selectedPeriod
+    };
+
+    private static string GetPeriodButtonStyle(bool isActive) =>
+        $"display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border:none;border-bottom:2px solid {(isActive ? "var(--bk-accent)" : "transparent")};" +
+        $"background:transparent;color:{(isActive ? "var(--bk-ink)" : "var(--bk-ink-3)")};font-size:14px;font-weight:{(isActive ? "700" : "600")};cursor:pointer;";
 
     private async Task GenerateReport()
     {
