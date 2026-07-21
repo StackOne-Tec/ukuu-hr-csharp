@@ -324,17 +324,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-        _orgId = org.Id;
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null) return;
+            _orgId = org.Id;
 
-        _shifts = await Db.Shifts.Where(s => s.OrganizationId == _orgId && s.IsActive).OrderBy(s => s.Name).ToListAsync();
-        _assignments = await Db.EmployeeShiftAssignments
-            .Include(a => a.Shift)
-            .Include(a => a.Employee)
-            .Where(a => a.OrganizationId == _orgId && a.IsActive)
-            .ToListAsync();
-        _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+            _shifts = await Db.Shifts.Where(s => s.OrganizationId == _orgId && s.IsActive).OrderBy(s => s.Name).ToListAsync();
+            _assignments = await Db.EmployeeShiftAssignments
+                .Include(a => a.Shift)
+                .Include(a => a.Employee)
+                .Where(a => a.OrganizationId == _orgId && a.IsActive)
+                .ToListAsync();
+            _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[ShiftAssignments] Failed to load: {ex.Message}");
+        }
     }
 
     // ───── Assign dialog handlers ─────

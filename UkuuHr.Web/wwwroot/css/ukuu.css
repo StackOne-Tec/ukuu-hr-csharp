@@ -108,12 +108,31 @@ h1, h2, h3, h4, h5, h6 {
 
 #blazor-error-ui {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: fixed !important;
+    z-index: -1 !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
     background: var(--ukuu-error-bg);
     color: var(--ukuu-error);
     border: 1px solid var(--ukuu-error);
     border-radius: var(--ukuu-radius-md);
     padding: 16px 20px;
     box-shadow: var(--ukuu-shadow-lg);
+}
+
+/* Additional guard: if JS forces display:block, this keeps the UI invisible */
+#blazor-error-ui[style*="display: block"],
+#blazor-error-ui[style*="display:block"] {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
 }
 
 #blazor-error-ui .dismiss { cursor: pointer; margin-left: 1rem; }
