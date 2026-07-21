@@ -315,7 +315,9 @@
                 // Skip links with target="_blank"
                 if (link.target === '_blank') return;
 
-                // Skip form-submit buttons (they have onclick handlers, not navigation)
+                // Skip links with their own onclick handler (they handle navigation themselves)
+                if (link.hasAttribute('onclick') || link.hasAttribute('data-direct')) return;
+                // Skip form-submit buttons (not anchor tags)
                 if (link.classList.contains('bk-btn') && link.tagName !== 'A') return;
 
                 // Play exit animation + navigate
