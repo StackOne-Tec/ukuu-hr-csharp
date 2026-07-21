@@ -116,6 +116,49 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: var(--ukuu-shadow-lg);
 }
 
+#blazor-error-ui .dismiss { cursor: pointer; margin-left: 1rem; }
+
+.loading-progress {
+    position: relative;
+    display: block;
+    width: 8rem;
+    height: 8rem;
+    margin: 20vh auto 1rem auto;
+}
+
+.loading-progress circle {
+    fill: none;
+    stroke: #25163F;
+    stroke-width: 0.1rem;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+}
+
+.loading-progress circle:last-child {
+    stroke: #9C8FB8;
+    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+    transition: stroke-dasharray 0.05s ease-in-out;
+}
+
+.loading-progress-text {
+    position: relative;
+    text-align: center;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    color: #4A3C68;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+}
+
+code {
+    background: #F3F1F6;
+    color: #25163F;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.875em;
+}
+
 /* ───── MudBlazor theme overrides for world-class polish ───── */
 .mud-card {
     background: var(--ukuu-surface);
