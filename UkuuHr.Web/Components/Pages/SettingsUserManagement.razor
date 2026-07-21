@@ -3,7 +3,6 @@
 @attribute [Authorize(Policy = "UserManagement")]
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db
-@inject IHttpContextAccessor HttpAccessor
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -329,12 +328,19 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        if (org == null) return;
-        _orgId = org.Id;
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null) return;
+            _orgId = org.Id;
 
-        _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == _orgId).OrderByDescending(u => u.CreatedAt).ToListAsync();
-        _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).OrderBy(e => e.FullName).ToListAsync();
+            _userAccounts = await Db.UserAccounts.Where(u => u.OrganizationId == _orgId).OrderByDescending(u => u.CreatedAt).ToListAsync();
+            _employees = await Db.Employees.Where(e => e.OrganizationId == _orgId).OrderBy(e => e.FullName).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[UserManagement] Failed to load data: {ex.Message}");
+        }
     }
 
     // ───── Invite dialog ─────
