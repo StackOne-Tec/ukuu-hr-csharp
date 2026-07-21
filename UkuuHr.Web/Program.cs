@@ -2497,6 +2497,135 @@ app.MapGet("/api/time-cards/export", async (
     return Results.File(bytes, "text/csv; charset=utf-8", filename);
 }).WithName("TimeCardExport");
 
+// ───────────── Coupon Management API (Super Admin) ─────────────
+
+// POST /api/super-admin/coupons/create — create a new coupon (requires super_admin role)
+app.MapPost("/api/super-admin/coupons/create", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    if (!ctx.User.IsInRole("super_admin"))
+        return Results.Json(new { error = "Unauthorized. Super Admin role required." }, statusCode: 403);
+
+    var form = await ctx.Request.ReadFormAsync();
+    var code = form["Code"].ToString().Trim().ToUpperInvariant();
+    var description = form["Description"].ToString().Trim();
+    var discountPercent = int.TryParse(form["DiscountPercent"], out var dp) ? dp : 100;
+    var applicablePlan = form["ApplicablePlan"].ToString().Trim();
+    var maxUses = int.TryParse(form["MaxUses"], out var mu) ? mu : 1;
+    var expiresAtStr = form["ExpiresAtStr"].ToString().Trim();
+
+    if (string.IsNullOrWhiteSpace(code))
+        return Results.Redirect("/super-admin?error=Code is required");
+    if (!DateTime.TryParse(expiresAtStr, out var expiresAt))
+        return Results.Redirect("/super-admin?error=Valid expiry date is required");
+
+    var existing = await db.CouponCodes.FirstOrDefaultAsync(c => c.Code == code);
+    if (existing != null)
+        return Results.Redirect("/super-admin?error=Coupon code already exists");
+
+    var email = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "admin@ukuuhr.demo";
+
+    db.CouponCodes.Add(new CouponCode
+    {
+        Code = code,
+        Description = description,
+        DiscountPercent = Math.Clamp(discountPercent, 0, 100),
+        ApplicablePlan = string.IsNullOrWhiteSpace(applicablePlan) ? "Annual" : applicablePlan,
+        MaxUses = Math.Max(0, maxUses),
+        UsedCount = 0,
+        ExpiresAt = expiresAt,
+        IsActive = true,
+        CreatedByEmail = email,
+        CreatedAt = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("Coupon created: {Code} by {Email}", code, email);
+    return Results.Redirect("/super-admin?created=1");
+}).WithName("CouponCreate").DisableAntiforgery();
+
+// POST /api/super-admin/coupons/revoke — revoke a coupon
+app.MapPost("/api/super-admin/coupons/revoke", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    if (!ctx.User.IsInRole("super_admin"))
+        return Results.Json(new { error = "Unauthorized." }, statusCode: 403);
+
+    var form = await ctx.Request.ReadFormAsync();
+    var couponId = int.TryParse(form["CouponId"], out var id) ? id : 0;
+
+    var coupon = await db.CouponCodes.FirstOrDefaultAsync(c => c.Id == couponId);
+    if (coupon == null)
+        return Results.Redirect("/super-admin?error=Coupon not found");
+
+    coupon.IsActive = false;
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("Coupon revoked: {Code} by {Email}", coupon.Code,
+        ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "unknown");
+    return Results.Redirect("/super-admin?revoked=1");
+}).WithName("CouponRevoke").DisableAntiforgery();
+
+// POST /api/subscription/redeem-coupon — redeem a coupon (any authenticated user)
+app.MapPost("/api/subscription/redeem-coupon", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    if (!ctx.User.Identity?.IsAuthenticated == true)
+        return Results.Json(new { error = "Unauthorized. Please sign in." }, statusCode: 401);
+
+    var form = await ctx.Request.ReadFormAsync();
+    var code = form["CouponCode"].ToString().Trim().ToUpperInvariant();
+
+    if (string.IsNullOrWhiteSpace(code))
+        return Results.Redirect("/settings?coupon=error&msg=Code is required");
+
+    var coupon = await db.CouponCodes.FirstOrDefaultAsync(c => c.Code == code);
+    if (coupon == null)
+        return Results.Redirect("/settings?coupon=error&msg=Coupon not found");
+
+    if (!coupon.IsActive)
+        return Results.Redirect("/settings?coupon=error&msg=Coupon has been revoked");
+
+    if (DateTime.UtcNow >= coupon.ExpiresAt)
+        return Results.Redirect("/settings?coupon=error&msg=Coupon has expired");
+
+    if (coupon.MaxUses > 0 && coupon.UsedCount >= coupon.MaxUses)
+        return Results.Redirect("/settings?coupon=error&msg=Coupon has reached max uses");
+
+    var email = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "unknown";
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null)
+        return Results.Redirect("/settings?coupon=error&msg=No organization found");
+
+    // Check if org already redeemed this coupon
+    var alreadyRedeemed = await db.CouponRedemptions
+        .AnyAsync(r => r.CouponCodeId == coupon.Id && r.OrganizationId == org.Id);
+    if (alreadyRedeemed)
+        return Results.Redirect("/settings?coupon=error&msg=Already redeemed this coupon");
+
+    // Record redemption
+    db.CouponRedemptions.Add(new CouponRedemption
+    {
+        CouponCodeId = coupon.Id,
+        OrganizationId = org.Id,
+        RedeemedByEmail = email,
+        RedeemedAt = DateTime.UtcNow
+    });
+
+    coupon.UsedCount++;
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("Coupon redeemed: {Code} by {Email} for org {OrgId}",
+        coupon.Code, email, org.Id);
+    return Results.Redirect("/settings?coupon=success");
+}).WithName("CouponRedeem").DisableAntiforgery();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -535,6 +535,38 @@ public static class DbSeeder
         );
         await db.SaveChangesAsync();
 
+        // ───── Demo coupon ─────
+        if (!await db.CouponCodes.AnyAsync())
+        {
+            db.CouponCodes.Add(new CouponCode
+            {
+                Code = "UKUU-LAUNCH-2026",
+                Description = "Launch promo — 100% off Annual plan for early adopters",
+                DiscountPercent = 100,
+                ApplicablePlan = "Annual",
+                MaxUses = 10,
+                UsedCount = 0,
+                ExpiresAt = DateTime.UtcNow.AddYears(1),
+                IsActive = true,
+                CreatedByEmail = "admin@ukuuhr.demo",
+                CreatedAt = DateTime.UtcNow.AddDays(-1)
+            });
+            db.CouponCodes.Add(new CouponCode
+            {
+                Code = "UKUU-FREE-MONTH",
+                Description = "Free month trial — Monthly plan discount",
+                DiscountPercent = 100,
+                ApplicablePlan = "Monthly",
+                MaxUses = 50,
+                UsedCount = 0,
+                ExpiresAt = DateTime.UtcNow.AddMonths(6),
+                IsActive = true,
+                CreatedByEmail = "admin@ukuuhr.demo",
+                CreatedAt = DateTime.UtcNow.AddDays(-1)
+            });
+            await db.SaveChangesAsync();
+        }
+
         // ───── License code ─────
         db.LicenseCodes.Add(new LicenseCode
         {

@@ -1,0 +1,249 @@
+@page "/super-admin"
+@attribute [Authorize(Policy = "SuperAdminOnly")]
+@using Microsoft.EntityFrameworkCore
+@using System.ComponentModel.DataAnnotations
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Super Admin · @_activeCoupons active coupons</div>
+            <h1 class="bk-admin-h1">Super Admin Dashboard</h1>
+            <p class="bk-admin-sub">
+                Issue and manage subscription coupons for organizations. Coupons can be redeemed
+                by any organization admin to activate their subscription.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-primary" onclick="document.getElementById('create-coupon-form').style.display='block'; return false;">
+                <span class="material-icons-round" style="font-size:16px;">add</span>
+                Issue New Coupon
+            </button>
+        </div>
+    </div>
+
+    @* ───── KPI cards ───── *@
+    <div class="bk-admin-kpi-grid">
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">discount</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_activeCoupons</div>
+            <div class="bk-admin-kpi-label">Active Coupons</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">redeem</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_totalRedemptions</div>
+            <div class="bk-admin-kpi-label">Total Redemptions</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">business</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_redeemedOrgs</div>
+            <div class="bk-admin-kpi-label">Organizations Using Coupons</div>
+        </div>
+        <div class="bk-admin-kpi-card">
+            <div class="bk-admin-kpi-card-top">
+                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">schedule</span></div>
+            </div>
+            <div class="bk-admin-kpi-value">@_expiringSoon</div>
+            <div class="bk-admin-kpi-label">Expiring in 30 Days</div>
+        </div>
+    </div>
+
+    @* ───── Create Coupon Form (hidden by default) ───── *@
+    <div id="create-coupon-form" style="display:none;" class="bk-admin-card" style="margin-bottom:24px;">
+        <div class="bk-admin-card-header">
+            <h3>Issue New Coupon</h3>
+            <p>Create a coupon code that organizations can redeem for subscription access.</p>
+        </div>
+        <form method="post" action="/api/super-admin/coupons/create" class="bk-admin-card-content">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+                <div class="bk-field">
+                    <label class="bk-label">Coupon Code *</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">vpn_key</span>
+                        <input type="text" class="bk-input" style="padding-left:36px;" name="Code" placeholder="e.g. UKUU-SUPER-2026" required maxlength="50" />
+                    </div>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Discount %</label>
+                    <input type="number" class="bk-input" name="DiscountPercent" value="100" min="0" max="100" />
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Applicable Plan</label>
+                    <select class="bk-input" name="ApplicablePlan">
+                        <option value="Annual">Annual</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Both">Both</option>
+                    </select>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Max Uses</label>
+                    <input type="number" class="bk-input" name="MaxUses" value="1" min="0" />
+                    <small style="color:var(--bk-ink-3);font-size:11px;">0 = unlimited</small>
+                </div>
+                <div class="bk-field">
+                    <label class="bk-label">Expires At *</label>
+                    <input type="date" class="bk-input" name="ExpiresAtStr" value="@DateTime.Today.AddYears(1).ToString(\"yyyy-MM-dd\")" required />
+                </div>
+                <div class="bk-field" style="grid-column:1/-1;">
+                    <label class="bk-label">Description</label>
+                    <input type="text" class="bk-input" name="Description" placeholder="What this coupon is for..." maxlength="500" />
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bk-line);">
+                <button type="button" class="bk-btn bk-btn-secondary" onclick="this.closest('#create-coupon-form').style.display='none';">
+                    Cancel
+                </button>
+                <button type="submit" class="bk-btn bk-btn-primary">
+                    <span class="material-icons-round" style="font-size:16px;">add_circle</span>
+                    Issue Coupon
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @* ───── Coupons Table ───── *@
+    <div class="bk-admin-card" style="overflow:hidden;">
+        <div class="bk-admin-card-header">
+            <h3>All Coupons</h3>
+            <p>@_coupons.Count total · sorted by newest first</p>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="bk-admin-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Description</th>
+                        <th>Discount</th>
+                        <th>Plan</th>
+                        <th>Usage</th>
+                        <th>Expires</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _coupons)
+                    {
+                        <tr>
+                            <td style="font-family:var(--ukuu-font-mono);font-weight:700;font-size:13px;">@c.Code</td>
+                            <td style="font-size:13px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(c.Description ?? "—")</td>
+                            <td style="font-weight:700;color:var(--bk-accent-3);font-size:14px;">@c.DiscountPercent%</td>
+                            <td><span class="bk-admin-pill approved" style="font-size:10px;">@c.ApplicablePlan</span></td>
+                            <td style="font-size:12px;color:var(--bk-ink-2);">@c.RedemptionLabel</td>
+                            <td style="font-size:12px;font-family:var(--ukuu-font-mono);color:var(--bk-ink-2);">@c.ExpiryDisplay</td>
+                            <td>
+                                @{
+                                    var pillClass = c.StatusDisplay switch
+                                    {
+                                        "Active" => "active",
+                                        "Expired" => "rejected",
+                                        "Fully Used" => "pending",
+                                        "Revoked" => "rejected",
+                                        _ => ""
+                                    };
+                                }
+                                <span class="bk-admin-pill @pillClass" style="font-size:10px;">@c.StatusDisplay</span>
+                            </td>
+                            <td style="font-size:12px;color:var(--bk-ink-3);">@c.CreatedByEmail</td>
+                            <td>
+                                @if (c.IsActive && c.IsValid)
+                                {
+                                    <form method="post" action="/api/super-admin/coupons/revoke" style="display:inline;">
+                                        <input type="hidden" name="CouponId" value="@c.Id" />
+                                        <button type="submit" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);" onclick="return confirm('Revoke coupon @c.Code? It cannot be undone.');">
+                                            <span class="material-icons-round" style="font-size:14px;">block</span>
+                                            Revoke
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (_coupons.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="9" style="text-align:center;padding:64px 24px;color:var(--bk-ink-3);">
+                                <span class="material-icons-round" style="font-size:48px;display:block;margin-bottom:12px;opacity:0.4;">card_giftcard</span>
+                                No coupons issued yet. Click "Issue New Coupon" above to get started.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ───── Redemption History ───── *@
+    @if (_redemptions.Count > 0)
+    {
+        <div class="bk-admin-card" style="margin-top:20px;overflow:hidden;">
+            <div class="bk-admin-card-header">
+                <h3>Redemption History</h3>
+                <p>@_redemptions.Count total redemptions</p>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="bk-admin-table">
+                    <thead>
+                        <tr>
+                            <th>Coupon Code</th>
+                            <th>Organization</th>
+                            <th>Redeemed By</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _redemptions)
+                        {
+                            <tr>
+                                <td style="font-family:var(--ukuu-font-mono);font-weight:600;">@r.CouponCode?.Code</td>
+                                <td>@r.Organization?.Name</td>
+                                <td style="font-size:12px;color:var(--bk-ink-2);">@r.RedeemedByEmail</td>
+                                <td style="font-size:12px;font-family:var(--ukuu-font-mono);color:var(--bk-ink-2);">@r.RedeemedAt.ToString("dd MMM yyyy · HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<CouponCode> _coupons = new();
+    private List<CouponRedemption> _redemptions = new();
+    private int _activeCoupons, _totalRedemptions, _redeemedOrgs, _expiringSoon;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _coupons = await Db.CouponCodes
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+
+            _redemptions = await Db.CouponRedemptions
+                .Include(r => r.CouponCode)
+                .Include(r => r.Organization)
+                .OrderByDescending(r => r.RedeemedAt)
+                .Take(50)
+                .ToListAsync();
+
+            _activeCoupons = _coupons.Count(c => c.IsActive && c.IsValid);
+            _totalRedemptions = _coupons.Sum(c => c.UsedCount);
+            _redeemedOrgs = await Db.CouponRedemptions.Select(r => r.OrganizationId).Distinct().CountAsync();
+            _expiringSoon = _coupons.Count(c => c.IsActive && c.IsValid && c.ExpiresAt <= DateTime.UtcNow.AddDays(30));
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[SuperAdmin] Failed to load: {ex.Message}");
+        }
+    }
+}

@@ -251,9 +251,9 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">shield</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Security & Audit</span> }
             </a>
-            <a href="/billing" class="bk-admin-sidebar-item @(IsActive("billing") ? "active" : "")">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">receipt_long</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Billing</span> }
+            <a href="/super-admin" class="bk-admin-sidebar-item @(IsActive("super-admin") ? "active" : "")">
+                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">admin_panel_settings</span></span>
+                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Super Admin</span> }
             </a>
         </nav>
 

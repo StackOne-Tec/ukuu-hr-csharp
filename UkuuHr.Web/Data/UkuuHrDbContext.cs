@@ -42,6 +42,10 @@ public class UkuuHrDbContext : DbContext
     public DbSet<AttendanceDevice> AttendanceDevices => Set<AttendanceDevice>();
     public DbSet<UnifiedClockEvent> UnifiedClockEvents => Set<UnifiedClockEvent>();
 
+    // ───── Phase: Coupon management system ─────
+    public DbSet<CouponCode> CouponCodes => Set<CouponCode>();
+    public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
@@ -319,6 +323,28 @@ public class UkuuHrDbContext : DbContext
             e.Ignore(c => c.EventTimeDisplay);
             e.Ignore(c => c.EventTypeDisplay);
             e.Ignore(c => c.VendorDisplay);
+        });
+
+        // ───── Coupon management ─────
+        b.Entity<CouponCode>(e =>
+        {
+            e.HasIndex(c => c.Code).IsUnique();
+            e.HasIndex(c => c.IsActive);
+            e.Property(c => c.DiscountPercent).HasDefaultValue(100);
+            e.Property(c => c.MaxUses).HasDefaultValue(1);
+            e.Property(c => c.UsedCount).HasDefaultValue(0);
+            e.Property(c => c.IsActive).HasDefaultValue(true);
+            e.Ignore(c => c.IsValid);
+            e.Ignore(c => c.RemainingUses);
+            e.Ignore(c => c.StatusDisplay);
+            e.Ignore(c => c.RedemptionLabel);
+            e.Ignore(c => c.ExpiryDisplay);
+        });
+
+        b.Entity<CouponRedemption>(e =>
+        {
+            e.HasIndex(r => new { r.CouponCodeId, r.OrganizationId });
+            e.HasIndex(r => new { r.OrganizationId, r.RedeemedAt });
         });
     }
 }
