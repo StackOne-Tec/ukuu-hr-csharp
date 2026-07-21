@@ -277,6 +277,8 @@
                     // Wait for animation to finish, then navigate
                     setTimeout(function() {
                         window.location.href = targetUrl;
+                        // Safety: reset flag after 2s if navigation didn't complete
+                        setTimeout(function() { isNavigating = false; }, 2000);
                     }, 180);
                 } else {
                     // Fallback — navigate immediately
