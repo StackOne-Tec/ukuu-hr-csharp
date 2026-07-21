@@ -89,7 +89,10 @@
                 </div>
                 <div class="bk-field">
                     <label class="bk-label">Expires At *</label>
-                    <input type="date" class="bk-input" name="ExpiresAtStr" value="@DateTime.Today.AddYears(1).ToString(\"yyyy-MM-dd\")" required />
+                    @{
+                        var _defaultExpiryStr = DateTime.Today.AddYears(1).ToString("yyyy-MM-dd");
+                    }
+                    <input type="date" class="bk-input" name="ExpiresAtStr" value="@_defaultExpiryStr" required />
                 </div>
                 <div class="bk-field" style="grid-column:1/-1;">
                     <label class="bk-label">Description</label>
@@ -158,7 +161,7 @@
                                 {
                                     <form method="post" action="/api/super-admin/coupons/revoke" style="display:inline;">
                                         <input type="hidden" name="CouponId" value="@c.Id" />
-                                        <button type="submit" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);" onclick="return confirm('Revoke coupon @c.Code? It cannot be undone.');">
+                                        <button type="submit" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);" onclick="return confirm('Revoke coupon ' + '@c.Code' + '? It cannot be undone.');">
                                             <span class="material-icons-round" style="font-size:14px;">block</span>
                                             Revoke
                                         </button>
