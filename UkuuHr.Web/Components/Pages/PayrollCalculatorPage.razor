@@ -1,5 +1,5 @@
 @page "/payroll/calculator"
-@rendermode InteractiveServer
+@rendermode RenderMode.InteractiveServer
 @attribute [Authorize(Policy = "FinanceOrAdmin")]
 @using Microsoft.EntityFrameworkCore
 @inject UkuuHrDbContext Db

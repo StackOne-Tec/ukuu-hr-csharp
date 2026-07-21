@@ -1,5 +1,5 @@
 @page "/shifts/assignments"
-@rendermode InteractiveServer
+@rendermode RenderMode.InteractiveServer
 @attribute [Authorize(Policy = "HrOrAdmin")]
 @using Microsoft.EntityFrameworkCore
 @inject ShiftService ShiftSvc
