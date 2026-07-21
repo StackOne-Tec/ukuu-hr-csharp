@@ -149,41 +149,7 @@
         }
         else if (_tab == "banking")
         {
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-                <div class="mud-card">
-                    <div class="mud-card-header"><h3 style="font-size:16px;font-weight:700;">Compensation</h3></div>
-                    <div class="mud-card-content">
-                        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
-                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Basic Salary</span>
-                            <span style="font-size:14px;font-weight:700;">@_emp.DisplayCurrency @_emp.BasicSalary.ToString("N0")</span>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
-                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Total Allowances</span>
-                            <span style="font-size:14px;font-weight:700;">@_emp.DisplayCurrency @_emp.TotalAllowances.ToString("N0")</span>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--ukuu-divider);">
-                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Gross Salary</span>
-                            <span style="font-size:16px;font-weight:800;color:var(--ukuu-ink);">@_emp.DisplayCurrency @_emp.GrossSalary.ToString("N0")</span>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;padding:12px 0;">
-                            <span style="font-size:13px;color:var(--ukuu-text-muted);">Hourly Rate</span>
-                            <span style="font-size:14px;font-weight:700;">@_emp.DisplayCurrency @_emp.EffectiveHourlyRate.ToString("N2")</span>
-                        </div>
-                        @if (_emp.Allowances.Any())
-                        {
-                            <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--ukuu-divider);">
-                                <div style="font-size:11px;font-weight:700;color:var(--ukuu-text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Allowances</div>
-                                @foreach (var a in _emp.Allowances)
-                                {
-                                    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
-                                        <span>@a.Name @(a.Taxable ? "" : "(non-taxable)")</span>
-                                        <span style="font-weight:600;">@(a.Type == AllowanceType.Percentage ? $"{a.Amount}% of basic" : $"{a.Amount:N0}")</span>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                </div>
+            <div style="display:grid;grid-template-columns:1fr;gap:24px;">
                 <div class="mud-card">
                     <div class="mud-card-header"><h3 style="font-size:16px;font-weight:700;">Bank Account</h3></div>
                     <div class="mud-card-content" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
