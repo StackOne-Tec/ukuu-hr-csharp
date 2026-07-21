@@ -2544,12 +2544,12 @@ select.bk-input option[value=""] {
 
 /* Dark-mode adjustments for the select arrow + optgroup */
 html[data-theme="dark"] select.bk-input {
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a89cc4' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8780' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 html[data-theme="dark"] select.bk-input optgroup {
     background: #0a0a0a;
-    color: var(--ukuu-text-muted, #a89cc4);
+    color: var(--ukuu-text-muted, #8A8780);
     font-style: normal;
     font-weight: 700;
 }
@@ -3313,7 +3313,7 @@ html[data-theme="dark"] {
     --bk-muted: #141414;
     --bk-muted-2: #1a1a1a;
     --bk-accent: #f4b942;
-    --bk-accent-2: #8b80ff;
+    --bk-accent-2: #8a8780;        /* neutral gray — was purple (#8b80ff) */
     --bk-accent-3: #2dd4a7;
     --bk-accent-4: #ff7a91;
     --bk-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
@@ -3324,20 +3324,20 @@ html[data-theme="dark"] {
     --ukuu-ink: #FCFBFF;
     --ukuu-ink-deep: #000000;
     --ukuu-ink-darker: #000000;
-    --ukuu-accent-cyan: #9C8FB8;
+    --ukuu-accent-cyan: #48B0A1;   /* teal — was purple (#9C8FB8) */
     --ukuu-accent-gold: #F4B942;
-    --ukuu-accent-violet: #8B80FF;
-    --ukuu-accent-lavender: #CFC6DE;
+    --ukuu-accent-violet: #F4B942;  /* gold — was purple (#8B80FF) */
+    --ukuu-accent-lavender: #8A8780; /* neutral — was lavender (#CFC6DE) */
 
     --ukuu-surface: #0a0a0a;
     --ukuu-surface-alt: #141414;
     --ukuu-surface-strong: #1a1a1a;
-    --ukuu-surface-70: rgba(156, 143, 184, 0.7);
-    --ukuu-surface-54: rgba(207, 198, 222, 0.54);
+    --ukuu-surface-70: rgba(255, 255, 255, 0.08);  /* neutral — was purple tint */
+    --ukuu-surface-54: rgba(255, 255, 255, 0.06);  /* neutral — was purple tint */
 
     --ukuu-text: #FCFBFF;
-    --ukuu-text-muted: #CFC6DE;
-    --ukuu-text-subtle: #9C8FB8;
+    --ukuu-text-muted: #B8B5AD;   /* neutral gray — was lavender (#CFC6DE) */
+    --ukuu-text-subtle: #8A8780;   /* neutral gray — was purple (#9C8FB8) */
     --ukuu-text-on-dark: #FCFBFF;
 
     --ukuu-border-soft: #2a2a2a;
@@ -3350,8 +3350,8 @@ html[data-theme="dark"] {
     --ukuu-warning-bg: rgba(244, 185, 66, 0.15);
     --ukuu-error: #FF7A91;
     --ukuu-error-bg: rgba(255, 122, 145, 0.15);
-    --ukuu-info: #8B80FF;
-    --ukuu-info-bg: rgba(139, 128, 255, 0.15);
+    --ukuu-info: #60A5FA;         /* blue — was purple (#8B80FF) */
+    --ukuu-info-bg: rgba(96, 165, 250, 0.15);   /* blue tint — was purple tint */
 
     --ukuu-bg: #000000;
     --ukuu-radius-sm: 8px;
@@ -3369,18 +3369,18 @@ html[data-theme="dark"] {
     --ukuu-sidebar-item-active-bg: rgba(255, 255, 255, 0.12);
 
     /* MudBlazor palette dark mode overrides — black */
-    --mud-palette-primary: #9C8FB8;
-    --mud-palette-primary-lighten: #CFC6DE;
-    --mud-palette-primary-darken: #5E4B85;
+    --mud-palette-primary: #F4B942;          /* gold — was purple (#9C8FB8) */
+    --mud-palette-primary-lighten: rgba(244, 185, 66, 0.3);
+    --mud-palette-primary-darken: #8A7330;     /* dark gold — was purple (#5E4B85) */
     --mud-palette-text-primary: #FCFBFF;
-    --mud-palette-text-secondary: #CFC6DE;
+    --mud-palette-text-secondary: #B8B5AD;    /* neutral — was lavender (#CFC6DE) */
     --mud-palette-background: #000000;
     --mud-palette-surface: #0a0a0a;
     --mud-palette-appbar-background: #000000;
     --mud-palette-appbar-text: #FCFBFF;
     --mud-palette-drawer-background: #000000;
     --mud-palette-drawer-text: #FCFBFF;
-    --mud-palette-drawer-icon: #9C8FB8;
+    --mud-palette-drawer-icon: #B8B5AD;       /* neutral — was purple (#9C8FB8) */
 }
 
 html[data-theme="dark"] body,
@@ -3589,6 +3589,49 @@ html[data-theme="dark"] .mud-list-item:hover {
 
 html[data-theme="dark"] .mud-select-input {
     background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Dark mode: remove purple patches from sidebar elements */
+html[data-theme="dark"] .ukuu-sidebar-brand-logo {
+    background: linear-gradient(135deg, var(--bk-accent), #b8810a);
+    box-shadow: 0 4px 12px rgba(244, 185, 66, 0.25);
+}
+
+html[data-theme="dark"] .ukuu-sidebar-item.active::before {
+    background: linear-gradient(180deg, var(--bk-accent) 0%, #b8810a 100%);
+}
+
+html[data-theme="dark"] .ukuu-sidebar-user-avatar {
+    background: linear-gradient(135deg, var(--bk-accent), #b8810a);
+}
+
+html[data-theme="dark"] .loading-progress circle {
+    stroke: #555;
+}
+
+html[data-theme="dark"] .loading-progress circle:last-child {
+    stroke: var(--bk-accent);
+}
+
+html[data-theme="dark"] .loading-progress-text {
+    color: #B8B5AD;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #000;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="dark"] .bk-modal-backdrop {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+html[data-theme="dark"] .bk-modal {
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
 }
 
 /* Dark mode: landing page */
