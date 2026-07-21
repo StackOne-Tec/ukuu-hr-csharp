@@ -93,7 +93,7 @@
                     <th>Weekend OT</th>
                     <th>Holiday OT</th>
                     <th>Status</th>
-                    @if (_tab == "pending") { <th>Actions</th> }
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,24 +115,26 @@
                                 @ot.StatusDisplay
                             </span>
                         </td>
-                        @if (_tab == "pending")
-                        {
-                            <td>
-                                <div style="display:flex;gap:4px;">
+                        <td>
+                            <div style="display:flex;gap:4px;">
+                                <a href="/overtime/edit/@ot.Id" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;min-height:32px;text-decoration:none;">
+                                    <span class="material-icons-round" style="font-size:14px;">edit</span>
+                                </a>
+                                @if (_tab == "pending")
+                                {
                                     <form method="post" action="/api/overtime/@ot.Id/approve" style="display:inline;">
-                                        <button type="submit" class="bk-btn bk-btn-primary" style="font-size:11px;padding:6px 12px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;">
+                                        <button type="submit" class="bk-btn bk-btn-primary" style="font-size:11px;padding:6px 10px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;">
                                             <span class="material-icons-round" style="font-size:14px;">check</span>
-                                            Approve
                                         </button>
                                     </form>
                                     <form method="post" action="/api/overtime/@ot.Id/reject" style="display:inline;">
-                                        <button type="submit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 12px;min-height:32px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);">
+                                        <button type="submit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;min-height:32px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);">
                                             <span class="material-icons-round" style="font-size:14px;">close</span>
                                         </button>
                                     </form>
-                                </div>
-                            </td>
-                        }
+                                }
+                            </div>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -175,10 +177,14 @@
             if (!string.IsNullOrEmpty(qTab) && (qTab == "pending" || qTab == "approved" || qTab == "all"))
                 _tab = qTab;
 
-            // Show success toast if we just redirected from the Add Overtime page
+            // Show success toast if we just redirected from the Add or Edit Overtime page
             if (query["added"] == "1")
             {
                 Snackbar.Add("Overtime record created successfully.", Severity.Success);
+            }
+            if (query["updated"] == "1")
+            {
+                Snackbar.Add("Overtime record updated successfully.", Severity.Success);
             }
         }
         catch { }

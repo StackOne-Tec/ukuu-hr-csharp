@@ -2259,6 +2259,47 @@ app.MapPost("/api/employees/save", async (
     }
 }).WithName("EmployeeSave").DisableAntiforgery();
 
+// ───── POST /api/overtime/{id}/edit — edit overtime record (form POST) ─────
+app.MapPost("/api/overtime/{id:int}/edit", async (
+    HttpContext ctx,
+    OvertimeService svc,
+    UkuuHrDbContext db,
+    int id,
+    ILogger<Program> logger) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    logger.LogInformation("Overtime edit POST received for id={Id}", id);
+
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var existing = await svc.GetAsync(org.Id, id);
+    if (existing == null) return Results.NotFound(new { error = "Overtime record not found." });
+
+    // Parse hours
+    if (!double.TryParse(form["Hours"].ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var hours) || hours <= 0)
+        return Results.BadRequest(new { error = "Please provide valid overtime hours." });
+
+    // Parse times
+    if (!DateTime.TryParse(form["StartTime"].ToString(), out var startTime))
+        startTime = existing.StartTime;
+    if (!DateTime.TryParse(form["EndTime"].ToString(), out var endTime))
+        endTime = existing.EndTime;
+
+    // Parse rate type
+    Enum.TryParse<OvertimeRateType>(form["RateType"].ToString(), out var rateType);
+    if (rateType == default) rateType = existing.RateType;
+
+    var reason = form["Reason"].ToString();
+    if (string.IsNullOrWhiteSpace(reason)) reason = existing.Reason;
+
+    var updated = await svc.UpdateAsync(org.Id, id, hours, startTime, endTime, rateType, reason);
+    if (updated == null) return Results.NotFound(new { error = "Failed to update overtime record." });
+
+    logger.LogInformation("Overtime {Id} updated: {Hours}h {RateType}", id, hours, rateType);
+    return Results.Redirect("/overtime?tab=all&updated=1");
+}).WithName("OvertimeEdit").DisableAntiforgery();
+
 // ───── POST /api/overtime/add — manual overtime entry (works without Blazor circuit) ─────
 app.MapPost("/api/overtime/add", async (
     HttpContext ctx,

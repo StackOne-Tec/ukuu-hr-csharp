@@ -1,0 +1,147 @@
+@page "/overtime/edit/{Id:int}"
+@attribute [Authorize(Policy = "HrOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject OvertimeService OvertimeSvc
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+@inject ILogger<OvertimeEdit> Logger
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Overtime · Edit Record</div>
+            <h1 class="bk-admin-h1">Edit Overtime Record</h1>
+            <p class="bk-admin-sub">Update the overtime hours, rate type, and reason for this record.</p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/overtime" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">arrow_back</span>
+                Back to Overtime
+            </a>
+        </div>
+    </div>
+
+    @if (_loadError != null)
+    {
+        <div class="bk-admin-card" style="padding:32px;text-align:center;">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:rgba(244,63,94,0.1);color:var(--bk-error);margin-bottom:16px;">
+                <span class="material-icons-round" style="font-size:32px;">error_outline</span>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--bk-ink);">Couldn't load record</h3>
+            <p style="font-size:14px;color:var(--bk-ink-3);max-width:480px;margin:0 auto 20px;">@_loadError</p>
+            <a href="/overtime" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                Back to Overtime
+            </a>
+        </div>
+    }
+    else if (_record == null)
+    {
+        <div class="bk-admin-card" style="padding:32px;text-align:center;">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:rgba(244,63,94,0.1);color:var(--bk-error);margin-bottom:16px;">
+                <span class="material-icons-round" style="font-size:32px;">hourglass_empty</span>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--bk-ink);">Record not found</h3>
+            <p style="font-size:13px;color:var(--bk-ink-3);">This overtime record may have been deleted.</p>
+            <a href="/overtime" class="bk-btn bk-btn-primary" style="text-decoration:none;display:inline-flex;margin-top:16px;">Back to Overtime</a>
+        </div>
+    }
+    else
+    {
+        <div style="max-width:600px;">
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>Edit Overtime — @_record.EmployeeName</h3>
+                    <p>@_record.Date.ToString("dd MMMM yyyy") · Current: @_record.Hours.ToString("0.0")h</p>
+                </div>
+                <div class="bk-admin-card-content">
+                    <form method="post" action="/api/overtime/@_record.Id/edit" id="overtime-edit-form">
+                        @* Employee (read-only) *@
+                        <div class="bk-field">
+                            <label class="bk-label">Employee</label>
+                            <div style="padding:10px 14px;background:var(--bk-muted);border-radius:8px;font-size:13px;font-weight:600;color:var(--bk-ink);">
+                                @_record.EmployeeName
+                            </div>
+                        </div>
+
+                        @* Date + Rate Type *@
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                            <div class="bk-field">
+                                <label class="bk-label">Date</label>
+                                <div style="padding:10px 14px;background:var(--bk-muted);border-radius:8px;font-size:13px;color:var(--bk-ink-2);">
+                                    @_record.Date.ToString("dd MMM yyyy")
+                                </div>
+                            </div>
+                            <div class="bk-field">
+                                <label class="bk-label">Rate Type *</label>
+                                <select name="RateType" class="bk-input" id="rate-type-select">
+                                    <option value="Standard" selected="@(_record.RateType == OvertimeRateType.Standard)">Standard (1.5×) — weekday overtime</option>
+                                    <option value="RestDay" selected="@(_record.RateType == OvertimeRateType.RestDay)">Rest Day (2.0×) — weekend</option>
+                                    <option value="PublicHoliday" selected="@(_record.RateType == OvertimeRateType.PublicHoliday)">Public Holiday (2.5×)</option>
+                                    <option value="DoubleTime" selected="@(_record.RateType == OvertimeRateType.DoubleTime)">Double Time (2.0×)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        @* Overtime Hours *@
+                        <div class="bk-field">
+                            <label class="bk-label">Overtime Hours *</label>
+                            <div class="bk-input-wrap">
+                                <span class="material-icons-round bk-input-icon">schedule</span>
+                                <input type="number" name="Hours" class="bk-input" style="padding-left:44px;font-weight:700;font-size:18px;" step="0.5" min="0.5" max="24" value="@_record.Hours.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)" required />
+                            </div>
+                        </div>
+
+                        @* Time window (hidden inputs for data integrity) *@
+                        <input type="hidden" name="StartTime" value="@_record.StartTime.ToString("yyyy-MM-ddTHH:mm")" />
+                        <input type="hidden" name="EndTime" value="@_record.EndTime.ToString("yyyy-MM-ddTHH:mm")" />
+
+                        @* Reason *@
+                        <div class="bk-field">
+                            <label class="bk-label">Reason / Notes</label>
+                            <textarea name="Reason" class="bk-input" style="min-height:80px;padding:12px 16px;font-family:inherit;resize:vertical;" placeholder="Reason for overtime (optional)…">@_record.Reason</textarea>
+                        </div>
+
+                        @* Submit *@
+                        <div style="display:flex;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);">
+                            <button type="submit" class="bk-btn bk-btn-primary" id="submit-btn">
+                                <span class="material-icons-round" style="font-size:16px;">save</span>
+                                Save Changes
+                            </button>
+                            <a href="/overtime" class="bk-btn bk-btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private OvertimeRecord? _record;
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _loadError = "No organization found.";
+                return;
+            }
+            _record = await OvertimeSvc.GetAsync(org.Id, Id);
+            if (_record == null)
+                _loadError = "Overtime record not found.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load overtime edit page for id={Id}", Id);
+            _loadError = "We couldn't load this record. Please try again.";
+        }
+    }
+}

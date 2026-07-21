@@ -492,6 +492,30 @@ public class OvertimeService
         return record;
     }
 
+    public async Task<OvertimeRecord?> UpdateAsync(int orgId, int id, double hours, DateTime startTime, DateTime endTime, OvertimeRateType rateType, string? reason)
+    {
+        var ot = await GetAsync(orgId, id);
+        if (ot == null) return null;
+
+        ot.Hours = Math.Round(hours, 2);
+        ot.StartTime = startTime;
+        ot.EndTime = endTime;
+        ot.RateType = rateType;
+        ot.RateMultiplier = rateType switch
+        {
+            OvertimeRateType.Standard => 1.5,
+            OvertimeRateType.RestDay => 2.0,
+            OvertimeRateType.PublicHoliday => 2.5,
+            OvertimeRateType.DoubleTime => 2.0,
+            _ => 1.5
+        };
+        ot.Reason = reason;
+        ot.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return ot;
+    }
+
     public async Task<bool> ApproveAsync(int orgId, int id, string approverEmail, string? notes = null)
     {
         var ot = await GetAsync(orgId, id);
