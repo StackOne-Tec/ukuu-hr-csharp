@@ -2626,6 +2626,11 @@ app.MapPost("/api/subscription/redeem-coupon", async (
     return Results.Redirect("/settings?coupon=success");
 }).WithName("CouponRedeem").DisableAntiforgery();
 
+// Deployment: Map Blazor Hub at /_framework/blazor instead of the default /_blazor.
+// This container's Caddy proxy routes /_framework/* to the C# app, but NOT /_blazor.
+// Without this change, the Blazor SignalR circuit fails to connect.
+app.MapBlazorHub("/_framework/blazor");
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

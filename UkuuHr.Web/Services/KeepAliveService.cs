@@ -86,6 +86,6 @@ public class KeepAliveService : BackgroundService
         {
             port = !string.IsNullOrWhiteSpace(aspnetUrls) && aspnetUrls.Contains("5000") ? "5000" : "8080";
         }
-        return $"http://localhost:{port}";
+        return $"http://127.0.0.1:{port}";
     }
 }
