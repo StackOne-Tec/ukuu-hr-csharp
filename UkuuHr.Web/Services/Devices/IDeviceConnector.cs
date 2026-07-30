@@ -61,6 +61,17 @@ public interface IDeviceConnector
     Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Extended connector that returns parsed events alongside the sync result.
+/// The orchestrator uses these events to persist to the database.
+/// Connectors that implement this interface will have their events auto-persisted.
+/// </summary>
+public interface IDeviceConnectorWithEvents : IDeviceConnector
+{
+    /// <summary>Fetch clock events and return them alongside the sync result.</summary>
+    Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Connector registry — looks up the right connector for a (Vendor, Mode) pair.
 // ─────────────────────────────────────────────────────────────────────────────

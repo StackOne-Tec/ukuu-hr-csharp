@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 using UkuuHr.Models;
+using UkuuHr.Services.Hikvision;
 
 namespace UkuuHr.Services.Devices;
 
@@ -13,20 +14,32 @@ namespace UkuuHr.Services.Devices;
 // combination. They share an HttpClient (injected) and follow the same shape:
 //   1. Build the request URL + auth header per vendor spec.
 //   2. Parse vendor-specific JSON/XML into NormalizedClockEvent records.
-//   3. Return DeviceSyncResult with counts.
+//   3. Return DeviceSyncResult with events attached for the orchestrator.
 //
-// Vendors implemented:
-//   - Hikvision  (ISAPI /ISAPI/AccessControl/AuditLog)
-//   - ZKTeco     (HTTP API /getAttLog)
-//   - Suprema    (BioStar 2 REST API /events)
-//   - Dahua      (HTTP API /cgi-bin/recordFinder.cgi)
-//   - Anviz      (Cloud API v2 /getCheckingRecord)
-//   - Matrix     (COSEC REST API /events)
-//   - eSSL       (HTTP API /getdata.cgi)
-//
-// All connectors gracefully handle network errors and return DeviceSyncResult.Fail
-// rather than throwing — the orchestrator logs the error and continues.
+// The HikvisionRestConnector now uses the world-class HikvisionIsapiClient
+// for full ISAPI protocol support (AcsEvent, AuditLog, biometric, etc.).
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// <summary>Extended sync result that carries the parsed events for the orchestrator to persist.</summary>
+public class DeviceSyncResultWithEvents
+{
+    public bool Success { get; set; }
+    public int EventsFetched { get; set; }
+    public int EventsImported { get; set; }
+    public int DuplicatesSkipped { get; set; }
+    public string? ErrorMessage { get; set; }
+    public TimeSpan Duration { get; set; }
+    public List<NormalizedClockEvent> Events { get; set; } = new();
+
+    public DeviceSyncResult ToDeviceSyncResult() =>
+        new(Success, EventsFetched, EventsImported, DuplicatesSkipped, ErrorMessage, Duration);
+
+    public static DeviceSyncResultWithEvents Ok(int fetched, List<NormalizedClockEvent> events, TimeSpan duration) =>
+        new() { Success = true, EventsFetched = fetched, Events = events, Duration = duration };
+
+    public static DeviceSyncResultWithEvents Fail(string error, TimeSpan duration) =>
+        new() { Success = false, ErrorMessage = error, Duration = duration };
+}
 
 /// <summary>Shared base class with helper methods for REST connectors.</summary>
 public abstract class RestConnectorBase
@@ -35,7 +48,6 @@ public abstract class RestConnectorBase
 
     protected RestConnectorBase(ILogger? logger = null) { }
 
-    /// <summary>Build a digest-auth-enabled HttpRequestMessage (Hikvision + Dahua use Digest auth).</summary>
     protected static HttpRequestMessage BuildRequest(AttendanceDevice device, string path, HttpMethod? method = null)
     {
         var url = $"http://{device.IpAddress}:{device.Port ?? 80}{path}";
@@ -51,86 +63,62 @@ public abstract class RestConnectorBase
         return req;
     }
 
-    /// <summary>Truncate raw payload to 100 chars for storage in audit log.</summary>
     protected static string? TruncatePayload(string? payload) =>
-        string.IsNullOrEmpty(payload) ? null : (payload.Length > 100 ? payload[..100] + "…" : payload);
+        string.IsNullOrEmpty(payload) ? null : (payload.Length > 100 ? payload[..100] + "..." : payload);
 }
 
-// ───────────── Hikvision REST (ISAPI) ─────────────
+// ───────────── Hikvision REST (ISAPI) — World-Class Implementation ─────────────
 
-public class HikvisionRestConnector : RestConnectorBase, IDeviceConnector
+public class HikvisionRestConnector : RestConnectorBase, IDeviceConnectorWithEvents
 {
+    private readonly ILogger<HikvisionRestConnector> _logger;
+
+    public HikvisionRestConnector(ILogger<HikvisionRestConnector> logger) : base(logger) { _logger = logger; }
+
     public DeviceVendor Vendor => DeviceVendor.Hikvision;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
 
     public async Task<(bool reachable, string? error)> PingAsync(AttendanceDevice device, CancellationToken ct = default)
     {
-        try
-        {
-            using var req = BuildRequest(device, "/ISAPI/System/deviceInfo");
-            using var resp = await SharedClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-            return (resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? null : $"HTTP {resp.StatusCode}");
-        }
-        catch (Exception ex) { return (false, ex.Message); }
+        using var client = CreateIsapiClient(device);
+        return await client.PingAsync(ct);
     }
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         try
         {
-            var path = "/ISAPI/AccessControl/AuditLog/search";
-            if (since.HasValue)
-            {
-                var s = since.Value.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                path += $"?searchID=1&startTime={Uri.EscapeDataString(s)}&endTime={Uri.EscapeDataString(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))}";
-            }
-            using var req = BuildRequest(device, path);
-            using var resp = await SharedClient.SendAsync(req, ct);
-            if (!resp.IsSuccessStatusCode)
-                return DeviceSyncResult.Fail($"Hikvision ISAPI returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
-
-            var xml = await resp.Content.ReadAsStringAsync(ct);
-            var events = ParseHikvisionXml(xml, device);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
-            // Note: persistence is handled by the orchestrator (it has DbContext).
+            using var client = CreateIsapiClient(device);
+            var events = await client.FetchAttendanceEventsAsync(since, maxResults: 1000, ct);
+            _logger.LogInformation("Hikvision ISAPI sync fetched {Count} events from {Host}", events.Count, device.IpAddress);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"Hikvision sync error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"Hikvision ISAPI error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 
-    /// <summary>Parse Hikvision ISAPI AuditLog XML into NormalizedClockEvent records.</summary>
-    public static List<NormalizedClockEvent> ParseHikvisionXml(string xml, AttendanceDevice device)
+    private static HikvisionIsapiClient CreateIsapiClient(AttendanceDevice device)
     {
-        var events = new List<NormalizedClockEvent>();
-        try
+        var config = new HikvisionIsapiConfig
         {
-            var doc = XDocument.Parse(xml);
-            foreach (var item in doc.Descendants("LogItem"))
-            {
-                var employeeCode = item.Element("employeeNo")?.Value ?? "";
-                var timeStr = item.Element("time")?.Value ?? "";
-                var majorStr = item.Element("major")?.Value ?? "0";
-                var minorStr = item.Element("minor")?.Value ?? "0";
-
-                if (!DateTime.TryParse(timeStr, out var eventTime)) continue;
-
-                // Hikvision major/minor codes:
-                // major=1 (Access Controller Event), minor=0=unknown, 1=door unlocked, 75=check-in, 76=check-out
-                var eventType = majorStr == "1" && minorStr == "75" ? ClockEventType.CheckIn
-                              : majorStr == "1" && minorStr == "76" ? ClockEventType.CheckOut
-                              : ClockEventType.CheckIn;
-
-                var verifyMode = item.Element("VerifyMode")?.Value;
-                var inOutMode = item.Element("inAndOutMode")?.Value;
-
-                events.Add(new NormalizedClockEvent(employeeCode, eventTime, eventType, verifyMode, inOutMode, TruncatePayload(item.ToString())));
-            }
-        }
-        catch { /* malformed XML — return empty */ }
-        return events;
+            IpAddress = device.IpAddress ?? "",
+            Port = device.Port ?? 80,
+            Username = device.Username ?? "admin",
+            Password = device.Password ?? "",
+            MaxRetries = 3,
+            TimeoutSeconds = 30
+        };
+        var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
+        return new HikvisionIsapiClient(config, loggerFactory.CreateLogger<HikvisionIsapiClient>());
     }
 }
 
@@ -178,7 +166,6 @@ public class ZKTecoRestConnector : RestConnectorBase, IDeviceConnector
         }
     }
 
-    /// <summary>Parse ZKTeco JSON: { "data": [{ "pin": "...", "time": "YYYY-MM-DD HH:MM:SS", "type": 0|1 }] }</summary>
     public static List<NormalizedClockEvent> ParseZKTecoJson(string json)
     {
         var events = new List<NormalizedClockEvent>();
@@ -191,17 +178,13 @@ public class ZKTecoRestConnector : RestConnectorBase, IDeviceConnector
                 var pin = item.TryGetProperty("pin", out var p) ? p.GetString() ?? "" : "";
                 var timeStr = item.TryGetProperty("time", out var t) ? t.GetString() ?? "" : "";
                 var type = item.TryGetProperty("type", out var ty) ? ty.GetInt32() : 0;
-
                 if (!DateTime.TryParse(timeStr, out var eventTime)) continue;
-                var eventType = type == 0 ? ClockEventType.CheckIn :
-                                type == 1 ? ClockEventType.CheckOut :
-                                type == 2 ? ClockEventType.BreakOut :
-                                type == 3 ? ClockEventType.BreakIn : ClockEventType.CheckIn;
+                var eventType = type == 0 ? ClockEventType.CheckIn : type == 1 ? ClockEventType.CheckOut : type == 2 ? ClockEventType.BreakOut : type == 3 ? ClockEventType.BreakIn : ClockEventType.CheckIn;
                 var verifyMode = item.TryGetProperty("verifyMode", out var v) ? v.GetString() : null;
                 events.Add(new NormalizedClockEvent(pin, eventTime, eventType, verifyMode, null, TruncatePayload(item.ToString())));
             }
         }
-        catch { /* malformed JSON */ }
+        catch { }
         return events;
     }
 }
@@ -217,12 +200,10 @@ public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
     {
         try
         {
-            // BioStar 2 doesn't have a simple ping endpoint — hit /api/users instead (will return 401 if alive).
             using var req = BuildRequest(device, "/api/users");
             using var resp = await SharedClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-            // 401 means device is reachable but we need to login first.
             return (resp.StatusCode == System.Net.HttpStatusCode.OK || resp.StatusCode == System.Net.HttpStatusCode.Unauthorized,
-                    resp.IsSuccessStatusCode ? null : $"HTTP {resp.StatusCode} (expected — Biostar2 requires session)");
+                    resp.IsSuccessStatusCode ? null : $"HTTP {resp.StatusCode} (expected - Biostar2 requires session)");
         }
         catch (Exception ex) { return (false, ex.Message); }
     }
@@ -232,7 +213,6 @@ public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
         var start = DateTime.UtcNow;
         try
         {
-            // BioStar 2 event search endpoint.
             var from = since?.ToString("yyyy-MM-ddTHH:mm:ss.000Z") ?? DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm:ss.000Z");
             var to = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.000Z");
             var endpoint = $"/api/events/search?from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}&limit=1000";
@@ -240,7 +220,6 @@ public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
                 return DeviceSyncResult.Fail($"BioStar 2 returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
-
             var json = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseSupremaJson(json);
             return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
@@ -257,18 +236,13 @@ public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("EventCollection", out var collection) &&
-                !doc.RootElement.TryGetProperty("rows", out collection)) return events;
+            if (!doc.RootElement.TryGetProperty("EventCollection", out var collection) && !doc.RootElement.TryGetProperty("rows", out collection)) return events;
             foreach (var item in collection.EnumerateArray())
             {
-                var userId = item.TryGetProperty("user_id", out var u) ? u.GetString() ?? "" :
-                             item.TryGetProperty("userID", out var u2) ? u2.GetString() ?? "" : "";
-                var timeStr = item.TryGetProperty("datetime", out var d) ? d.GetString() ?? "" :
-                              item.TryGetProperty("time", out var t) ? t.GetString() ?? "" : "";
+                var userId = item.TryGetProperty("user_id", out var u) ? u.GetString() ?? "" : item.TryGetProperty("userID", out var u2) ? u2.GetString() ?? "" : "";
+                var timeStr = item.TryGetProperty("datetime", out var d) ? d.GetString() ?? "" : item.TryGetProperty("time", out var t) ? t.GetString() ?? "" : "";
                 var eventTypeCode = item.TryGetProperty("event_type_id", out var e) ? e.GetInt32() : 0;
-
                 if (!DateTime.TryParse(timeStr, out var eventTime)) continue;
-                // BioStar2 event_type_id: 0x1100=verify, 0x1200=identify, etc. We treat all as CheckIn.
                 var eventType = eventTypeCode == 0x4000 ? ClockEventType.CheckOut : ClockEventType.CheckIn;
                 events.Add(new NormalizedClockEvent(userId, eventTime, eventType, "Biostar2", null, TruncatePayload(item.ToString())));
             }
@@ -308,7 +282,6 @@ public class DahuaRestConnector : RestConnectorBase, IDeviceConnector
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
                 return DeviceSyncResult.Fail($"Dahua returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
-
             var body = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseDahuaResponse(body);
             return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
@@ -319,17 +292,13 @@ public class DahuaRestConnector : RestConnectorBase, IDeviceConnector
         }
     }
 
-    /// <summary>Dahua returns key=value lines, one record per block separated by blank line.</summary>
     public static List<NormalizedClockEvent> ParseDahuaResponse(string body)
     {
         var events = new List<NormalizedClockEvent>();
         var blocks = body.Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
         foreach (var block in blocks)
         {
-            var fields = block.Split('\n')
-                .Select(l => l.Split('=', 2))
-                .Where(p => p.Length == 2)
-                .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
+            var fields = block.Split('\n').Select(l => l.Split('=', 2)).Where(p => p.Length == 2).ToDictionary(p => p[0].Trim(), p => p[1].Trim());
             var empCode = fields.GetValueOrDefault("EmployeeNo") ?? fields.GetValueOrDefault("UserID") ?? "";
             var timeStr = fields.GetValueOrDefault("Time") ?? "";
             var method = fields.GetValueOrDefault("Method") ?? "";
@@ -350,7 +319,6 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
 
     public Task<(bool reachable, string? error)> PingAsync(AttendanceDevice device, CancellationToken ct = default)
     {
-        // Anviz uses cloud API — IP address is irrelevant. Check if API key (in Password field) is set.
         if (string.IsNullOrEmpty(device.Password))
             return Task.FromResult<(bool reachable, string? error)>((false, "Anviz cloud API requires an API key (set as device Password)."));
         return Task.FromResult<(bool reachable, string? error)>((true, null));
@@ -361,22 +329,18 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
         var start = DateTime.UtcNow;
         try
         {
-            // Anviz Cloud v2 API: https://cloud.anviz.com/
             var apiKey = device.Password;
             var deviceSerial = device.DeviceSerial;
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(deviceSerial))
                 return DeviceSyncResult.Fail("Anviz cloud requires API key + device serial.", DateTime.UtcNow - start);
-
             var from = (since ?? DateTime.UtcNow.AddDays(-7)).ToString("yyyy-MM-dd");
             var to = DateTime.UtcNow.ToString("yyyy-MM-dd");
             var url = $"https://cloud.anviz.com/v2/getCheckingRecord?apiKey={Uri.EscapeDataString(apiKey)}&deviceSN={Uri.EscapeDataString(deviceSerial)}&startTime={from}&endTime={to}";
-
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
                 return DeviceSyncResult.Fail($"Anviz cloud returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
-
             var json = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseAnvizJson(json);
             return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
@@ -396,14 +360,11 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
             if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array) return events;
             foreach (var item in data.EnumerateArray())
             {
-                var empCode = item.TryGetProperty("pin", out var p) ? p.GetString() ?? "" :
-                              item.TryGetProperty("employeePIN", out var ep) ? ep.GetString() ?? "" : "";
+                var empCode = item.TryGetProperty("pin", out var p) ? p.GetString() ?? "" : item.TryGetProperty("employeePIN", out var ep) ? ep.GetString() ?? "" : "";
                 var timeStr = item.TryGetProperty("checkinTime", out var t) ? t.GetString() ?? "" : "";
                 var type = item.TryGetProperty("checkinType", out var ty) ? ty.GetString() : "0";
-
                 if (!DateTime.TryParse(timeStr, out var eventTime)) continue;
-                var eventType = type == "0" || type == "CheckIn" ? ClockEventType.CheckIn :
-                                type == "1" || type == "CheckOut" ? ClockEventType.CheckOut : ClockEventType.CheckIn;
+                var eventType = type == "0" || type == "CheckIn" ? ClockEventType.CheckIn : type == "1" || type == "CheckOut" ? ClockEventType.CheckOut : ClockEventType.CheckIn;
                 events.Add(new NormalizedClockEvent(empCode, eventTime, eventType, null, null, TruncatePayload(item.ToString())));
             }
         }
@@ -514,7 +475,6 @@ public class EsslRestConnector : RestConnectorBase, IDeviceConnector
         }
     }
 
-    /// <summary>eSSL returns CSV-like rows: PIN,Time,Status,Verified,WorkCode</summary>
     public static List<NormalizedClockEvent> ParseEsslResponse(string body)
     {
         var events = new List<NormalizedClockEvent>();
@@ -526,9 +486,7 @@ public class EsslRestConnector : RestConnectorBase, IDeviceConnector
             if (!DateTime.TryParse(parts[1].Trim(), out var eventTime)) continue;
             var status = parts.Length > 2 ? parts[2].Trim() : "0";
             var verify = parts.Length > 3 ? parts[3].Trim() : null;
-            var eventType = status == "1" || status == "4" ? ClockEventType.CheckOut :
-                            status == "2" ? ClockEventType.BreakOut :
-                            status == "3" ? ClockEventType.BreakIn : ClockEventType.CheckIn;
+            var eventType = status == "1" || status == "4" ? ClockEventType.CheckOut : status == "2" ? ClockEventType.BreakOut : status == "3" ? ClockEventType.BreakIn : ClockEventType.CheckIn;
             events.Add(new NormalizedClockEvent(empCode, eventTime, eventType, verify, status, TruncatePayload(line)));
         }
         return events;

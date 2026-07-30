@@ -214,6 +214,17 @@ builder.Services.AddSingleton<UkuuHr.Services.Devices.IDeviceConnectorRegistry>(
 });
 builder.Services.AddScoped<UkuuHr.Services.Devices.DeviceSyncOrchestrator>();
 
+// ───── HikVision ISAPI Integration — World-class device integration ─────
+builder.Services.AddScoped<UkuuHr.Services.Hikvision.HikvisionIsapiClient>(sp =>
+{
+    // Default client — will be re-created per-device by the connectors
+    var config = new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = "localhost", Port = 80 };
+    var logger = sp.GetRequiredService<ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>>();
+    return new UkuuHr.Services.Hikvision.HikvisionIsapiClient(config, logger);
+});
+builder.Services.AddScoped<UkuuHr.Services.Hikvision.HikvisionEventProcessor>();
+builder.Services.AddHostedService<UkuuHr.Services.Hikvision.HikvisionBackgroundService>();
+
 // ───── Phase 4: FR-009 Attendance Search + FR-010 Reporting ─────
 builder.Services.AddScoped<AttendanceSearchService>();
 builder.Services.AddScoped<ReportExportService>();
@@ -1879,6 +1890,194 @@ app.MapPost("/api/devices/save", async (
         return Results.BadRequest(new { error = ex.Message });
     }
 }).WithName("DeviceSave").DisableAntiforgery();
+
+// ───── HikVision ISAPI Integration Endpoints ─────
+
+// GET /api/hikvision/discover — SSDP device discovery on local network
+app.MapGet("/api/hikvision/discover", async (ILogger<Program> logger) =>
+{
+    try
+    {
+        var devices = await UkuuHr.Services.Hikvision.HikvisionIsapiClient.DiscoverDevicesAsync(timeoutMs: 5000);
+        return Results.Ok(devices.Select(d => new { d.IpAddress, d.Port, d.Username }));
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "SSDP discovery failed");
+        return Results.Ok(Array.Empty<object>());
+    }
+}).WithName("HikvisionDiscover");
+
+// GET /api/hikvision/{id}/info — Get device info from ISAPI
+app.MapGet("/api/hikvision/{id:int}/info", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var info = await client.GetDeviceInfoAsync();
+        var caps = await client.GetCapabilitiesAsync();
+        return Results.Ok(new { info, caps });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 502);
+    }
+}).WithName("HikvisionDeviceInfo");
+
+// GET /api/hikvision/{id}/health — Get device health status
+app.MapGet("/api/hikvision/{id:int}/health", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var health = await client.GetHealthAsync();
+        return Results.Ok(health);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 502);
+    }
+}).WithName("HikvisionHealth");
+
+// GET /api/hikvision/{id}/doors — Get door status
+app.MapGet("/api/hikvision/{id:int}/doors", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var doors = await client.GetDoorStatusAsync();
+        return Results.Ok(doors);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 502);
+    }
+}).WithName("HikvisionDoors");
+
+// POST /api/hikvision/{id}/unlock/{doorId} — Remotely unlock a door
+app.MapPost("/api/hikvision/{id:int}/unlock/{doorId:int}", async (int id, int doorId, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var success = await client.UnlockDoorAsync(doorId);
+        return Results.Ok(new { success, doorId });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 502);
+    }
+}).WithName("HikvisionUnlockDoor");
+
+// POST /api/hikvision/{id}/sync-persons — Sync all employees to the device
+app.MapPost("/api/hikvision/{id:int}/sync-persons", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var employees = await db.Employees
+            .Where(e => e.OrganizationId == org.Id && e.Status != EmploymentStatus.Inactive)
+            .Select(e => new { e.Id, e.EmployeeCode, e.FullName, e.Department })
+            .ToListAsync();
+
+        var persons = employees.Select(e => (e.EmployeeCode ?? e.Id.ToString(), e.FullName, e.Department)).ToList();
+        var results = await client.BatchSyncPersonsAsync(persons);
+        var successCount = results.Count(r => r.Success);
+        var failCount = results.Count(r => !r.Success);
+
+        return Results.Ok(new { total = persons.Count, success = successCount, failed = failCount, results });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 502);
+    }
+}).WithName("HikvisionSyncPersons");
+
+// POST /api/hikvision/{id}/sync-time — Sync device time with server
+app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var success = await client.SyncTimeAsync();
+        return Results.Ok(new { success });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 502);
+    }
+}).WithName("HikvisionSyncTime");
+
+// POST /api/hikvision/{id}/reboot — Reboot the device remotely
+app.MapPost("/api/hikvision/{id:int}/reboot", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var success = await client.RebootAsync();
+        return Results.Ok(new { success });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 502);
+    }
+}).WithName("HikvisionReboot");
 
 // ───── FR-010: Attendance report download endpoints ─────
 // These endpoints allow Blazor pages to download CSV/Excel reports via a simple redirect,

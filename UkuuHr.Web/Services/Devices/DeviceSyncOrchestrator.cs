@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UkuuHr.Data;
 using UkuuHr.Models;
+using UkuuHr.Services.Hikvision;
 
 namespace UkuuHr.Services.Devices;
 
@@ -11,6 +12,9 @@ namespace UkuuHr.Services.Devices;
 // detects duplicates, and updates the device's sync metadata. This is the
 // single entry point for "sync this device now" — called by the UI button
 // and by the auto-sync background service.
+//
+// Updated: Now properly persists events from REST connectors by extracting
+// NormalizedClockEvents from the DeviceSyncResultWithEvents response.
 // ─────────────────────────────────────────────────────────────────────────────
 
 public class DeviceSyncOrchestrator
@@ -18,15 +22,18 @@ public class DeviceSyncOrchestrator
     private readonly UkuuHrDbContext _db;
     private readonly IDeviceConnectorRegistry _registry;
     private readonly ILogger<DeviceSyncOrchestrator> _logger;
+    private readonly HikvisionEventProcessor _eventProcessor;
 
     public DeviceSyncOrchestrator(
         UkuuHrDbContext db,
         IDeviceConnectorRegistry registry,
-        ILogger<DeviceSyncOrchestrator> logger)
+        ILogger<DeviceSyncOrchestrator> logger,
+        HikvisionEventProcessor eventProcessor)
     {
         _db = db;
         _registry = registry;
         _logger = logger;
+        _eventProcessor = eventProcessor;
     }
 
     /// <summary>Sync a single device. Returns the sync result.</summary>
@@ -49,7 +56,21 @@ public class DeviceSyncOrchestrator
 
         _logger.LogInformation("Syncing device {DeviceName} ({Vendor}/{Mode})", device.Name, device.Vendor, device.Mode);
         var since = device.LastSuccessfulSyncAt;
-        var result = await connector.SyncAsync(device, since, ct);
+
+        // Check if the connector supports returning events directly
+        DeviceSyncResult result;
+        List<NormalizedClockEvent>? events = null;
+
+        if (connector is IDeviceConnectorWithEvents connectorWithEvents)
+        {
+            var resultWithEvents = await connectorWithEvents.SyncWithEventsAsync(device, since, ct);
+            events = resultWithEvents.Events;
+            result = resultWithEvents.ToDeviceSyncResult();
+        }
+        else
+        {
+            result = await connector.SyncAsync(device, since, ct);
+        }
 
         device.LastSyncAt = DateTime.UtcNow;
         if (result.Success)
@@ -57,10 +78,11 @@ public class DeviceSyncOrchestrator
             device.LastSuccessfulSyncAt = DateTime.UtcNow;
             device.LastErrorAt = null;
             device.LastErrorMessage = null;
-            device.TotalEventsSynced += result.EventsFetched;
 
-            // Persist the events.
-            var (imported, dupes) = await PersistEventsAsync(orgId, device, result, ct);
+            // Persist the events from the connector.
+            var (imported, dupes) = await PersistEventsAsync(orgId, device, result, events, ct);
+            device.TotalEventsSynced += imported;
+
             return DeviceSyncResult.Ok(result.EventsFetched, imported, dupes, result.Duration);
         }
         else
@@ -73,27 +95,26 @@ public class DeviceSyncOrchestrator
         }
     }
 
-    /// <summary>Persist fetched events into UnifiedClockEvent table, skipping duplicates.</summary>
+    /// <summary>Persist fetched events into UnifiedClockEvent table, then process into Attendance records.</summary>
     private async Task<(int imported, int duplicates)> PersistEventsAsync(
-        int orgId, AttendanceDevice device, DeviceSyncResult result, CancellationToken ct)
+        int orgId, AttendanceDevice device, DeviceSyncResult result, List<NormalizedClockEvent>? events, CancellationToken ct)
     {
-        // The connector returns events in result — but we need to re-fetch them since
-        // DeviceSyncResult only carries counts. In a production system the connector
-        // would return events directly. For this MVP, the orchestrator re-runs the
-        // connector's parser via the registry's known parse methods.
-        //
-        // To keep the contract simple, we DON'T re-parse here — the connector itself
-        // is responsible for returning events. We're updating the DeviceSyncResult
-        // record type to include events in a future refactor. For now, the connectors
-        // log their parsed counts but don't persist.
-        //
-        // The CSV connector is the exception — it parses synchronously and we can
-        // fetch + persist in one go. The REST connectors are also wired to persist
-        // via this orchestrator once they expose a "GetEvents" method.
-        //
-        // For the MVP demo, we just mark the device as synced and return the counts.
-        await _db.SaveChangesAsync(ct);
-        return (0, 0);
+        if (events == null || events.Count == 0)
+        {
+            // No events to persist — just save device metadata
+            await _db.SaveChangesAsync(ct);
+            return (0, 0);
+        }
+
+        // Use the event processor to persist and process
+        var processingResult = await _eventProcessor.ProcessEventsAsync(orgId, device.Id, device.Vendor, events, ct);
+
+        _logger.LogInformation(
+            "Persisted {Imported} events from {DeviceName} ({Dupes} duplicates, {Unmatched} unmatched, {Attendance} attendance records)",
+            processingResult.EventsImported, device.Name, processingResult.DuplicatesSkipped,
+            processingResult.UnmatchedEmployees, processingResult.AttendanceRecordsCreated + processingResult.AttendanceRecordsUpdated);
+
+        return (processingResult.EventsImported, processingResult.DuplicatesSkipped);
     }
 
     /// <summary>Import a CSV file as a one-off (no device config required).</summary>
@@ -105,7 +126,6 @@ public class DeviceSyncOrchestrator
 
         try
         {
-            // Write the stream to a temp file and parse via the CsvConnector.
             var tempPath = Path.Combine(Path.GetTempPath(), $"ukuuhr-import-{Guid.NewGuid():N}.csv");
             using (var fs = File.Create(tempPath))
                 await csvStream.CopyToAsync(fs, ct);
@@ -113,49 +133,15 @@ public class DeviceSyncOrchestrator
             var events = CsvConnector.ParseCsv(tempPath, null);
             File.Delete(tempPath);
 
-            // Persist events, skipping duplicates.
-            var imported = 0;
-            var dupes = 0;
-            foreach (var e in events)
-            {
-                // Resolve employee by code.
-                var emp = await _db.Employees.FirstOrDefaultAsync(x =>
-                    x.OrganizationId == orgId && x.EmployeeCode == e.EmployeeCode, ct);
-                if (emp == null) { dupes++; continue; } // unknown employee — skip.
-
-                // Duplicate check: same emp + event type + time within 60 seconds.
-                var isDup = await _db.UnifiedClockEvents.AnyAsync(x =>
-                    x.OrganizationId == orgId &&
-                    x.EmployeeId == emp.Id &&
-                    x.EventType == e.EventType &&
-                    Math.Abs((x.EventTime - e.EventTime).TotalSeconds) < 60, ct);
-                if (isDup) { dupes++; continue; }
-
-                _db.UnifiedClockEvents.Add(new UnifiedClockEvent
-                {
-                    OrganizationId = orgId,
-                    DeviceId = device.Id,
-                    Vendor = device.Vendor,
-                    EmployeeCode = e.EmployeeCode,
-                    EmployeeId = emp.Id,
-                    EventTime = e.EventTime,
-                    EventType = e.EventType,
-                    VerifyMode = e.VerifyMode,
-                    InOutMode = e.InOutMode,
-                    RawPayload = e.RawPayload,
-                    SyncedAt = DateTime.UtcNow,
-                    IsProcessed = false
-                });
-                imported++;
-            }
-            await _db.SaveChangesAsync(ct);
+            // Use the event processor to persist
+            var processingResult = await _eventProcessor.ProcessEventsAsync(orgId, device.Id, device.Vendor, events, ct);
 
             device.LastSyncAt = DateTime.UtcNow;
             device.LastSuccessfulSyncAt = DateTime.UtcNow;
-            device.TotalEventsSynced += imported;
+            device.TotalEventsSynced += processingResult.EventsImported;
             await _db.SaveChangesAsync(ct);
 
-            return DeviceSyncResult.Ok(events.Count, imported, dupes, DateTime.UtcNow - start);
+            return DeviceSyncResult.Ok(events.Count, processingResult.EventsImported, processingResult.DuplicatesSkipped, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
