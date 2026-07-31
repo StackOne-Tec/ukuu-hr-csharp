@@ -30,6 +30,14 @@ Thumbs.db
 *.log
 logs/
 
+# ───────── Python ─────────
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.xlsx
+
 # ───────── Secrets ─────────
 appsettings.*.Local.json
 .env

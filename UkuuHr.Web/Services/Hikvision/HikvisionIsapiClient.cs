@@ -324,11 +324,43 @@ public class HikvisionIsapiClient : IDisposable
         var events = new List<NormalizedClockEvent>();
         try
         {
-            var searchXml = BuildAcsEventSearchXml(since, maxResults);
-            using var content = new StringContent(searchXml, Encoding.UTF8, "application/xml");
-            using var resp = await PostAsync("/ISAPI/AccessControl/AcsEvent?format=json", content, ct);
-            var json = await resp.Content.ReadAsStringAsync(ct);
-            events = ParseAcsEventJson(json);
+            // Paginated AcsEvent search: reuse one searchID across pages and POST
+            // the full search description with an incremented searchResultPosition
+            // for each page. GET-based continuation returns 404 on the
+            // DS-K1T321MFWX family, so every page must be POSTed (mirrors the
+            // Python tool's live-verified behavior).
+            var searchId = $"AcsEventSearch_{Guid.NewGuid():N}";
+            var position = 0;
+            int? totalMatches = null;
+
+            while (true)
+            {
+                var searchXml = BuildAcsEventSearchXml(since, maxResults, searchId, position);
+                using var content = new StringContent(searchXml, Encoding.UTF8, "application/xml");
+                using var resp = await PostAsync("/ISAPI/AccessControl/AcsEvent?format=json", content, ct);
+                var json = await resp.Content.ReadAsStringAsync(ct);
+                var page = ParseAcsEventJsonPage(json);
+                events.AddRange(page.Events);
+
+                if (totalMatches is null)
+                    totalMatches = page.TotalMatches;
+                var numOnPage = page.NumOfMatches;
+                if (totalMatches is null)
+                    totalMatches = numOnPage;
+
+                position += numOnPage > 0 ? numOnPage : page.Events.Count;
+                if (position <= 0) break;
+                if (totalMatches is not null && position >= totalMatches) break;
+                if (numOnPage == 0 && page.Events.Count == 0) break;
+                if (events.Count >= totalMatches) break;
+                // Safety cap: avoid an infinite loop on misbehaving devices.
+                if (position >= maxResults * 20)
+                {
+                    _logger.LogWarning("AcsEvent pagination safety cap reached after {Count} events " +
+                                       "for {Host}; results may be truncated", events.Count, _config.IpAddress);
+                    break;
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -354,16 +386,19 @@ public class HikvisionIsapiClient : IDisposable
         return events;
     }
 
-    private static string BuildAcsEventSearchXml(DateTime? since, int maxResults)
+    private static string BuildAcsEventSearchXml(DateTime? since, int maxResults, string searchId, int searchResultPosition)
     {
         var start = since?.ToString("yyyy-MM-ddTHH:mm:ssZ") ?? DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-ddTHH:mm:ssZ");
         var end = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        // major=1 restricts the device to attendance events only, so door/card/
+        // alarm events never pollute attendance records (a client-side filter is
+        // applied as a safety net in ParseAcsEventJson/ParseAuditLogXml).
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <AcsEventSearchDescription>
-    <searchID>AcsEventSearch_{Guid.NewGuid():N}</searchID>
-    <searchResultPosition>0</searchResultPosition>
+    <searchID>{searchId}</searchID>
+    <searchResultPosition>{searchResultPosition}</searchResultPosition>
     <maxResults>{maxResults}</maxResults>
-    <major>0</major>
+    <major>1</major>
     <minor>0</minor>
     <startTime>{start}</startTime>
     <endTime>{end}</endTime>
@@ -642,26 +677,35 @@ public class HikvisionIsapiClient : IDisposable
         return caps;
     }
 
-    private List<NormalizedClockEvent> ParseAcsEventJson(string json)
+    private sealed record AcsEventPage(List<NormalizedClockEvent> Events, int NumOfMatches, int? TotalMatches);
+
+    private AcsEventPage ParseAcsEventJsonPage(string json)
     {
         var events = new List<NormalizedClockEvent>();
+        int numOfMatches = 0;
+        int? totalMatches = null;
         try
         {
             using var doc = JsonDocument.Parse(json);
-            JsonElement eventList = default;
-            bool found = false;
+            JsonElement root = doc.RootElement;
+            if (root.TryGetProperty("AcsEvent", out var acsEvent) && acsEvent.ValueKind == JsonValueKind.Object)
+                root = acsEvent;
 
-            if (doc.RootElement.TryGetProperty("AcsEvent", out var acsEvent))
-            {
-                found = acsEvent.TryGetProperty("InfoList", out eventList) ||
-                        acsEvent.TryGetProperty("EventList", out eventList);
-            }
+            if (root.TryGetProperty("numOfMatches", out var nom) && nom.ValueKind == JsonValueKind.Number)
+                numOfMatches = nom.GetInt32();
+            if (root.TryGetProperty("totalMatches", out var tm) && tm.ValueKind == JsonValueKind.Number)
+                totalMatches = tm.GetInt32();
+
+            JsonElement eventList = default;
+            bool found = root.TryGetProperty("InfoList", out eventList) ||
+                         root.TryGetProperty("EventList", out eventList);
             if (!found)
             {
                 found = doc.RootElement.TryGetProperty("InfoList", out eventList) ||
                         doc.RootElement.TryGetProperty("EventList", out eventList);
             }
-            if (!found || eventList.ValueKind != JsonValueKind.Array) return events;
+            if (!found || eventList.ValueKind != JsonValueKind.Array)
+                return new AcsEventPage(events, numOfMatches, totalMatches);
 
             foreach (var item in eventList.EnumerateArray())
             {
@@ -673,7 +717,14 @@ public class HikvisionIsapiClient : IDisposable
 
                 var major = item.TryGetProperty("major", out var maj) ? maj.GetInt32() : 0;
                 var minor = item.TryGetProperty("minor", out var min) ? min.GetInt32() : 0;
-                var eventType = major == 1 && minor == 76 ? ClockEventType.CheckOut : ClockEventType.CheckIn;
+                // Attendance events only: skip door/card/alarm events so they never
+                // pollute attendance records. Note: ClockEventType has no "Other",
+                // so any other major=1 attendance code falls back to CheckIn
+                // (deliberately diverging from the Python tool's "Other" label).
+                if (major != 1) continue;
+                var eventType = minor == 75 ? ClockEventType.CheckIn
+                              : minor == 76 ? ClockEventType.CheckOut
+                              : ClockEventType.CheckIn;
 
                 var verifyMode = item.TryGetProperty("verifyMode", out var vm) ? vm.GetString() :
                                  item.TryGetProperty("VerifyMode", out var vm2) ? vm2.GetString() : null;
@@ -684,7 +735,7 @@ public class HikvisionIsapiClient : IDisposable
             }
         }
         catch { }
-        return events;
+        return new AcsEventPage(events, numOfMatches, totalMatches);
     }
 
     private List<NormalizedClockEvent> ParseAuditLogXml(string xml)
@@ -700,8 +751,12 @@ public class HikvisionIsapiClient : IDisposable
                 var majorStr = item.Element("major")?.Value ?? "0";
                 var minorStr = item.Element("minor")?.Value ?? "0";
                 if (!DateTime.TryParse(timeStr, out var eventTime)) continue;
-                var eventType = majorStr == "1" && minorStr == "75" ? ClockEventType.CheckIn
-                              : majorStr == "1" && minorStr == "76" ? ClockEventType.CheckOut
+                // Attendance events only: skip door/card/alarm events. See the
+                // ParseAcsEventJsonPage note about the CheckIn fallback for other
+                // major=1 attendance codes (no "Other" in ClockEventType).
+                if (majorStr != "1") continue;
+                var eventType = minorStr == "75" ? ClockEventType.CheckIn
+                              : minorStr == "76" ? ClockEventType.CheckOut
                               : ClockEventType.CheckIn;
                 var verifyMode = item.Element("VerifyMode")?.Value;
                 var inOutMode = item.Element("inAndOutMode")?.Value;
