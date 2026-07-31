@@ -86,6 +86,9 @@ public class LeaveRequest
     public string? Reason { get; set; }
     public LeaveRequestStatus Status { get; set; } = LeaveRequestStatus.Pending;
 
+    /// <summary>Human-readable status string for JSON serialization.</summary>
+    public string StatusDisplay => Status.ToString();
+
     public bool IsExceptional { get; set; }
     public int? DeductibleDays { get; set; }
     public int? HolidayDays { get; set; }
