@@ -63,42 +63,6 @@
     }
     else
     {
-        @* ───── Vendor matrix ───── *@
-        <div class="bk-admin-card" style="margin-bottom:24px;">
-        <div class="bk-admin-card-header">
-            <h3>Supported Vendors (FR-001)</h3>
-            <p>All 7 vendors × 4 integration modes. REST API + CSV are fully functional; SDK + TCP/IP require vendor binaries.</p>
-        </div>
-        <div class="bk-admin-card-content">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
-                @foreach (var v in _vendorMatrix)
-                {
-                    <div style="padding:14px;border:1px solid var(--bk-line);border-radius:12px;background:@(v.HasDevices ? "rgba(37,22,63,0.02)" : "transparent");transition:all 0.15s ease;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                            <div style="width:8px;height:24px;border-radius:2px;background:@v.Color;"></div>
-                            <div style="font-weight:700;font-size:13px;color:var(--bk-ink);">@v.Name</div>
-                        </div>
-                        <div style="display:flex;flex-direction:column;gap:4px;font-size:11px;">
-                            @foreach (var m in v.Modes)
-                            {
-                                <div style="display:flex;align-items:center;gap:6px;color:var(--bk-ink-2);">
-                                    <span class="material-icons-round" style="font-size:12px;color:@(m.Supported ? "var(--bk-success)" : "var(--bk-ink-3)");">@(m.Supported ? "check_circle" : "radio_button_unchecked")</span>
-                                    <span style="@(m.Supported ? "" : "color:var(--bk-ink-3);")">@m.Name</span>
-                                </div>
-                            }
-                        </div>
-                        @if (v.HasDevices)
-                        {
-                            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bk-line);font-size:11px;color:var(--bk-accent);font-weight:600;">
-                                @v.DeviceCount device(s) connected
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-
     @* ───── KPI cards ───── *@
     <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
         <div class="bk-admin-kpi-card">
@@ -234,9 +198,6 @@
     private bool _orgMissing;
     private const int _vendorsSupported = 7;
 
-    // Vendor matrix data (computed once).
-    private List<VendorMatrixItem> _vendorMatrix = new();
-
     // Dialog state.
 
     protected override async Task OnInitializedAsync()
@@ -271,7 +232,6 @@
             }
             _orgId = org.Id;
             await LoadData();
-            BuildVendorMatrix();
         }
         catch (Exception ex)
         {
@@ -289,43 +249,6 @@
         _devices = await Db.AttendanceDevices.Where(d => d.OrganizationId == _orgId).OrderByDescending(d => d.CreatedAt).ToListAsync();
     }
 
-    private void BuildVendorMatrix()
-    {
-        var vendors = Enum.GetValues<DeviceVendor>();
-        var modes = Enum.GetValues<DeviceIntegrationMode>();
-        _vendorMatrix = vendors.Select(v => new VendorMatrixItem
-        {
-            Name = v.ToString(),
-            Color = GetVendorColor(v),
-            Modes = modes.Select(m => new ModeMatrixItem
-            {
-                Name = m switch
-                {
-                    DeviceIntegrationMode.RestApi => "REST API",
-                    DeviceIntegrationMode.Sdk => "SDK",
-                    DeviceIntegrationMode.TcpIp => "TCP/IP",
-                    DeviceIntegrationMode.CsvFile => "CSV File",
-                    _ => m.ToString()
-                },
-                Supported = m == DeviceIntegrationMode.RestApi || m == DeviceIntegrationMode.CsvFile
-            }).ToList(),
-            HasDevices = _devices.Any(d => d.Vendor == v),
-            DeviceCount = _devices.Count(d => d.Vendor == v)
-        }).ToList();
-    }
-
-    private static string GetVendorColor(DeviceVendor v) => v switch
-    {
-        DeviceVendor.Hikvision => "#D92136",
-        DeviceVendor.ZKTeco => "#0066B3",
-        DeviceVendor.Suprema => "#00A651",
-        DeviceVendor.Dahua => "#E2231A",
-        DeviceVendor.Anviz => "#0080FF",
-        DeviceVendor.Matrix => "#FF6600",
-        DeviceVendor.eSSL => "#6E5F92",
-        _ => "#6B7280"
-    };
-
     private static string DeviceStatusClass(AttendanceDevice d) => d.StatusDisplay switch
     {
         "Online" => "approved",
@@ -335,17 +258,4 @@
     };
 
     // ───── Helper classes ─────
-    private sealed class VendorMatrixItem
-    {
-        public string Name { get; set; } = "";
-        public string Color { get; set; } = "#6B7280";
-        public List<ModeMatrixItem> Modes { get; set; } = new();
-        public bool HasDevices { get; set; }
-        public int DeviceCount { get; set; }
-    }
-    private sealed class ModeMatrixItem
-    {
-        public string Name { get; set; } = "";
-        public bool Supported { get; set; }
-    }
 }
