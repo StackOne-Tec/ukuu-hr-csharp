@@ -1,0 +1,159 @@
+name: Build, Test & Publish Docker Image
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CI + CD pipeline for Ukuu HR.
+#
+# On every push to main (or a version tag v*.*.*):
+#   1. Restores NuGet packages
+#   2. Builds the solution in Release mode
+#   3. Runs the xUnit test suite (81 tests)
+#   4. Builds a Docker image using the repo's Dockerfile
+#   5. Pushes the image to GitHub Container Registry (ghcr.io)
+#
+# Image tags produced:
+#   - latest                       — always, on main branch
+#   - <short-sha>                  — always (e.g. abc1234)
+#   - v1.2.3                       — when a v*.*.* tag is pushed
+#   - pr-<number>                  — on pull requests (for testing, not latest)
+#
+# Image URL: ghcr.io/stackone-tec/ukuu-hr-csharp
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+  # security-events: write   # enable if you add CodeQL later
+  id-token: write             # for OIDC if you add cloud deploys later
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 1: Build & test the .NET solution
+  # ───────────────────────────────────────────────────────────────────────────
+  build-test:
+    name: Build & Test (.NET 9)
+    runs-on: ubuntu-latest
+    outputs:
+      short-sha: ${{ steps.meta.outputs.short-sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore UkuuHr.sln
+
+      - name: Build
+        run: dotnet build UkuuHr.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test UkuuHr.sln -c Release --no-build --logger "trx;LogFileName=tests.trx" --logger "console;verbosity=normal"
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Generate metadata
+        id: meta
+        run: |
+          echo "short-sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "build-date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 2: Build & push Docker image to ghcr.io
+  # Only runs on main branch pushes, version tags, or manual dispatch.
+  # Skipped on PRs (we don't want to publish every fork's PR).
+  # ───────────────────────────────────────────────────────────────────────────
+  docker-publish:
+    name: Build & Push Docker Image to ghcr.io
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short,prefix=sha-
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=Ukuu HR
+            org.opencontainers.image.description=Modern HRMS for Africa — Blazor Server + .NET 9
+            org.opencontainers.image.source=https://github.com/StackOne-Tec/ukuu-hr-csharp
+            org.opencontainers.image.licenses=MIT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ needs.build-test.outputs.build-date }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Print pull command
+        run: |
+          echo ""
+          echo "✅ Docker image published successfully!"
+          echo ""
+          echo "Pull it with:"
+          echo "  docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo ""
+          echo "Run it with:"
+          echo "  docker run --rm -p 8080:8080 \\"
+          echo "    -e ASPNETCORE_ENVIRONMENT=Production \\"
+          echo "    -e SEED_DEMO_DATA=true \\"
+          echo "    -e POSTGRES_CONNECTION_STRING='Host=...;Database=ukuuhr;...' \\"
+          echo "    -e UKUU_ENCRYPTION_KEY=\$(openssl rand -hex 32) \\"
+          echo "    -e UKUU_API_KEY=\$(openssl rand -hex 32) \\"
+          echo "    ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo ""
+          echo "Then visit http://localhost:8080 and log in with admin@ukuuhr.demo / Admin@2025"
