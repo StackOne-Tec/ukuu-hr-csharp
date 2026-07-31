@@ -1,15 +1,18 @@
 @page "/devices/add"
+@page "/devices/{Id:int}/edit"
 @attribute [Authorize(Policy = "HrOrAdmin")]
 @using Microsoft.EntityFrameworkCore
+@using UkuuHr.Services.Devices
 @inject UkuuHrDbContext Db
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
+@inject IDeviceConnectorRegistry ConnectorRegistry
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
         <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Devices · Add New Attendance Device</div>
-            <h1 class="bk-admin-h1">Add Device</h1>
+            <div class="bk-admin-greeting">Devices · @(_isEdit ? "Edit" : "Add New") Attendance Device</div>
+            <h1 class="bk-admin-h1">@(_isEdit ? "Edit Device" : "Add Device")</h1>
             <p class="bk-admin-sub">
                 Connect a new time & attendance device. Supports <strong>7 vendors</strong> and
                 <strong>4 integration modes</strong> (REST API, SDK, TCP/IP, CSV File).
@@ -187,7 +190,14 @@
                             <label class="bk-label">Port</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">plug</span>
-                                <InputNumber class="bk-input" style="padding-left:36px;" @bind-Value="_form.Port" placeholder="80" />
+                                <InputNumber class="bk-input" style="padding-left:36px;" @bind-Value="_form.Port" placeholder="@(_form.UseHttps ? "443" : "80")" />
+                            </div>
+                        </div>
+                        <div class="bk-field" style="display:flex;align-items:center;gap:12px;padding-top:28px;">
+                            <input type="checkbox" id="useHttps" checked="@_form.UseHttps" @onchange="ToggleHttps" style="width:18px;height:18px;accent-color:var(--bk-accent);" />
+                            <div>
+                                <label for="useHttps" style="font-size:13px;font-weight:600;color:var(--bk-ink);cursor:pointer;">Use HTTPS</label>
+                                <div style="font-size:11px;color:var(--bk-ink-3);">Hikvision ISAPI supports TLS on port 443. Enable if your device has HTTPS enabled.</div>
                             </div>
                         </div>
                         <div class="bk-field">
@@ -259,7 +269,7 @@
     {
         <div class="bk-admin-card">
             <div class="bk-admin-card-header">
-                <h3>Step 3: Review & Add Device</h3>
+                <h3>Step 3: @(_isEdit ? "Review & Save" : "Review & Add Device")</h3>
                 <p>Review the configuration below, then test the connection before saving.</p>
             </div>
             <div class="bk-admin-card-content">
@@ -282,10 +292,10 @@
                     </div>
                     <div style="padding:14px;border:1px solid var(--bk-line);border-radius:10px;">
                         <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;margin-bottom:4px;">Connection</div>
-                        <div style="font-weight:600;font-size:13px;font-family:var(--ukuu-font-mono);color:var(--bk-ink);">
+                        <div style="font-weight:600;font-size:13px;font-family:var(--ukuu-font-mono);color:var(--bk-ink);word-break:break-all;">
                             @if (_form.Mode != DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(_form.IpAddress))
                             {
-                                <text>@_form.IpAddress:@(_form.Port?.ToString() ?? "80")</text>
+                                <text>@_form.ConnectionUrl</text>
                             }
                             else if (_form.Mode == DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(_csvFilePath))
                             {
@@ -296,6 +306,13 @@
                                 <span style="color:var(--bk-ink-3);">Not configured</span>
                             }
                         </div>
+                        @if (_form.Mode != DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(_form.IpAddress))
+                        {
+                            <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+                                <span class="material-icons-round" style="font-size:12px;color:@(_form.UseHttps ? "var(--bk-success)" : "var(--bk-ink-3)");">@(_form.UseHttps ? "lock" : "lock_open")</span>
+                                <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:@(_form.UseHttps ? "var(--bk-success)" : "var(--bk-ink-3)");">@(_form.UseHttps ? "HTTPS · TLS encrypted" : "HTTP · plaintext")</span>
+                            </div>
+                        }
                     </div>
                     <div style="padding:14px;border:1px solid var(--bk-line);border-radius:10px;">
                         <div style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;margin-bottom:4px;">Auto-Sync</div>
@@ -328,7 +345,7 @@
                         <span style="margin-left:12px;font-size:12px;color:@(_connectionSuccess ? "var(--bk-success)" : "var(--bk-error)");">
                             @if (_connectionSuccess)
                             {
-                                <text>✓ Device is reachable and responding</text>
+                                <text>✓ @_connectionError</text>
                             }
                             else
                             {
@@ -380,8 +397,8 @@
                 else
                 {
                     <button class="bk-btn bk-btn-primary" @onclick="SaveDevice" disabled="@_isSaving">
-                        <span class="material-icons-round" style="font-size:16px;">@(_isSaving ? "sync" : "add_circle")</span>
-                        @(_isSaving ? "Adding Device…" : "Add Device")
+                        <span class="material-icons-round" style="font-size:16px;">@(_isSaving ? "sync" : (_isEdit ? "save" : "add_circle"))</span>
+                        @(_isSaving ? "Saving…" : (_isEdit ? "Save Changes" : "Add Device"))
                     </button>
                 }
             </div>
@@ -391,6 +408,9 @@
 </div>
 
 @code {
+    [Parameter] public int? Id { get; set; }
+    private bool _isEdit => Id.HasValue && Id > 0;
+
     private AttendanceDevice _form = new()
     {
         Vendor = DeviceVendor.Hikvision,
@@ -432,6 +452,30 @@
                 return;
             }
             _orgId = org.Id;
+
+            // Edit mode: load the existing device into the form
+            if (_isEdit)
+            {
+                var existing = await Db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == Id && d.OrganizationId == _orgId);
+                if (existing == null)
+                {
+                    Snackbar.Add("Device not found.", Severity.Error);
+                    Nav.NavigateTo("/devices");
+                    return;
+                }
+                _form = existing;
+                // Restore the CSV path from ConnectionJson when editing a CSV device
+                if (_form.Mode == DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(_form.ConnectionJson))
+                {
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(_form.ConnectionJson);
+                        if (doc.RootElement.TryGetProperty("filePath", out var fp))
+                            _csvFilePath = fp.GetString() ?? "";
+                    }
+                    catch { }
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -508,6 +552,16 @@
             _form.Mode = DeviceIntegrationMode.RestApi;
     }
 
+    private void ToggleHttps()
+    {
+        _form.UseHttps = !_form.UseHttps;
+        // Keep the port consistent with the scheme: 80 ↔ 443.
+        if (_form.UseHttps && (_form.Port == null || _form.Port == 80))
+            _form.Port = 443;
+        else if (!_form.UseHttps && _form.Port == 443)
+            _form.Port = 80;
+    }
+
     private async Task TestConnection()
     {
         _isTesting = true;
@@ -539,20 +593,32 @@
             }
             else
             {
-                // Validate IP format
-                var parts = _form.IpAddress.Split('.');
-                if (parts.Length != 4 || parts.Any(p => !int.TryParse(p, out var n) || n < 0 || n > 255))
+                // Real connectivity test: resolve the connector for this vendor+mode
+                // and ping the device using the entered credentials (works pre-save).
+                var connector = ConnectorRegistry.Resolve(_form.Vendor, _form.Mode);
+                if (connector == null)
                 {
                     _connectionSuccess = false;
-                    _connectionError = $"'{_form.IpAddress}' is not a valid IP address.";
+                    _connectionError = $"No connector registered for {_form.Vendor}/{_form.Mode}.";
                 }
                 else
                 {
-                    // Save the device first, then test from the Devices list for a real ping.
-                    // The orchestrator.PingAsync requires a saved device with a DB ID.
-                    await Task.Delay(300);
-                    _connectionSuccess = true;
-                    _connectionError = "IP format valid. A full connection test will run automatically after saving.";
+                    var probe = new AttendanceDevice
+                    {
+                        Vendor = _form.Vendor,
+                        Mode = _form.Mode,
+                        IpAddress = _form.IpAddress,
+                        Port = _form.Port ?? (_form.UseHttps ? 443 : 80),
+                        UseHttps = _form.UseHttps,
+                        Username = _form.Username,
+                        Password = _form.Password,
+                        DeviceSerial = _form.DeviceSerial
+                    };
+                    var (reachable, error) = await connector.PingAsync(probe);
+                    _connectionSuccess = reachable;
+                    _connectionError = reachable
+                        ? $"Device is reachable and responding via {(_form.UseHttps ? "HTTPS" : "HTTP")}."
+                        : (error ?? "Device unreachable.");
                 }
             }
             _connectionTested = true;
@@ -581,21 +647,33 @@
 
             _isSaving = true;
 
-            // For CSV mode, store file path in ConnectionJson
-            if (_form.Mode == DeviceIntegrationMode.CsvFile && !string.IsNullOrEmpty(_csvFilePath))
+            // For CSV mode, store file path in ConnectionJson (clear stale path when emptied)
+            if (_form.Mode == DeviceIntegrationMode.CsvFile)
             {
-                _form.ConnectionJson = $"{{\"filePath\":\"{_csvFilePath}\"}}";
+                _form.ConnectionJson = string.IsNullOrWhiteSpace(_csvFilePath)
+                    ? null
+                    : $"{{\"filePath\":\"{_csvFilePath}\"}}";
             }
 
             _form.OrganizationId = _orgId;
-            _form.CreatedAt = DateTime.UtcNow;
-            _form.CreatedByEmail = "admin@ukuuhr.demo";
-            _form.IsActive = true;
 
-            Db.AttendanceDevices.Add(_form);
-            await Db.SaveChangesAsync();
+            if (_isEdit)
+            {
+                // Preserve the existing IsActive state — editing must not re-enable a disabled device.
+                _form.UpdatedAt = DateTime.UtcNow;
+                await Db.SaveChangesAsync();
+                Snackbar.Add($"Device '{_form.Name}' updated successfully.", Severity.Success);
+            }
+            else
+            {
+                _form.CreatedAt = DateTime.UtcNow;
+                _form.CreatedByEmail = "admin@ukuuhr.demo";
+                _form.IsActive = true;
+                Db.AttendanceDevices.Add(_form);
+                await Db.SaveChangesAsync();
+                Snackbar.Add($"Device '{_form.Name}' added successfully.", Severity.Success);
+            }
 
-            Snackbar.Add($"Device '{_form.Name}' added successfully.", Severity.Success);
             Nav.NavigateTo("/devices");
         }
         catch (Exception ex)

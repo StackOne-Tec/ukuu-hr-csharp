@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -315,7 +316,7 @@ public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 
     private record LivenessResponse(string Status, DateTime Timestamp);
     private record ReadinessResponse(string Status, DateTime Timestamp, string Db);
-    private record SystemMetricsResponse(string Status, double UptimeSeconds, DateTime Timestamp, string[] ModulesActive);
+    private record SystemMetricsResponse(string Status, double UptimeSeconds, DateTime Timestamp, [property: JsonPropertyName("modules_active")] string[] ModulesActive);
 
     private record ModulesResponse(string? Organization, ModuleInfoRecord[] Modules);
     private record ModuleInfoRecord(string Key, string Name, bool Implemented, string? Endpoint);

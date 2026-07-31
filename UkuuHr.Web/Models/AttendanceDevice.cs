@@ -40,6 +40,9 @@ public class AttendanceDevice
 
     public int? Port { get; set; }
 
+    /// <summary>Use HTTPS for the vendor API (Hikvision ISAPI supports HTTPS on port 443).</summary>
+    public bool UseHttps { get; set; }
+
     [MaxLength(100)]
     public string? Username { get; set; } = "admin";
 
@@ -110,6 +113,17 @@ public class AttendanceDevice
 
     public string LastSyncDisplay => LastSyncAt?.ToString("dd MMM HH:mm") ?? "Never";
     public string LastSuccessfulSyncDisplay => LastSuccessfulSyncAt?.ToString("dd MMM HH:mm") ?? "Never";
+
+    /// <summary>URL scheme derived from UseHttps (used in UI connection displays).</summary>
+    public string Scheme => UseHttps ? "https://" : "http://";
+
+    /// <summary>
+    /// Formatted endpoint for display: scheme://ip:port (UseHttps aware).
+    /// Returns "—" when no IP is configured (e.g. CSV-only devices).
+    /// </summary>
+    public string ConnectionUrl => string.IsNullOrEmpty(IpAddress)
+        ? "—"
+        : $"{Scheme}{IpAddress}:{Port ?? (UseHttps ? 443 : 80)}";
 
     /// <summary>Vendor brand color (used in UI chips).</summary>
     public string VendorColor => Vendor switch

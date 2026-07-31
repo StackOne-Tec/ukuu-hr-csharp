@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using UkuuHr.Models;
 using UkuuHr.Services.Devices;
+using UkuuHr.Services.Hikvision;
 using Xunit;
 
 namespace UkuuHr.Tests;
@@ -45,7 +47,7 @@ public class VendorConnectorTests
   </LogItem>
 </CASearchResult>";
 
-        var events = HikvisionRestConnector.ParseHikvisionXml(xml, Device(DeviceVendor.Hikvision));
+        var events = HikvisionIsapiClient.ParseHikvisionXml(xml);
 
         Assert.Equal(2, events.Count);
         Assert.Equal("UKU-001", events[0].EmployeeCode);
@@ -57,7 +59,7 @@ public class VendorConnectorTests
     [Fact]
     public void Hikvision_Returns_Empty_On_Malformed_Xml()
     {
-        var events = HikvisionRestConnector.ParseHikvisionXml("not xml", Device(DeviceVendor.Hikvision));
+        var events = HikvisionIsapiClient.ParseHikvisionXml("not xml");
         Assert.Empty(events);
     }
 
@@ -290,7 +292,7 @@ public class VendorConnectorTests
     {
         var connectors = new IDeviceConnector[]
         {
-            new HikvisionRestConnector(),
+            new HikvisionRestConnector(NullLogger<HikvisionRestConnector>.Instance),
             new ZKTecoRestConnector(),
             new SupremaRestConnector(),
             new DahuaRestConnector(),

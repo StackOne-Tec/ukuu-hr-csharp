@@ -111,9 +111,10 @@ public class HikvisionRestConnector : RestConnectorBase, IDeviceConnectorWithEve
         var config = new HikvisionIsapiConfig
         {
             IpAddress = device.IpAddress ?? "",
-            Port = device.Port ?? 80,
+            Port = device.Port ?? (device.UseHttps ? 443 : 80),
             Username = device.Username ?? "admin",
             Password = device.Password ?? "",
+            UseHttps = device.UseHttps,
             MaxRetries = 3,
             TimeoutSeconds = 30
         };

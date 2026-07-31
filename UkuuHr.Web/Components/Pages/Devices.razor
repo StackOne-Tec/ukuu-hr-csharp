@@ -151,9 +151,15 @@
                     </span>
                 </div>
                 <div class="bk-admin-card-content" style="padding-top:12px;">
-                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bk-line);">
                         <span style="font-size:11px;color:var(--bk-ink-3);">Connection</span>
-                        <span style="font-size:12px;font-weight:600;font-family:var(--ukuu-font-mono);">@(d.IpAddress ?? "—")@($":{d.Port ?? 80}")</span>
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;font-family:var(--ukuu-font-mono);word-break:break-all;">
+                            @if (d.UseHttps && !string.IsNullOrEmpty(d.IpAddress))
+                            {
+                                <span class="material-icons-round" style="font-size:13px;color:var(--bk-success);" title="HTTPS enabled">lock</span>
+                            }
+                            @d.ConnectionUrl
+                        </span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
                         <span style="font-size:11px;color:var(--bk-ink-3);">Last sync</span>
@@ -181,6 +187,15 @@
                                 Sync
                             </button>
                         </form>
+                        @if (d.Vendor == DeviceVendor.Hikvision)
+                        {
+                            <form method="post" action="/api/devices/sync-persons/@d.Id" style="flex:1;">
+                                <button type="submit" class="bk-btn bk-btn-secondary" style="width:100%;font-size:11px;padding:6px 10px;" title="Push portal employees to this Hikvision device">
+                                    <span class="material-icons-round" style="font-size:13px;">badge</span>
+                                    Push Employees
+                                </button>
+                            </form>
+                        }
                         <a href="/devices/@d.Id/edit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;text-decoration:none;">
                             <span class="material-icons-round" style="font-size:13px;">edit</span>
                         </a>
@@ -239,6 +254,10 @@
                     Snackbar.Add($"Sync complete: {query["name"]}.", Severity.Success);
                 else if (query["synced"] == "0")
                     Snackbar.Add($"Sync failed: {query["error"]}", Severity.Error);
+                else if (query["pushed"] == "1")
+                    Snackbar.Add($"Employees pushed to '{query["name"]}': {query["ok"]} ok, {query["fail"]} failed ({query["total"]} total).", Severity.Success);
+                else if (query["pushed"] == "0")
+                    Snackbar.Add($"Employee push failed: {query["error"]}", Severity.Error);
                 else if (query["deleted"] == "1")
                     Snackbar.Add($"Device '{query["name"]}' deleted.", Severity.Info);
             }
