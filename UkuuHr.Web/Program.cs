@@ -86,6 +86,21 @@ static string ExtractHost(string connStr)
     return "<unknown>";
 }
 
+// ───── Sanitize messages before embedding them in redirect query strings ─────
+/// <summary>
+/// Strips control characters, collapses whitespace, and caps the length of a
+/// message so exception detail can never produce huge URLs or unexpected
+/// characters when placed into a redirect query string.
+/// </summary>
+static string SanitizeRedirectMessage(string? message)
+{
+    if (string.IsNullOrWhiteSpace(message)) return "Unknown error.";
+    var cleaned = string.Concat(message.Select(c => char.IsControl(c) ? ' ' : c));
+    cleaned = string.Join(' ', cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    const int maxLength = 200;
+    return cleaned.Length <= maxLength ? cleaned : cleaned[..maxLength] + "...";
+}
+
 // ───────────── Authentication ─────────────
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -178,8 +193,11 @@ builder.Services.AddScoped<UkuuHr.Services.Devices.MatrixTcpConnector>();
 builder.Services.AddScoped<UkuuHr.Services.Devices.EsslTcpConnector>();
 builder.Services.AddScoped<UkuuHr.Services.Devices.AnvizTcpConnector>();
 
-// Register the connector registry + orchestrator as singletons.
-builder.Services.AddSingleton<UkuuHr.Services.Devices.IDeviceConnectorRegistry>(sp =>
+// Register the connector registry + orchestrator. The registry must be scoped:
+// its factory resolves the scoped vendor connectors, so building it at singleton
+// lifetime from the root provider throws under scope validation (dev/tests) and
+// would otherwise leak scoped instances into singleton lifetime.
+builder.Services.AddScoped<UkuuHr.Services.Devices.IDeviceConnectorRegistry>(sp =>
 {
     var connectors = new List<UkuuHr.Services.Devices.IDeviceConnector>();
     // The CsvConnector is vendor-agnostic — register it for ALL vendors under the CsvFile mode.
@@ -295,6 +313,8 @@ static async Task RunIdempotentMigrationsAsync(UkuuHrDbContext db, ILogger logge
             @"ALTER TABLE ""LeaveHolidays"" ADD COLUMN IF NOT EXISTS ""IsRecurring"" boolean NOT NULL DEFAULT false"),
         ("Employees", "PayrollId",
             @"ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""PayrollId"" varchar(50)"),
+        ("AttendanceDevices", "UseHttps",
+            @"ALTER TABLE ""AttendanceDevices"" ADD COLUMN IF NOT EXISTS ""UseHttps"" boolean NOT NULL DEFAULT false"),
     };
 
     foreach (var (table, column, sql) in migrations)
@@ -642,7 +662,7 @@ app.MapGet("/api/employees", async (
             e.Email,
             e.Phone,
             status = e.StatusDisplay,
-            e.Status,
+            statusCode = e.Status,
             e.EmploymentType,
             e.BasicSalary,
             e.Currency,
@@ -678,7 +698,7 @@ app.MapGet("/api/employees/{id:int}", async (
         emp.Email,
         emp.Phone,
         status = emp.StatusDisplay,
-        emp.Status,
+        statusCode = emp.Status,
         emp.EmploymentType,
         emp.ContractType,
         emp.DateOfBirth,
@@ -981,7 +1001,7 @@ app.MapGet("/api/shifts", async (
             s.Name,
             s.Description,
             kind = s.KindDisplay,
-            s.Kind,
+            kindCode = s.Kind,
             s.Color,
             startTime = s.TimeWindow,
             startMinutes = s.StartMinutes,
@@ -1015,7 +1035,7 @@ app.MapGet("/api/shifts/{id:int}", async (
         shift.Name,
         shift.Description,
         kind = shift.KindDisplay,
-        shift.Kind,
+        kindCode = shift.Kind,
         shift.Color,
         startMinutes = shift.StartMinutes,
         endMinutes = shift.EndMinutes,
@@ -1283,7 +1303,8 @@ app.MapGet("/api/leave", async (
             endDate = r.EndDate.ToString("yyyy-MM-dd"),
             requestedDays = r.RequestedDays,
             r.Reason,
-            r.Status,
+            status = r.Status.ToString(),
+            statusCode = r.Status,
             r.ReviewedByEmail,
             reviewedAt = r.ReviewedAt?.ToString("yyyy-MM-dd HH:mm"),
             r.RejectionReason,
@@ -1316,7 +1337,8 @@ app.MapGet("/api/leave/{id:int}", async (
         endDate = lr.EndDate.ToString("yyyy-MM-dd"),
         requestedDays = lr.RequestedDays,
         lr.Reason,
-        lr.Status,
+        status = lr.Status.ToString(),
+        statusCode = lr.Status,
         lr.IsExceptional,
         lr.DeductibleDays,
         lr.HolidayDays,
@@ -1779,7 +1801,7 @@ app.MapPost("/api/devices/sync/{id:int}", async (
     if (result.Success)
         return Results.Redirect($"/devices?synced=1&name={Uri.EscapeDataString(result.EventsFetched.ToString())}");
     else
-        return Results.Redirect($"/devices?synced=0&error={Uri.EscapeDataString(result.ErrorMessage ?? "Unknown error")}");
+        return Results.Redirect($"/devices?synced=0&error={Uri.EscapeDataString(SanitizeRedirectMessage(result.ErrorMessage))}");
 }).WithName("DeviceSync");
 
 // ───── POST /api/devices/sync-all — sync all active devices ─────
@@ -1852,14 +1874,15 @@ app.MapPost("/api/devices/save", async (
     Enum.TryParse<DeviceIntegrationMode>(form["Mode"].ToString(), out var mode);
     device.Mode = mode;
     device.IpAddress = form["IpAddress"].ToString();
-    device.Port = int.TryParse(form["Port"], out var port) ? port : 80;
+    device.Port = int.TryParse(form["Port"], out var port) ? port : (form["UseHttps"] == "true" || form["UseHttps"] == "on" ? 443 : 80);
+    device.UseHttps = form["UseHttps"] == "true" || form["UseHttps"] == "on";
     device.Username = form["Username"].ToString();
     device.Password = form["Password"].ToString();
     device.DeviceSerial = form["DeviceSerial"].ToString();
     device.Location = form["Location"].ToString();
     device.AutoSyncEnabled = form["AutoSyncEnabled"] == "true" || form["AutoSyncEnabled"] == "on";
     device.SyncIntervalMinutes = int.TryParse(form["SyncIntervalMinutes"], out var interval) ? interval : 5;
-    device.IsActive = true;
+    if (!isEdit) device.IsActive = true; // preserve existing IsActive when editing
     device.UpdatedAt = DateTime.UtcNow;
 
     // CSV file path stored in ConnectionJson
@@ -1917,7 +1940,7 @@ app.MapGet("/api/hikvision/{id:int}/info", async (int id, UkuuHrDbContext db, IL
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -1941,7 +1964,7 @@ app.MapGet("/api/hikvision/{id:int}/health", async (int id, UkuuHrDbContext db, 
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -1964,7 +1987,7 @@ app.MapGet("/api/hikvision/{id:int}/doors", async (int id, UkuuHrDbContext db, I
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -1987,7 +2010,7 @@ app.MapPost("/api/hikvision/{id:int}/unlock/{doorId:int}", async (int id, int do
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2010,7 +2033,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-persons", async (int id, UkuuHrDbConte
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2033,6 +2056,56 @@ app.MapPost("/api/hikvision/{id:int}/sync-persons", async (int id, UkuuHrDbConte
     }
 }).WithName("HikvisionSyncPersons");
 
+// ───── POST /api/devices/sync-persons/{id} — push portal employees to a Hikvision device (form POST, redirects) ─────
+app.MapPost("/api/devices/sync-persons/{id:int}", async (
+    int id,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.Redirect("/devices?pushed=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage("No organization found.")));
+
+    var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
+    if (device == null) return Results.Redirect("/devices?pushed=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage("Hikvision device not found.")));
+
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig
+        {
+            IpAddress = device.IpAddress ?? "",
+            Port = device.Port ?? (device.UseHttps ? 443 : 80),
+            UseHttps = device.UseHttps,
+            Username = device.Username ?? "admin",
+            Password = device.Password ?? ""
+        },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    try
+    {
+        var employees = await db.Employees
+            .Where(e => e.OrganizationId == org.Id && e.Status != EmploymentStatus.Inactive)
+            .Select(e => new { e.Id, e.EmployeeCode, e.FullName, e.Department })
+            .ToListAsync();
+
+        if (employees.Count == 0)
+            return Results.Redirect("/devices?pushed=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage("No active employees to push.")));
+
+        var persons = employees.Select(e => (e.EmployeeCode ?? e.Id.ToString(), e.FullName, e.Department)).ToList();
+        var results = await client.BatchSyncPersonsAsync(persons);
+        var successCount = results.Count(r => r.Success);
+        var failCount = results.Count(r => !r.Success);
+
+        logger.LogInformation("Pushed {Total} employees to device {DeviceName}: {Success} ok, {Failed} failed",
+            persons.Count, device.Name, successCount, failCount);
+
+        return Results.Redirect($"/devices?pushed=1&name={Uri.EscapeDataString(device.Name)}&total={persons.Count}&ok={successCount}&fail={failCount}");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Employee push to device {DeviceName} failed", device.Name);
+        return Results.Redirect("/devices?pushed=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage(ex.Message)));
+    }
+}).WithName("DeviceSyncPersonsForm").DisableAntiforgery().RequireAuthorization("HrOrAdmin");
+
 // POST /api/hikvision/{id}/sync-time — Sync device time with server
 app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
@@ -2042,7 +2115,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext 
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2065,7 +2138,7 @@ app.MapPost("/api/hikvision/{id:int}/reboot", async (int id, UkuuHrDbContext db,
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? 80, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try

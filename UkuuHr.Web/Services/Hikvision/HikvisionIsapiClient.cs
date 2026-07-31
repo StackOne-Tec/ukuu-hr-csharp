@@ -738,7 +738,10 @@ public class HikvisionIsapiClient : IDisposable
         return new AcsEventPage(events, numOfMatches, totalMatches);
     }
 
-    private List<NormalizedClockEvent> ParseAuditLogXml(string xml)
+    /// <summary>Parse Hikvision AuditLog search XML into normalized clock events (public for tests/tools).</summary>
+    public static List<NormalizedClockEvent> ParseHikvisionXml(string xml) => ParseAuditLogXml(xml);
+
+    private static List<NormalizedClockEvent> ParseAuditLogXml(string xml)
     {
         var events = new List<NormalizedClockEvent>();
         try

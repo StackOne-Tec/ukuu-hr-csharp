@@ -231,9 +231,10 @@ public class HikvisionBackgroundService : BackgroundService
         var config = new HikvisionIsapiConfig
         {
             IpAddress = device.IpAddress ?? "",
-            Port = device.Port ?? 80,
+            Port = device.Port ?? (device.UseHttps ? 443 : 80),
             Username = device.Username ?? "admin",
-            Password = device.Password ?? ""
+            Password = device.Password ?? "",
+            UseHttps = device.UseHttps
         };
         var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
         return new HikvisionIsapiClient(config, loggerFactory.CreateLogger<HikvisionIsapiClient>());
