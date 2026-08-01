@@ -356,9 +356,10 @@
             </div>
         }
     }
+}
 
-    <!-- Import From Device — Stage 1: Info popup (plain HTML/JS) -->
-    <div id="ukuu-import-info-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportInfoModal()">
+<!-- Import From Device — Stage 1: Info popup (plain HTML/JS) — OUTSIDE @if/@else so it always renders -->
+<div id="ukuu-import-info-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportInfoModal()">
         <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
             <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
                 <div>
@@ -812,7 +813,7 @@
     </script>
     <style>@@keyframes ukuu-spin { to { transform: rotate(360deg); } }</style>
 
-</div>
+<!-- End of Import From Device modals + script -->
 
 @code {
     private string _tab = "daily";
