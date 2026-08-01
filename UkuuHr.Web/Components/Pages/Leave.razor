@@ -71,44 +71,53 @@
                 <h3>Employee Leave Balances — @DateTime.Now.Year</h3>
                 <p>Entitlement, usage, and remaining days per employee per leave type.</p>
             </div>
-                <div style="overflow-x:auto;">
-                    <table class="bk-admin-table">
-                        <thead>
-                            <tr>
-                                <th>Employee</th>
-                                <th>Leave Type</th>
-                                <th>Entitled</th>
-                                <th>Used</th>
-                                <th>Remaining</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var bal in _allBalances)
-                            {
-                                <tr>
-                                    <td>
-                                        <div style="display:flex;align-items:center;gap:8px;">
-                                            <div class="bk-admin-avatar-sm">@bal.EmployeeInitials</div>
-                                            <span style="font-weight:600;font-size:12px;">@bal.EmployeeName</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                            <span style="width:8px;height:8px;border-radius:2px;background:@(bal.Color);"></span>
-                                            @bal.LeaveTypeName
-                                        </span>
-                                    </td>
-                                    <td style="font-weight:600;">@bal.EntitlementDays</td>
-                                    <td style="color:var(--bk-accent-4);font-weight:600;">@bal.UsedDays</td>
-                                    <td style="font-weight:700;color:@(bal.RemainingDays > 0 ? "var(--bk-accent-3)" : "var(--bk-accent-4)");">
-                                        @bal.RemainingDays.ToString("0.#")
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+            <div style="padding:0 20px 16px;">
+                <div style="position:relative;max-width:400px;">
+                    <span class="material-icons-round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:18px;">search</span>
+                    <input type="text" id="ukuu-leave-search" placeholder="Search by employee name or leave type..." oninput="ukuuFilterLeave()" style="width:100%;height:38px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px 0 38px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
                 </div>
             </div>
+            <div style="overflow-x:auto;">
+                <table class="bk-admin-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Leave Type</th>
+                            <th>Entitled</th>
+                            <th>Used</th>
+                            <th>Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ukuu-leave-tbody">
+                        @foreach (var bal in _allBalances)
+                        {
+                            <tr data-search="@(bal.EmployeeName)|@(bal.LeaveTypeName)">
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <div class="bk-admin-avatar-sm">@bal.EmployeeInitials</div>
+                                        <span style="font-weight:600;font-size:12px;">@bal.EmployeeName</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                        <span style="width:8px;height:8px;border-radius:2px;background:@(bal.Color);"></span>
+                                        @bal.LeaveTypeName
+                                    </span>
+                                </td>
+                                <td style="font-weight:600;">@bal.EntitlementDays</td>
+                                <td style="color:var(--bk-accent-4);font-weight:600;">@bal.UsedDays</td>
+                                <td style="font-weight:700;color:@(bal.RemainingDays > 0 ? "var(--bk-accent-3)" : "var(--bk-accent-4)");">
+                                    @bal.RemainingDays.ToString("0.#")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div id="ukuu-leave-empty" style="display:none;padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                    <p style="font-size:13px;">No balances match your search.</p>
+                </div>
+            </div>
+        </div>
     }
     else if (_tab == "holidays")
     {
@@ -119,14 +128,20 @@
                     <p>Non-working days automatically excluded from leave day counts.</p>
                 </div>
             </div>
+            <div style="padding:0 20px 16px;">
+                <div style="position:relative;max-width:400px;">
+                    <span class="material-icons-round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:18px;">search</span>
+                    <input type="text" id="ukuu-leave-search" placeholder="Search by holiday name or country..." oninput="ukuuFilterLeave()" style="width:100%;height:38px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px 0 38px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
+                </div>
+            </div>
             <table class="bk-admin-table bk-mobile-card-view">
                 <thead>
                     <tr><th>Holiday</th><th>Date</th><th>Day of Week</th><th>Country</th></tr>
                 </thead>
-                <tbody>
+                <tbody id="ukuu-leave-tbody">
                     @foreach (var h in _holidays)
                     {
-                        <tr>
+                        <tr data-search="@(h.Name)|@(h.Country)|@(h.Date.ToString("dd MMM yyyy"))">
                             <td style="font-weight:600;">@h.Name</td>
                             <td>@h.Date.ToString("dd MMM yyyy")</td>
                             <td style="color:var(--bk-ink-3);">@h.Date.DayOfWeek</td>
@@ -135,11 +150,20 @@
                     }
                 </tbody>
             </table>
+            <div id="ukuu-leave-empty" style="display:none;padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <p style="font-size:13px;">No holidays match your search.</p>
+            </div>
         </div>
     }
     else
     {
         <div class="bk-admin-card" style="overflow:hidden;">
+            <div style="padding:16px 20px;border-bottom:1px solid var(--bk-line);">
+                <div style="position:relative;max-width:400px;">
+                    <span class="material-icons-round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:18px;">search</span>
+                    <input type="text" id="ukuu-leave-search" placeholder="Search by employee, leave type, or reason..." oninput="ukuuFilterLeave()" style="width:100%;height:38px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px 0 38px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
+                </div>
+            </div>
             <table class="bk-admin-table bk-mobile-card-view">
                 <thead>
                     <tr>
@@ -152,10 +176,10 @@
                         @if (_tab == "pending") { <th>Actions</th> }
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="ukuu-leave-tbody">
                     @foreach (var l in _filtered)
                     {
-                        <tr>
+                        <tr data-search="@(l.EmployeeName)|@(l.LeaveTypeName)|@(l.Reason ?? "")">
                             <td>
                                 <div style="display:flex;align-items:center;gap:10px;">
                                     <div class="bk-admin-avatar purple" style="width:32px;height:32px;font-size:12px;">@GetInitials(l.EmployeeName)</div>
@@ -194,14 +218,31 @@
                     }
                 </tbody>
             </table>
-            @if (!_filtered.Any())
-            {
-                <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                    <p style="font-size:13px;">No @(_tab) leave requests.</p>
-                </div>
-            }
+            <div id="ukuu-leave-empty" style="display:none;padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <p style="font-size:13px;">No @(_tab) leave requests match your search.</p>
+            </div>
         </div>
     }
+
+    <script>
+        function ukuuFilterLeave() {
+            var search = (document.getElementById('ukuu-leave-search') || {}).value || '';
+            var rows = document.querySelectorAll('#ukuu-leave-tbody tr');
+            var visible = 0;
+            search = search.toLowerCase().trim();
+            rows.forEach(function(row) {
+                var searchData = (row.getAttribute('data-search') || '').toLowerCase();
+                if (!search || searchData.indexOf(search) >= 0) {
+                    row.style.display = '';
+                    visible++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            var empty = document.getElementById('ukuu-leave-empty');
+            if (empty) empty.style.display = visible === 0 ? 'block' : 'none';
+        }
+    </script>
 }
 </div>
 
