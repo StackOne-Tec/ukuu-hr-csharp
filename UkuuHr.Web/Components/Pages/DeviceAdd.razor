@@ -92,25 +92,19 @@
     {
         <div class="bk-admin-card">
             <div class="bk-admin-card-header">
-                <h3>Step 1: Choose Vendor & Integration Mode</h3>
-                <p>Select the device manufacturer and how the system will connect to it.</p>
+                <h3>Step 1: Hikvision Device Setup</h3>
+                <p>The system supports Hikvision biometric terminals via the ISAPI protocol.</p>
             </div>
             <div class="bk-admin-card-content">
-                @* Vendor picker — visual grid *@
+                @* Vendor — Hikvision only (auto-selected) *@
                 <label class="bk-label">Device Vendor</label>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:24px;">
-                    @foreach (var vendor in Enum.GetValues<DeviceVendor>())
-                    {
-                        var isSelected = _form.Vendor == vendor;
-                        var color = VendorColor(vendor);
-                        <button type="button" @onmouseover="() => HoverVendor(vendor, true)" @onmouseout="() => HoverVendor(vendor, false)"
-                                @onclick="() => { _form.Vendor = vendor; CheckModeSupported(); }"
-                                style="padding:14px;border-radius:10px;border:2px solid @(isSelected ? color : (_hoveredVendor == vendor ? color : "var(--bk-line)"));background:@(isSelected ? $"{color}0D" : (_hoveredVendor == vendor ? $"{color}08" : "transparent"));cursor:pointer;text-align:center;transition:all 0.15s ease;font-family:inherit;">
-                            <div style="width:40px;height:40px;border-radius:8px;background:@color;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;margin:0 auto 8px;">@vendor.ToString()[..2].ToUpper()</div>
-                            <div style="font-weight:700;font-size:13px;color:var(--bk-ink);">@vendor</div>
-                            <div style="font-size:10px;color:var(--bk-ink-3);margin-top:2px;">@VendorDescription(vendor)</div>
-                        </button>
-                    }
+                <div style="display:flex;align-items:center;gap:12px;padding:16px;border-radius:10px;border:2px solid #D92136;background:#D921360D;margin-bottom:24px;">
+                    <div style="width:40px;height:40px;border-radius:8px;background:#D92136;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;">HI</div>
+                    <div>
+                        <div style="font-weight:700;font-size:14px;color:var(--bk-ink);">Hikvision</div>
+                        <div style="font-size:11px;color:var(--bk-ink-3);">ISAPI protocol · Face/Fingerprint · REST API</div>
+                    </div>
+                    <span class="material-icons-round" style="margin-left:auto;color:#14a37f;font-size:20px;">check_circle</span>
                 </div>
 
                 @* Mode picker *@
