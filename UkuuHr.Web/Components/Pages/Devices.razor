@@ -246,7 +246,10 @@
 
     private async Task LoadData()
     {
-        _devices = await Db.AttendanceDevices.Where(d => d.OrganizationId == _orgId).OrderByDescending(d => d.CreatedAt).ToListAsync();
+        _devices = await Db.AttendanceDevices
+            .Where(d => d.OrganizationId == _orgId && d.Vendor == DeviceVendor.Hikvision)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
     }
 
     private static string DeviceStatusClass(AttendanceDevice d) => d.StatusDisplay switch
