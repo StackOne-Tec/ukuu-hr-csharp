@@ -110,8 +110,8 @@
 
     </div>
 
-    <!-- MAIN GRID -->
-    <div class="bk-admin-grid-2" style="margin-bottom:32px;">
+    <!-- MAIN GRID — full width (Today's Attendance donut removed per user request) -->
+    <div style="margin-bottom:32px;">
         <!-- LEFT: Charts + tables -->
         <div style="display:flex;flex-direction:column;gap:24px;">
 
@@ -170,70 +170,6 @@
                 }
             </div>
 
-        </div>
-
-        <!-- RIGHT: Side widgets -->
-        <div style="display:flex;flex-direction:column;gap:24px;">
-
-            <!-- Today's attendance donut -->
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <div>
-                        <h3>Today's Attendance</h3>
-                        <p>@DateTime.Now.ToString("dd MMMM yyyy")</p>
-                    </div>
-                </div>
-                <div class="bk-admin-card-content" style="text-align:center;">
-                    <div style="position:relative;display:inline-block;">
-                        <svg width="180" height="180" viewBox="0 0 180 180">
-                            <circle cx="90" cy="90" r="70" fill="none" stroke="#E8E3EF" stroke-width="14"/>
-                            @{
-                                var total = _attendanceBreakdown.Values.Sum();
-                                var present = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Present);
-                                var late = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Late);
-                                var absent = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Absent);
-                                var onLeave = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.OnLeave);
-                                var circumference = 2 * Math.PI * 70;
-                                var presentLen = total > 0 ? (present + late) * circumference / total : 0;
-                                var leaveLen = total > 0 ? onLeave * circumference / total : 0;
-                                var absentLen = total > 0 ? absent * circumference / total : 0;
-                            }
-                            <circle cx="90" cy="90" r="70" fill="none" stroke="#14a37f" stroke-width="14"
-                                    stroke-dasharray="@($"{presentLen} {circumference}")" stroke-dashoffset="0" transform="rotate(-90 90 90)" stroke-linecap="round"/>
-                            <circle cx="90" cy="90" r="70" fill="none" stroke="#d89c11" stroke-width="14"
-                                    stroke-dasharray="@($"{leaveLen} {circumference}")" stroke-dashoffset="@(-presentLen)" transform="rotate(-90 90 90)" stroke-linecap="round"/>
-                            <circle cx="90" cy="90" r="70" fill="none" stroke="#e85d75" stroke-width="14"
-                                    stroke-dasharray="@($"{absentLen} {circumference}")" stroke-dashoffset="@(-(presentLen + leaveLen))" transform="rotate(-90 90 90)" stroke-linecap="round"/>
-                        </svg>
-                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-                            <div style="font-size:28px;font-weight:800;color:var(--bk-ink);line-height:1;font-family:Geist,sans-serif;">@_attendancePct.ToString("0")%</div>
-                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:4px;">Present</div>
-                        </div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;text-align:left;">
-                        <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
-                            <span style="width:8px;height:8px;border-radius:50%;background:#14a37f;"></span>
-                            <span style="color:var(--bk-ink-3);">Present/Late</span>
-                            <strong style="margin-left:auto;color:var(--bk-ink);">@(present + late)</strong>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
-                            <span style="width:8px;height:8px;border-radius:50%;background:#d89c11;"></span>
-                            <span style="color:var(--bk-ink-3);">On Leave</span>
-                            <strong style="margin-left:auto;color:var(--bk-ink);">@onLeave</strong>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
-                            <span style="width:8px;height:8px;border-radius:50%;background:#e85d75;"></span>
-                            <span style="color:var(--bk-ink-3);">Absent</span>
-                            <strong style="margin-left:auto;color:var(--bk-ink);">@absent</strong>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
-                            <span style="width:8px;height:8px;border-radius:50%;background:var(--bk-muted-2);"></span>
-                            <span style="color:var(--bk-ink-3);">Total</span>
-                            <strong style="margin-left:auto;color:var(--bk-ink);">@total</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
