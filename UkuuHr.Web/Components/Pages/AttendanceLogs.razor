@@ -5,8 +5,6 @@
 @inject UkuuHrDbContext Db
 @inject NavigationManager Nav
 @inject ILogger<AttendanceLogs> Logger
-@inject HttpClient Http
-@inject ISnackbar Snackbar
 
 <div class="bk-admin-fade-in">
     <div class="bk-admin-section-header">
@@ -19,7 +17,7 @@
             </p>
         </div>
         <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary" @onclick="OpenImportInfoModal">
+            <button class="bk-btn bk-btn-secondary" onclick="ukuuOpenImportInfoModal()">
                 <span class="material-icons-round" style="font-size:16px;">download</span>
                 Import From Device
             </button>
@@ -359,51 +357,47 @@
         }
     }
 
-    <!-- ═══════════════════════════════════════════════════════════════════════ -->
-    <!-- Import From Device — Stage 1: Info popup (plain HTML/JS, no Blazor)      -->
-    <!-- ═══════════════════════════════════════════════════════════════════════ -->
-@if (_showImportInfo)
-{
-    <div style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px;" @onclick="CloseImportInfoModal">
-        <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" @onclick:stopPropagation="true">
+    <!-- Import From Device — Stage 1: Info popup (plain HTML/JS) -->
+    <div id="ukuu-import-info-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportInfoModal()">
+        <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
             <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
                 <div>
                     <h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;color:var(--bk-ink);">Import Attendance From Hikvision Device</h3>
                     <p style="margin:0;font-size:13px;color:var(--bk-ink-3);">Before you begin — please review the requirements below.</p>
                 </div>
-                <button @onclick="CloseImportInfoModal" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
+                <button onclick="ukuuCloseImportInfoModal()" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
                     <span class="material-icons-round">close</span>
                 </button>
             </div>
             <div style="padding:24px 28px;">
+                <div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:10px;padding:16px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:flex-start;gap:10px;">
+                        <span class="material-icons-round" style="color:var(--bk-info);font-size:20px;margin-top:1px;">face</span>
+                        <div style="font-size:13px;color:var(--bk-ink);line-height:1.5;">
+                            <strong>ISAPI Face Recognition Service:</strong> When you connect, the system will automatically probe the device's Face Recognition capabilities via <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">/ISAPI/Intelligent/FaceRecognition/1/capabilities</code> and report whether face recognition is active, how many face templates are supported, and how many face databases are configured.
+                        </div>
+                    </div>
+                </div>
                 <div style="background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);border-radius:10px;padding:16px;margin-bottom:16px;">
                     <div style="display:flex;align-items:flex-start;gap:10px;">
                         <span class="material-icons-round" style="color:#d89c11;font-size:20px;margin-top:1px;">info</span>
                         <div style="font-size:13px;color:var(--bk-ink);line-height:1.5;">
-                            <strong>How it works:</strong> This tool connects directly to your Hikvision biometric terminal via the ISAPI protocol, downloads attendance events (clock-in/out punches) for the date range you specify, and imports them into Ukuu HR — matching each punch to an employee by their Employee Code.
+                            <strong>How it works:</strong> This tool connects to your Hikvision biometric terminal via the ISAPI protocol, probes the Face Recognition service, downloads attendance events (clock-in/out punches with face-authenticated verify mode) for the date range you specify, and imports them into Ukuu HR.
                         </div>
                     </div>
                 </div>
                 <h4 style="font-size:13px;font-weight:700;color:var(--bk-ink);margin:0 0 10px 0;text-transform:uppercase;letter-spacing:0.04em;">Requirements</h4>
                 <ul style="margin:0 0 16px 0;padding-left:20px;font-size:13px;color:var(--bk-ink-2);line-height:1.7;">
-                    <li><strong style="color:var(--bk-ink);">Same network:</strong> Your computer and the Hikvision device must be on the same local network (LAN/WiFi) or VPN. The device's IP (e.g. <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">192.168.x.x</code>) must be reachable from this browser.</li>
-                    <li><strong style="color:var(--bk-ink);">Device IP & port:</strong> Find these in the device's web UI or your router's DHCP table. Default ports: <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">80</code> (HTTP) or <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">443</code> (HTTPS).</li>
-                    <li><strong style="color:var(--bk-ink);">Valid credentials:</strong> The admin username and password for the device. Default is <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">admin / admin</code> but newer firmware forces a strong password on first login.</li>
-                    <li><strong style="color:var(--bk-ink);">ISAPI enabled:</strong> Most Hikvision devices have ISAPI on by default. If not, enable it in the device's web UI under <em>Configuration → Network → Advanced → Platform Access → ISAPI</em>.</li>
-                    <li><strong style="color:var(--bk-ink);">Employee codes match:</strong> Each employee's <em>Employee Code</em> in Ukuu HR must match the <em>employeeNo</em> enrolled on the device. Unmatched punches are skipped (and reported in the summary).</li>
-                    <li><strong style="color:var(--bk-ink);">Self-signed certs OK:</strong> HTTPS devices use self-signed certificates — that's fine, the import will still work.</li>
+                    <li><strong style="color:var(--bk-ink);">Same network:</strong> Your computer and the Hikvision device must be on the same LAN/VPN.</li>
+                    <li><strong style="color:var(--bk-ink);">Device IP & port:</strong> Default ports: <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">80</code> (HTTP) or <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">443</code> (HTTPS).</li>
+                    <li><strong style="color:var(--bk-ink);">Valid credentials:</strong> Admin username and password for the device.</li>
+                    <li><strong style="color:var(--bk-ink);">ISAPI enabled:</strong> Enable in device web UI under Configuration → Network → Advanced → Platform Access → ISAPI.</li>
+                    <li><strong style="color:var(--bk-ink);">Face Recognition enabled:</strong> Enable in device web UI under Configuration → Intelligent → Face Recognition for face-authenticated attendance.</li>
+                    <li><strong style="color:var(--bk-ink);">Employee codes match:</strong> Ukuu HR Employee Codes must match device employeeNo values.</li>
                 </ul>
-                <div style="background:rgba(110,95,146,0.06);border:1px solid rgba(110,95,146,0.2);border-radius:10px;padding:14px;margin-bottom:20px;">
-                    <div style="display:flex;align-items:flex-start;gap:10px;">
-                        <span class="material-icons-round" style="color:var(--bk-accent);font-size:20px;margin-top:1px;">lightbulb</span>
-                        <div style="font-size:12px;color:var(--bk-ink-2);line-height:1.5;">
-                            <strong style="color:var(--bk-ink);">Tip:</strong> Not sure of the IP? Log into your router and look for "Hikvision" in the DHCP client list, or use the Hikvision SADP tool. You can also browse to the device's web UI first to confirm the credentials work.
-                        </div>
-                    </div>
-                </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;">
-                    <button class="bk-btn bk-btn-secondary" @onclick="CloseImportInfoModal">Cancel</button>
-                    <button class="bk-btn bk-btn-primary" @onclick="ProceedToImportForm">
+                    <button class="bk-btn bk-btn-secondary" onclick="ukuuCloseImportInfoModal()">Cancel</button>
+                    <button class="bk-btn bk-btn-primary" onclick="ukuuProceedToImportForm()">
                         <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
                         Continue
                     </button>
@@ -412,18 +406,15 @@
         </div>
     </div>
 
-    }
-
-    @if (_showImportForm)
-    {
-    <div style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px;" @onclick="CloseImportFormModal">
-        <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:540px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" @onclick:stopPropagation="true">
+    <!-- Import From Device — Stage 2: Credentials form (plain HTML/JS) -->
+    <div id="ukuu-import-form-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportFormModal()">
+        <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:540px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
             <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
                 <div>
                     <h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;color:var(--bk-ink);">Connect to Hikvision Device</h3>
-                    <p style="margin:0;font-size:13px;color:var(--bk-ink-3);">Enter the device's network address and credentials to fetch attendance events.</p>
+                    <p style="margin:0;font-size:13px;color:var(--bk-ink-3);">Enter credentials to connect, probe Face Recognition, and import attendance.</p>
                 </div>
-                <button @onclick="CloseImportFormModal" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
+                <button onclick="ukuuCloseImportFormModal()" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
                     <span class="material-icons-round">close</span>
                 </button>
             </div>
@@ -431,106 +422,158 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">IP Address or Hostname *</label>
-                        <input type="text" @bind="_importIpAddress" placeholder="192.168.1.137" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                        <input type="text" id="ukuu-import-ip" value="192.168.1.137" placeholder="192.168.1.137" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Port</label>
-                        <input type="number" @bind="_importPort" placeholder="443 (HTTPS) or 80 (HTTP)" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                        <input type="number" id="ukuu-import-port" value="443" placeholder="443" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
                     </div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Username *</label>
-                        <input type="text" @bind="_importUsername" placeholder="admin" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                        <input type="text" id="ukuu-import-user" value="admin" placeholder="admin" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Password *</label>
-                        <input type="password" @bind="_importPassword" placeholder="••••••••" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                        <input type="password" id="ukuu-import-pass" placeholder="••••••••" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--bk-muted);border-radius:8px;">
-                    <input type="checkbox" @bind="_importUseHttps" style="width:16px;height:16px;cursor:pointer;" />
-                    <label style="font-size:13px;color:var(--bk-ink-2);cursor:pointer;user-select:none;">Use HTTPS (recommended — most Hikvision devices use HTTPS with self-signed certs)</label>
+                    <input id="ukuu-import-https" type="checkbox" checked style="width:16px;height:16px;cursor:pointer;" />
+                    <label for="ukuu-import-https" style="font-size:13px;color:var(--bk-ink-2);cursor:pointer;user-select:none;">Use HTTPS (recommended)</label>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">From Date</label>
-                        <input type="date" @bind="_importFromDate" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                        <input type="date" id="ukuu-import-from" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
                     </div>
                     <div>
                         <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">To Date</label>
-                        <input type="date" @bind="_importToDate" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                        <input type="date" id="ukuu-import-to" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
                     </div>
                 </div>
                 <div style="margin-bottom:20px;">
                     <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Max Records (1–5000, default 1000)</label>
-                    <input type="number" @bind="_importMaxResults" min="1" max="5000" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                    <input type="number" id="ukuu-import-max" value="1000" min="1" max="5000" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
                 </div>
-
-                @if (_importLoading)
-                {
-                    <div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:10px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
-                        <div style="width:20px;height:20px;border:2px solid rgba(37,99,235,0.2);border-top-color:var(--bk-info);border-radius:50%;animation:bk-spin 0.8s linear infinite;"></div>
-                        <div style="font-size:13px;color:var(--bk-ink);font-weight:600;">@_importProgressMessage</div>
-                    </div>
-                    <style>@@keyframes bk-spin { to { transform: rotate(360deg); } }</style>
-                }
-
-                @if (!string.IsNullOrEmpty(_importErrorMessage))
-                {
-                    <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.3);border-radius:10px;padding:14px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
-                        <span class="material-icons-round" style="color:var(--bk-error);font-size:20px;margin-top:1px;">error_outline</span>
-                        <div style="font-size:13px;color:var(--bk-ink);line-height:1.5;flex:1;">@_importErrorMessage</div>
-                    </div>
-                }
-
-                @if (_importResult != null)
-                {
-                    <div style="background:rgba(20,163,127,0.08);border:1px solid rgba(20,163,127,0.3);border-radius:10px;padding:16px;margin-bottom:16px;">
-                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                            <span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">check_circle</span>
-                            <strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong>
-                        </div>
-                        <div style="font-size:13px;color:var(--bk-ink-2);line-height:1.7;">
-                            <div><strong>Device:</strong> @_importResult.Device.Name (@_importResult.Device.Model)</div>
-                            <div><strong>Events fetched:</strong> @_importResult.EventsFetched</div>
-                            <div><strong>Employees matched:</strong> @_importResult.EmployeesMatched</div>
-                            @if (_importResult.EmployeesUnmatched > 0)
-                            {
-                                <div><strong>Unmatched punches skipped:</strong> @_importResult.EmployeesUnmatched</div>
-                            }
-                            <div><strong>Records imported/updated:</strong> @_importResult.RecordsImported</div>
-                            @if (_importResult.DuplicatesSkipped > 0)
-                            {
-                                <div><strong>Duplicates skipped:</strong> @_importResult.DuplicatesSkipped</div>
-                            }
-                            @if (_importResult.Errors.Any())
-                            {
-                                <div style="color:var(--bk-error);margin-top:6px;"><strong>Errors:</strong> @string.Join("; ", _importResult.Errors.Take(3))</div>
-                            }
-                        </div>
-                    </div>
-                }
-
+                <div id="ukuu-import-status" style="display:none;margin-bottom:16px;"></div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;">
-                    <button class="bk-btn bk-btn-secondary" @onclick="CloseImportFormModal" disabled="@_importLoading">Close</button>
-                    <button class="bk-btn bk-btn-primary" @onclick="ExecuteImport" disabled="@_importLoading">
-                        @if (_importLoading)
-                        {
-                            <span class="material-icons-round" style="font-size:16px;animation:bk-spin 0.8s linear infinite;">sync</span>
-                            <span>Importing…</span>
-                        }
-                        else
-                        {
-                            <span class="material-icons-round" style="font-size:16px;">download_for_offline</span>
-                            <span>Fetch & Import</span>
-                        }
+                    <button class="bk-btn bk-btn-secondary" onclick="ukuuCloseImportFormModal()">Close</button>
+                    <button class="bk-btn bk-btn-primary" id="ukuu-import-submit" onclick="ukuuExecuteImport()">
+                        <span class="material-icons-round" style="font-size:16px;">download_for_offline</span>
+                        <span>Fetch &amp; Import</span>
                     </button>
                 </div>
             </div>
         </div>
     </div>
-    }
+    <script>
+        (function() {
+            var today = new Date();
+            var weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            var fmt = function(d) { return d.toISOString().split('T')[0]; };
+            var fromEl = document.getElementById('ukuu-import-from');
+            var toEl = document.getElementById('ukuu-import-to');
+            if (fromEl) fromEl.value = fmt(weekAgo);
+            if (toEl) toEl.value = fmt(today);
+        })();
+        function ukuuOpenImportInfoModal() { var m = document.getElementById('ukuu-import-info-modal'); if (m) m.style.display = 'flex'; }
+        function ukuuCloseImportInfoModal() { var m = document.getElementById('ukuu-import-info-modal'); if (m) m.style.display = 'none'; }
+        function ukuuProceedToImportForm() { ukuuCloseImportInfoModal(); var m = document.getElementById('ukuu-import-form-modal'); if (m) m.style.display = 'flex'; }
+        function ukuuCloseImportFormModal() { var m = document.getElementById('ukuu-import-form-modal'); if (m) m.style.display = 'none'; }
+        async function ukuuExecuteImport() {
+            var ip = document.getElementById('ukuu-import-ip').value.trim();
+            var port = parseInt(document.getElementById('ukuu-import-port').value) || 443;
+            var useHttps = document.getElementById('ukuu-import-https').checked;
+            var user = document.getElementById('ukuu-import-user').value.trim();
+            var pass = document.getElementById('ukuu-import-pass').value;
+            var from = document.getElementById('ukuu-import-from').value;
+            var to = document.getElementById('ukuu-import-to').value;
+            var max = parseInt(document.getElementById('ukuu-import-max').value) || 1000;
+            if (!ip) { ukuuShowStatus('error', 'Please enter the device IP address.'); return; }
+            if (!user) { ukuuShowStatus('error', 'Please enter the username.'); return; }
+            if (!pass) { ukuuShowStatus('error', 'Please enter the password.'); return; }
+            if (port < 1 || port > 65535) { ukuuShowStatus('error', 'Port must be 1–65535.'); return; }
+            var btn = document.getElementById('ukuu-import-submit');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;animation:ukuu-spin 0.8s linear infinite;">sync</span><span>Importing…</span>';
+            ukuuShowStatus('loading', 'Connecting to ' + (useHttps ? 'https' : 'http') + '://' + ip + ':' + port + ' — probing ISAPI Face Recognition service…');
+            try {
+                var payload = {
+                    ipAddress: ip, port: port, useHttps: useHttps,
+                    username: user, password: pass,
+                    from: from ? from + 'T00:00:00Z' : null,
+                    to: to ? to + 'T23:59:59Z' : null,
+                    maxResults: max
+                };
+                var resp = await fetch('/api/attendance/import-from-device', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var data = await resp.json();
+                if (resp.ok && data.success) {
+                    // Build the face recognition status section
+                    var frHtml = '';
+                    if (data.faceRecognition) {
+                        var fr = data.faceRecognition;
+                        if (fr.serviceAvailable) {
+                            frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(20,163,127,0.08);border:1px solid rgba(20,163,127,0.3);border-radius:8px;margin-bottom:10px;">' +
+                                '<span class="material-icons-round" style="color:var(--bk-success);font-size:18px;">face</span>' +
+                                '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Active</span>' +
+                                '<span style="font-size:11px;color:var(--bk-ink-3);margin-left:auto;">' +
+                                (fr.faceDatabaseCount > 0 ? fr.faceDatabaseCount + ' face DB' : '') +
+                                (fr.maxFaceTemplates > 0 ? ' · max ' + fr.maxFaceTemplates + ' templates' : '') +
+                                '</span></div>';
+                        } else {
+                            frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);border-radius:8px;margin-bottom:10px;">' +
+                                '<span class="material-icons-round" style="color:#d89c11;font-size:18px;">face</span>' +
+                                '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Not Available</span>' +
+                                '<span style="font-size:11px;color:var(--bk-ink-3);margin-left:auto;">' + (fr.note || fr.error || 'Endpoint not found') + '</span></div>';
+                        }
+                    }
+                    var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+                        '<span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">check_circle</span>' +
+                        '<strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong></div>' +
+                        frHtml +
+                        '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.7;">' +
+                        '<div><strong>Device:</strong> ' + (data.device.name || '?') + ' (' + (data.device.model || '?') + ')</div>' +
+                        '<div><strong>Events fetched:</strong> ' + data.eventsFetched + '</div>' +
+                        '<div><strong>Employees matched:</strong> ' + data.employeesMatched + '</div>' +
+                        (data.employeesUnmatched > 0 ? '<div><strong>Unmatched:</strong> ' + data.employeesUnmatched + '</div>' : '') +
+                        '<div><strong>Records imported/updated:</strong> ' + data.recordsImported + '</div>' +
+                        (data.duplicatesSkipped > 0 ? '<div><strong>Duplicates skipped:</strong> ' + data.duplicatesSkipped + '</div>' : '') +
+                        '</div>';
+                    ukuuShowStatus('success', html);
+                    setTimeout(function() { window.location.reload(); }, 4000);
+                } else {
+                    ukuuShowStatus('error', data.error || ('HTTP ' + resp.status));
+                }
+            } catch (e) {
+                ukuuShowStatus('error', 'Network error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">download_for_offline</span><span>Fetch &amp; Import</span>';
+            }
+        }
+        function ukuuShowStatus(type, html) {
+            var el = document.getElementById('ukuu-import-status');
+            if (!el) return;
+            el.style.display = 'block';
+            if (type === 'loading') {
+                el.style.background = 'rgba(37,99,235,0.06)'; el.style.border = '1px solid rgba(37,99,235,0.2)';
+                el.innerHTML = '<div style="display:flex;align-items:center;gap:12px;padding:14px;"><div style="width:20px;height:20px;border:2px solid rgba(37,99,235,0.2);border-top-color:var(--bk-info);border-radius:50%;animation:ukuu-spin 0.8s linear infinite;"></div><div style="font-size:13px;color:var(--bk-ink);font-weight:600;">' + html + '</div></div>';
+            } else if (type === 'error') {
+                el.style.background = 'rgba(244,63,94,0.08)'; el.style.border = '1px solid rgba(244,63,94,0.3)';
+                el.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px;padding:14px;"><span class="material-icons-round" style="color:var(--bk-error);font-size:20px;margin-top:1px;">error_outline</span><div style="font-size:13px;color:var(--bk-ink);line-height:1.5;flex:1;">' + html + '</div></div>';
+            } else {
+                el.style.background = 'rgba(20,163,127,0.08)'; el.style.border = '1px solid rgba(20,163,127,0.3)';
+                el.innerHTML = '<div style="padding:16px;">' + html + '</div>';
+            }
+        }
+    </script>
+    <style>@@keyframes ukuu-spin { to { transform: rotate(360deg); } }</style>
+
 </div>
 
 @code {
@@ -620,166 +663,7 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Import From Device — Blazor state + handlers
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Modal visibility
-    private bool _showImportInfo = false;
-    private bool _showImportForm = false;
-
-    // Form fields
-    private string _importIpAddress = "192.168.1.137";
-    private int _importPort = 443;
-    private bool _importUseHttps = true;
-    private string _importUsername = "admin";
-    private string _importPassword = "";
-    private DateTime _importFromDate = DateTime.Today.AddDays(-7);
-    private DateTime _importToDate = DateTime.Today;
-    private int _importMaxResults = 1000;
-
-    // Async state
-    private bool _importLoading = false;
-    private string _importProgressMessage = "Connecting to device…";
-    private string? _importErrorMessage = null;
-    private ImportResult? _importResult = null;
-
-    private void OpenImportInfoModal()
-    {
-        _importErrorMessage = null;
-        _importResult = null;
-        _showImportInfo = true;
-    }
-
-    private void CloseImportInfoModal() => _showImportInfo = false;
-
-    private void ProceedToImportForm()
-    {
-        _showImportInfo = false;
-        _showImportForm = true;
-    }
-
-    private void CloseImportFormModal()
-    {
-        if (_importLoading) return;
-        _showImportForm = false;
-        _importErrorMessage = null;
-    }
-
-    private async Task ExecuteImport()
-    {
-        _importErrorMessage = null;
-        _importResult = null;
-
-        if (string.IsNullOrWhiteSpace(_importIpAddress))
-        {
-            _importErrorMessage = "Please enter the device's IP address or hostname.";
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(_importUsername))
-        {
-            _importErrorMessage = "Please enter the username (default is 'admin').";
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(_importPassword))
-        {
-            _importErrorMessage = "Please enter the password.";
-            return;
-        }
-        if (_importPort < 1 || _importPort > 65535)
-        {
-            _importErrorMessage = "Port must be between 1 and 65535.";
-            return;
-        }
-        if (_importFromDate > _importToDate)
-        {
-            _importErrorMessage = "The 'From' date cannot be after the 'To' date.";
-            return;
-        }
-
-        var payload = new
-        {
-            ipAddress = _importIpAddress.Trim(),
-            port = _importPort,
-            useHttps = _importUseHttps,
-            username = _importUsername.Trim(),
-            password = _importPassword,
-            from = _importFromDate.ToString("yyyy-MM-dd") + "T00:00:00Z",
-            to = _importToDate.ToString("yyyy-MM-dd") + "T23:59:59Z",
-            maxResults = _importMaxResults
-        };
-
-        _importLoading = true;
-        _importProgressMessage = "Connecting to device…";
-
-        try
-        {
-            var apiUrl = "/api/attendance/import-from-device";
-
-            _importProgressMessage = $"Connecting to {(_importUseHttps ? "https" : "http")}://{_importIpAddress}:{_importPort} as {_importUsername}…";
-            StateHasChanged();
-
-            var response = await Http.PostAsJsonAsync(apiUrl, payload);
-
-            if (response.IsSuccessStatusCode)
-            {
-                _importResult = await response.Content.ReadFromJsonAsync<ImportResult>();
-                _importProgressMessage = "";
-                Snackbar.Add($"Import complete: {_importResult?.RecordsImported ?? 0} record(s) imported from {_importResult?.EventsFetched ?? 0} events.", Severity.Success);
-                await LoadData();
-            }
-            else
-            {
-                var errorBody = await response.Content.ReadFromJsonAsync<ImportErrorResponse>();
-                _importErrorMessage = errorBody?.Error ?? $"HTTP {response.StatusCode}";
-                _importProgressMessage = "";
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            _importErrorMessage = $"Network error reaching the Ukuu HR server: {ex.Message}. " +
-                                  "If you're running on https://, the browser may be blocking mixed-content requests to an http:// device. " +
-                                  "Try the same URL over http:// or ensure both use the same scheme.";
-            _importProgressMessage = "";
-        }
-        catch (TaskCanceledException)
-        {
-            _importErrorMessage = "The import request timed out. The device may be unreachable or the date range too large. Try a smaller range (e.g. 7 days).";
-            _importProgressMessage = "";
-        }
-        catch (Exception ex)
-        {
-            _importErrorMessage = $"Unexpected error: {ex.Message}";
-            _importProgressMessage = "";
-        }
-        finally
-        {
-            _importLoading = false;
-        }
-    }
-
-    private sealed class ImportResult
-    {
-        public bool Success { get; set; }
-        public ImportDeviceInfo Device { get; set; } = new();
-        public int EventsFetched { get; set; }
-        public int EmployeesMatched { get; set; }
-        public int EmployeesUnmatched { get; set; }
-        public int RecordsImported { get; set; }
-        public int DuplicatesSkipped { get; set; }
-        public List<string> Errors { get; set; } = new();
-    }
-
-    private sealed class ImportDeviceInfo
-    {
-        public string Name { get; set; } = "";
-        public string Model { get; set; } = "";
-        public string Serial { get; set; } = "";
-    }
-
-    private sealed class ImportErrorResponse
-    {
-        public string? Error { get; set; }
-        public string? Stage { get; set; }
-    }
+    // NOTE: Import From Device uses plain HTML/JS (see <script> block above) —
+    // no Blazor state or handlers needed. The JS calls POST /api/attendance/
+    // import-from-device directly via fetch().
 }
