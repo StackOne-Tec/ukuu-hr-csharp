@@ -2975,7 +2975,9 @@ html[data-theme="dark"] select.bk-input:focus {
 /* ───── Admin content ───── */
 .bk-admin-content {
     padding: 32px 40px 48px;
-    max-width: 1600px;
+    /* Removed max-width: 1600px cap so tables and content extend to the
+       full width of the viewport (minus the 280px sidebar). On a 1920px
+       screen the content area now uses 1640px instead of being capped. */
     margin: 0 auto;
 }
 
@@ -3246,7 +3248,10 @@ html[data-theme="dark"] select.bk-input:focus {
 /* ───── Admin grid layouts ───── */
 .bk-admin-grid-2 {
     display: grid;
-    grid-template-columns: 1fr 360px;
+    /* Changed from 1fr 360px to a fluid ratio so the left column (tables,
+       lists) gets more space on wide screens while the right column (side
+       widgets, donut charts) stays a comfortable reading width. */
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 25vw, 400px);
     gap: 24px;
 }
 
