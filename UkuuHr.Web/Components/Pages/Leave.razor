@@ -66,12 +66,11 @@
 
     @if (_tab == "balances")
     {
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <h3>Employee Leave Balances — @DateTime.Now.Year</h3>
-                    <p>Entitlement, usage, and remaining days per employee per leave type.</p>
-                </div>
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>Employee Leave Balances — @DateTime.Now.Year</h3>
+                <p>Entitlement, usage, and remaining days per employee per leave type.</p>
+            </div>
                 <div style="overflow-x:auto;">
                     <table class="bk-admin-table">
                         <thead>
@@ -110,33 +109,6 @@
                     </table>
                 </div>
             </div>
-            <div class="bk-admin-card">
-                <div class="bk-admin-card-header">
-                    <h3>Summary</h3>
-                    <p>Aggregated leave usage across the organization</p>
-                </div>
-                <div class="bk-admin-card-content">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                        <div class="bk-admin-stat-box">
-                            <div class="bk-admin-stat-box-label">Active Employees</div>
-                            <div class="bk-admin-stat-box-value">@_activeEmployeeCount</div>
-                        </div>
-                        <div class="bk-admin-stat-box">
-                            <div class="bk-admin-stat-box-label">Total Approved Days</div>
-                            <div class="bk-admin-stat-box-value" style="color:var(--bk-accent-2);">@_totalApprovedDays</div>
-                        </div>
-                        <div class="bk-admin-stat-box">
-                            <div class="bk-admin-stat-box-label">Avg Days / Employee</div>
-                            <div class="bk-admin-stat-box-value">@_avgDaysPerEmployee.ToString("0.0")</div>
-                        </div>
-                        <div class="bk-admin-stat-box dark">
-                            <div class="bk-admin-stat-box-label">Pending Requests</div>
-                            <div class="bk-admin-stat-box-value">@_pending</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     }
     else if (_tab == "holidays")
     {
@@ -230,7 +202,7 @@
             }
         </div>
     }
-    }
+}
 </div>
 
 @code {
@@ -243,9 +215,6 @@
 
     // Balances tab data
     private List<LeaveBalanceDisplay> _allBalances = new();
-    private int _activeEmployeeCount;
-    private int _totalApprovedDays;
-    private double _avgDaysPerEmployee;
 
     private sealed record LeaveBalanceDisplay(
         string EmployeeName,
@@ -311,9 +280,6 @@
         var yr = DateTime.Now.Year;
         var allEmps = await Db.Employees.Where(e => e.OrganizationId == _orgId).ToListAsync();
         var activeEmps = allEmps.Where(e => e.Status != EmploymentStatus.Inactive).ToList();
-        _activeEmployeeCount = activeEmps.Count;
-        _totalApprovedDays = _all.Where(l => l.Status == LeaveRequestStatus.Approved && l.StartDate.Year == yr).Sum(l => l.RequestedDays);
-        _avgDaysPerEmployee = _activeEmployeeCount > 0 ? (double)_totalApprovedDays / _activeEmployeeCount : 0;
 
         var allBalances = new List<LeaveBalanceDisplay>();
         foreach (var emp in activeEmps)
