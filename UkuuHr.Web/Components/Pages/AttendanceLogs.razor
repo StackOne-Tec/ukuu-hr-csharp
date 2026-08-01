@@ -692,7 +692,7 @@
                 _importResult = await response.Content.ReadFromJsonAsync<ImportResult>();
                 _importProgressMessage = "";
                 Snackbar.Add($"Import complete: {_importResult?.RecordsImported ?? 0} record(s) imported from {_importResult?.EventsFetched ?? 0} events.", Severity.Success);
-                await LoadAsync(); // reload the table to show new data
+                await OnInitializedAsync(); // reload the table to show new data
             }
             else
             {
