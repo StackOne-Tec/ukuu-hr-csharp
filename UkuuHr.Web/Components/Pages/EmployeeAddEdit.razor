@@ -74,22 +74,22 @@
                             </select>
                         </div>
 
-                        @* Employee ID *@
+                        @* Employee ID — auto-generated, read-only *@
                         <div class="bk-field">
                             <label class="bk-label">Employee ID *</label>
                             <div class="bk-input-wrap">
                                 <span class="material-icons-round bk-input-icon">badge</span>
-                                <input type="text" class="bk-input" style="padding-left:36px;" name="EmployeeCode" value="@(_model.EmployeeCode)" placeholder="e.g. EMP-001"  />
+                                @if (_isEdit)
+                                {
+                                    <input type="text" class="bk-input" style="padding-left:36px;background:var(--bk-muted);color:var(--bk-ink-3);" name="EmployeeCode" value="@(_model.EmployeeCode)" readonly />
+                                }
+                                else
+                                {
+                                    <input type="text" class="bk-input" style="padding-left:36px;background:var(--bk-muted);color:var(--bk-ink-3);font-weight:600;" value="@_nextEmployeeCode" readonly />
+                                    <input type="hidden" name="EmployeeCode" value="@_nextEmployeeCode" />
+                                }
                             </div>
-                        </div>
-
-                        @* Payroll ID *@
-                        <div class="bk-field">
-                            <label class="bk-label">Payroll ID</label>
-                            <div class="bk-input-wrap">
-                                <span class="material-icons-round bk-input-icon">payments</span>
-                                <input type="text" class="bk-input" style="padding-left:36px;" name="PayrollId" value="@(_model.PayrollId)" placeholder="e.g. PAY-001"  />
-                            </div>
+                            <small style="display:block;margin-top:4px;font-size:11px;color:var(--bk-ink-3);">Auto-generated — the next sequential employee ID.</small>
                         </div>
 
                         @* Assign to Shift *@
@@ -166,6 +166,7 @@
     private Employee _model = new();
     private List<Shift> _availableShifts = new();
     private int? _selectedShiftId;
+    private string _nextEmployeeCode = "";
 
     private static string FormatDate(DateTime? date) => date?.ToString("yyyy-MM-dd") ?? "";
 
@@ -203,6 +204,23 @@
                 _model.Status = EmploymentStatus.Active;
                 _model.ContractType = "Permanent";
                 _model.WorkHoursPerWeek = 40;
+
+                // Auto-generate the next Employee Code (UKU-001, UKU-002, …)
+                // by finding the highest existing numeric suffix and adding 1.
+                var allCodes = await Db.Employees
+                    .Where(e => e.OrganizationId == org.Id && e.EmployeeCode != null)
+                    .Select(e => e.EmployeeCode!)
+                    .ToListAsync();
+
+                int maxNum = 0;
+                foreach (var code in allCodes)
+                {
+                    // Extract the numeric suffix from codes like "UKU-001", "EMP-042", etc.
+                    var digits = new string(code.Where(char.IsDigit).ToArray());
+                    if (int.TryParse(digits, out var num) && num > maxNum)
+                        maxNum = num;
+                }
+                _nextEmployeeCode = $"UKU-{(maxNum + 1):D3}";
             }
         }
         catch (Exception ex)
