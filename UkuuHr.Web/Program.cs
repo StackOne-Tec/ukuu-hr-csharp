@@ -2977,6 +2977,40 @@ app.MapPost("/api/attendance/import-from-device", async (
         }, statusCode: 502);
     }
 
+    // ── 4b. Step 1b: probe ISAPI Face Recognition service ────────────────────
+    // This checks whether the device supports face recognition and whether the
+    // face database is configured. The result is included in the import summary
+    // so the user can see "ISAPI Face Recognition: Enabled" before events are
+    // imported.
+    object? faceRecognitionStatus = null;
+    try
+    {
+        var faceStatus = await client.GetFaceRecognitionStatusAsync();
+        if (faceStatus != null)
+        {
+            faceRecognitionStatus = new
+            {
+                serviceAvailable = faceStatus.ServiceAvailable,
+                maxFaceTemplates = faceStatus.MaxFaceTemplates,
+                faceContrastEnabled = faceStatus.FaceContrastEnabled,
+                faceCaptureEnabled = faceStatus.FaceCaptureEnabled,
+                faceDatabaseCount = faceStatus.FaceDatabaseCount
+            };
+            logger.LogInformation("ImportFromDevice: ISAPI Face Recognition service available (maxTemplates={Max}, faceDBs={Dbs})",
+                faceStatus.MaxFaceTemplates, faceStatus.FaceDatabaseCount);
+        }
+        else
+        {
+            faceRecognitionStatus = new { serviceAvailable = false, note = "Face Recognition endpoint not found — device may not support it or ISAPI Face Recognition may be disabled in firmware." };
+            logger.LogInformation("ImportFromDevice: ISAPI Face Recognition service not available on {Host}", body.IpAddress);
+        }
+    }
+    catch (Exception ex)
+    {
+        faceRecognitionStatus = new { serviceAvailable = false, error = ex.Message };
+        logger.LogWarning(ex, "ImportFromDevice: Face Recognition probe failed (non-fatal)");
+    }
+
     // ── 5. Step 2: fetch attendance events ───────────────────────────────────
     List<UkuuHr.Services.Devices.NormalizedClockEvent> events;
     try
@@ -3104,6 +3138,7 @@ app.MapPost("/api/attendance/import-from-device", async (
     {
         success = true,
         device = new { name = deviceName, model = deviceModel, serial = deviceSerial },
+        faceRecognition = faceRecognitionStatus,
         eventsFetched = events.Count,
         employeesMatched = matched,
         employeesUnmatched = unmatched,

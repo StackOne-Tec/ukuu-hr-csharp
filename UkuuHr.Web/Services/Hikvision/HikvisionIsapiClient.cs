@@ -92,6 +92,20 @@ public class HikvisionDeviceHealth
     public bool IsHealthy => CpuUsage < 90 && MemoryUsage < 90 && DiskUsage < 95;
 }
 
+/// <summary>
+/// ISAPI Face Recognition service status — probed during Import From Device
+/// so the user can see that face recognition is active on the device.
+/// </summary>
+public class FaceRecognitionStatus
+{
+    public bool ServiceAvailable { get; set; }
+    public int MaxFaceTemplates { get; set; }
+    public bool FaceContrastEnabled { get; set; }
+    public bool FaceCaptureEnabled { get; set; }
+    public int FaceDatabaseCount { get; set; }
+    public string? CapabilitiesXml { get; set; }
+}
+
 /// <summary>Result of a person sync operation.</summary>
 public class HikvisionPersonSyncResult
 {
@@ -497,6 +511,64 @@ public class HikvisionIsapiClient : IDisposable
         {
             _logger.LogError(ex, "Failed to upload face for {EmployeeCode} to {Host}", employeeCode, _config.IpAddress);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Probe the ISAPI Face Recognition service status. Returns the face recognition
+    /// capabilities detected on the device, or null if the endpoint is unavailable.
+    /// This is called during Import From Device so the user can see that face
+    /// recognition is active before attendance events are imported.
+    /// </summary>
+    public async Task<FaceRecognitionStatus?> GetFaceRecognitionStatusAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            // Try the FaceRecognition capabilities endpoint
+            using var resp = await GetAsync("/ISAPI/Intelligent/FaceRecognition/1/capabilities", ct);
+            var xml = await resp.Content.ReadAsStringAsync(ct);
+            var doc = XDocument.Parse(xml);
+
+            var status = new FaceRecognitionStatus
+            {
+                ServiceAvailable = true,
+                MaxFaceTemplates = int.TryParse(doc.Descendants("maxFaceTemplates").FirstOrDefault()?.Value, out var mft) ? mft : 0,
+                FaceContrastEnabled = doc.Descendants("faceContrast").Any(),
+                FaceCaptureEnabled = doc.Descendants("faceCapture").Any(),
+                CapabilitiesXml = xml.Length > 500 ? xml[..500] + "..." : xml
+            };
+
+            // Also try to get the face database count
+            try
+            {
+                using var fdResp = await GetAsync("/ISAPI/Intelligent/FaceRecognition/1/faceDBs", ct);
+                var fdXml = await fdResp.Content.ReadAsStringAsync(ct);
+                var fdDoc = XDocument.Parse(fdXml);
+                status.FaceDatabaseCount = fdDoc.Descendants("FaceDB").Count();
+            }
+            catch { /* face DBs endpoint may not exist on all firmware */ }
+
+            return status;
+        }
+        catch
+        {
+            // If the capabilities endpoint fails, try the simpler faceRecognition path
+            try
+            {
+                using var resp = await GetAsync("/ISAPI/Intelligent/FaceRecognition/1", ct);
+                if (resp.IsSuccessStatusCode)
+                {
+                    return new FaceRecognitionStatus
+                    {
+                        ServiceAvailable = true,
+                        MaxFaceTemplates = 0,
+                        FaceContrastEnabled = true,
+                        FaceCaptureEnabled = true
+                    };
+                }
+            }
+            catch { /* fall through */ }
+            return null;
         }
     }
 
