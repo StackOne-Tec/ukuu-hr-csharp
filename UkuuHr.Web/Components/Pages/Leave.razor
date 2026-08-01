@@ -40,38 +40,6 @@
     else
     {
 
-    <!-- KPIs -->
-    <div class="bk-admin-kpi-grid">
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">pending_actions</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_pending</div>
-            <div class="bk-admin-kpi-label">Pending Approvals</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">check_circle</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_approvedThisMonth</div>
-            <div class="bk-admin-kpi-label">Approved (This Month)</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon ink"><span class="material-icons-round">list_alt</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_all.Count</div>
-            <div class="bk-admin-kpi-label">Total Requests</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">today</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_activeLeaveDays</div>
-            <div class="bk-admin-kpi-label">Active Leave Days</div>
-        </div>
-    </div>
-
     <!-- Tabs -->
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:24px;overflow-x:auto;">
         <a href="/leave?tab=pending" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
@@ -269,7 +237,7 @@
     private string _tab = "pending";
     private List<LeaveRequestModel> _all = new();
     private List<LeaveHoliday> _holidays = new();
-    private int _pending, _approvedThisMonth, _activeLeaveDays;
+    private int _pending, _approvedThisMonth;
     private int _orgId;
     private string? _loadError;
 
@@ -336,7 +304,6 @@
         _holidays = await Db.LeaveHolidays.Where(h => h.OrganizationId == _orgId).OrderBy(h => h.Date).ToListAsync();
         _pending = _all.Count(l => l.Status == LeaveRequestStatus.Pending);
         _approvedThisMonth = _all.Count(l => l.Status == LeaveRequestStatus.Approved && l.ReviewedAt?.Month == DateTime.Now.Month);
-        _activeLeaveDays = _all.Count(l => l.Status == LeaveRequestStatus.Approved && l.StartDate <= DateTime.Today && l.EndDate >= DateTime.Today);
     }
 
     private async Task LoadBalances()
