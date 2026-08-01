@@ -17,7 +17,7 @@
             </p>
         </div>
         <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary" onclick="ukuuOpenImportInfoModal()">
+            <button class="bk-btn bk-btn-secondary" onclick="ukuuOpenImportModal()">
                 <span class="material-icons-round" style="font-size:16px;">download</span>
                 Import From Device
             </button>
@@ -451,458 +451,120 @@
     // import-from-device directly via fetch().
 }
 
-<!-- Import From Device modals and script - after code block so they render unconditionally -->
-    <!-- Import From Device - Stage 1: Info popup (plain HTML/JS) -->
-    <div id="ukuu-import-info-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportInfoModal()">
-        <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
-            <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
-                <div>
-                    <h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;color:var(--bk-ink);">Import Attendance From Hikvision Device</h3>
-                    <p style="margin:0;font-size:13px;color:var(--bk-ink-3);">Before you begin — please review the requirements below.</p>
-                </div>
-                <button onclick="ukuuCloseImportInfoModal()" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
-                    <span class="material-icons-round">close</span>
-                </button>
+
+<!-- Import From Device - Simple modal with IP, username, password -->
+<div id="ukuu-import-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportModal()">
+    <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+        <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;font-size:18px;font-weight:700;color:var(--bk-ink);">Import From Hikvision Device</h3>
+            <button onclick="ukuuCloseImportModal()" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div style="padding:28px;">
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">IP Address</label>
+                <input type="text" id="ukuu-imp-ip" value="192.168.1.137" placeholder="e.g. 192.168.1.137" style="width:100%;height:44px;border:1px solid var(--bk-line);border-radius:10px;padding:0 16px;font-family:inherit;font-size:14px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
             </div>
-            <div style="padding:24px 28px;">
-                <div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:10px;padding:16px;margin-bottom:16px;">
-                    <div style="display:flex;align-items:flex-start;gap:10px;">
-                        <span class="material-icons-round" style="color:var(--bk-info);font-size:20px;margin-top:1px;">face</span>
-                        <div style="font-size:13px;color:var(--bk-ink);line-height:1.5;">
-                            <strong>ISAPI Face Recognition Service:</strong> When you connect, the system will automatically probe the device's Face Recognition capabilities via <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">/ISAPI/Intelligent/FaceRecognition/1/capabilities</code> and report whether face recognition is active, how many face templates are supported, and how many face databases are configured.
-                        </div>
-                    </div>
-                </div>
-                <div style="background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);border-radius:10px;padding:16px;margin-bottom:16px;">
-                    <div style="display:flex;align-items:flex-start;gap:10px;">
-                        <span class="material-icons-round" style="color:#d89c11;font-size:20px;margin-top:1px;">info</span>
-                        <div style="font-size:13px;color:var(--bk-ink);line-height:1.5;">
-                            <strong>How it works:</strong> This tool connects to your Hikvision biometric terminal via the ISAPI protocol, probes the Face Recognition service, downloads attendance events (clock-in/out punches with face-authenticated verify mode) for the date range you specify, and imports them into Ukuu HR.
-                        </div>
-                    </div>
-                </div>
-                <h4 style="font-size:13px;font-weight:700;color:var(--bk-ink);margin:0 0 10px 0;text-transform:uppercase;letter-spacing:0.04em;">Requirements</h4>
-                <ul style="margin:0 0 16px 0;padding-left:20px;font-size:13px;color:var(--bk-ink-2);line-height:1.7;">
-                    <li><strong style="color:var(--bk-ink);">Same network:</strong> Your computer and the Hikvision device must be on the same LAN/VPN.</li>
-                    <li><strong style="color:var(--bk-ink);">Device IP & port:</strong> Default ports: <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">80</code> (HTTP) or <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">443</code> (HTTPS).</li>
-                    <li><strong style="color:var(--bk-ink);">Valid credentials:</strong> Admin username and password for the device.</li>
-                    <li><strong style="color:var(--bk-ink);">ISAPI enabled:</strong> Enable in device web UI under Configuration → Network → Advanced → Platform Access → ISAPI.</li>
-                    <li><strong style="color:var(--bk-ink);">Face Recognition enabled:</strong> Enable in device web UI under Configuration → Intelligent → Face Recognition for face-authenticated attendance.</li>
-                    <li><strong style="color:var(--bk-ink);">Employee codes match:</strong> Ukuu HR Employee Codes must match device employeeNo values.</li>
-                </ul>
-                <div style="display:flex;gap:10px;justify-content:flex-end;">
-                    <button class="bk-btn bk-btn-secondary" onclick="ukuuCloseImportInfoModal()">Cancel</button>
-                    <button class="bk-btn bk-btn-primary" onclick="ukuuProceedToImportForm()">
-                        <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
-                        Continue
-                    </button>
-                </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">Username</label>
+                <input type="text" id="ukuu-imp-user" value="admin" placeholder="admin" style="width:100%;height:44px;border:1px solid var(--bk-line);border-radius:10px;padding:0 16px;font-family:inherit;font-size:14px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
             </div>
+            <div style="margin-bottom:24px;">
+                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">Password</label>
+                <input type="password" id="ukuu-imp-pass" placeholder="Enter device password" style="width:100%;height:44px;border:1px solid var(--bk-line);border-radius:10px;padding:0 16px;font-family:inherit;font-size:14px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+            </div>
+            <div id="ukuu-imp-status" style="display:none;margin-bottom:16px;"></div>
+            <button class="bk-btn bk-btn-primary" id="ukuu-imp-btn" onclick="ukuuDoImport()" style="width:100%;height:44px;font-size:14px;font-weight:600;">
+                <span class="material-icons-round" style="font-size:18px;">download</span>
+                Connect &amp; Import
+            </button>
         </div>
     </div>
+</div>
+<script>
+    function ukuuOpenImportModal() {
+        var m = document.getElementById('ukuu-import-modal');
+        if (m) m.style.display = 'flex';
+    }
+    function ukuuCloseImportModal() {
+        var m = document.getElementById('ukuu-import-modal');
+        if (m) m.style.display = 'none';
+    }
+    async function ukuuDoImport() {
+        var ip = document.getElementById('ukuu-imp-ip').value.trim();
+        var user = document.getElementById('ukuu-imp-user').value.trim();
+        var pass = document.getElementById('ukuu-imp-pass').value;
+        if (!ip) { ukuuImpStatus('error', 'Please enter the device IP address.'); return; }
+        if (!user) { ukuuImpStatus('error', 'Please enter the username.'); return; }
+        if (!pass) { ukuuImpStatus('error', 'Please enter the password.'); return; }
 
-    <!-- Import From Device — Stage 2: Credentials form (plain HTML/JS) -->
-    <div id="ukuu-import-form-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportFormModal()">
-        <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:540px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
-            <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
-                <div>
-                    <h3 style="margin:0 0 4px 0;font-size:18px;font-weight:700;color:var(--bk-ink);">Connect to Hikvision Device</h3>
-                    <p style="margin:0;font-size:13px;color:var(--bk-ink-3);">Enter credentials to connect, probe Face Recognition, and import attendance.</p>
-                </div>
-                <button onclick="ukuuCloseImportFormModal()" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
-                    <span class="material-icons-round">close</span>
-                </button>
-            </div>
-            <div style="padding:24px 28px;">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-                    <div>
-                        <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">IP Address or Hostname *</label>
-                        <input type="text" id="ukuu-import-ip" value="192.168.1.137" placeholder="192.168.1.137" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Port</label>
-                        <input type="number" id="ukuu-import-port" value="443" placeholder="443" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-                    </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-                    <div>
-                        <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Username *</label>
-                        <input type="text" id="ukuu-import-user" value="admin" placeholder="admin" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Password *</label>
-                        <input type="password" id="ukuu-import-pass" placeholder="••••••••" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-                    </div>
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--bk-muted);border-radius:8px;">
-                    <input id="ukuu-import-https" type="checkbox" checked style="width:16px;height:16px;cursor:pointer;" />
-                    <label for="ukuu-import-https" style="font-size:13px;color:var(--bk-ink-2);cursor:pointer;user-select:none;">Use HTTPS (recommended)</label>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-                    <div>
-                        <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">From Date</label>
-                        <input type="date" id="ukuu-import-from" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">To Date</label>
-                        <input type="date" id="ukuu-import-to" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-                    </div>
-                </div>
-                <div style="margin-bottom:20px;">
-                    <label style="display:block;font-size:12px;font-weight:600;color:var(--bk-ink-2);margin-bottom:6px;">Max Records (1–5000, default 1000)</label>
-                    <input type="number" id="ukuu-import-max" value="1000" min="1" max="5000" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-                </div>
-                <div id="ukuu-import-status" style="display:none;margin-bottom:16px;"></div>
-                <div style="display:flex;gap:10px;justify-content:flex-end;">
-                    <button class="bk-btn bk-btn-secondary" onclick="ukuuCloseImportFormModal()">Close</button>
-                    <button class="bk-btn bk-btn-primary" id="ukuu-import-submit" onclick="ukuuExecuteImport()">
-                        <span class="material-icons-round" style="font-size:16px;">download_for_offline</span>
-                        <span>Fetch &amp; Import</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-        (function() {
-            var today = new Date();
-            var weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-            var fmt = function(d) { return d.toISOString().split('T')[0]; };
-            var fromEl = document.getElementById('ukuu-import-from');
-            var toEl = document.getElementById('ukuu-import-to');
-            if (fromEl) fromEl.value = fmt(weekAgo);
-            if (toEl) toEl.value = fmt(today);
-        })();
+        var btn = document.getElementById('ukuu-imp-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;animation:ukuu-imp-spin 0.8s linear infinite;">sync</span> Connecting...';
+        ukuuImpStatus('loading', 'Connecting to ' + ip + ' and fetching attendance records...');
 
-        function ukuuOpenImportInfoModal() { var m = document.getElementById('ukuu-import-info-modal'); if (m) m.style.display = 'flex'; }
-        function ukuuCloseImportInfoModal() { var m = document.getElementById('ukuu-import-info-modal'); if (m) m.style.display = 'none'; }
-        function ukuuProceedToImportForm() { ukuuCloseImportInfoModal(); var m = document.getElementById('ukuu-import-form-modal'); if (m) m.style.display = 'flex'; }
-        function ukuuCloseImportFormModal() { var m = document.getElementById('ukuu-import-form-modal'); if (m) m.style.display = 'none'; }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // MAIN IMPORT FUNCTION — tries 3 methods in order:
-        //   Method 1: Direct browser → Hikvision ISAPI (works if CORS is enabled)
-        //   Method 2: Server-side proxy (works if the server can reach the device)
-        //   Method 3: Manual JSON file upload (always works — fallback)
-        // ═══════════════════════════════════════════════════════════════════════
-        async function ukuuExecuteImport() {
-            var ip = document.getElementById('ukuu-import-ip').value.trim();
-            var port = parseInt(document.getElementById('ukuu-import-port').value) || 443;
-            var useHttps = document.getElementById('ukuu-import-https').checked;
-            var user = document.getElementById('ukuu-import-user').value.trim();
-            var pass = document.getElementById('ukuu-import-pass').value;
-            var from = document.getElementById('ukuu-import-from').value;
-            var to = document.getElementById('ukuu-import-to').value;
-            var max = parseInt(document.getElementById('ukuu-import-max').value) || 1000;
-
-            if (!ip) { ukuuShowStatus('error', 'Please enter the device IP address.'); return; }
-            if (!user) { ukuuShowStatus('error', 'Please enter the username.'); return; }
-            if (!pass) { ukuuShowStatus('error', 'Please enter the password.'); return; }
-
-            var btn = document.getElementById('ukuu-import-submit');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;animation:ukuu-spin 0.8s linear infinite;">sync</span><span>Importing…</span>';
-
-            var scheme = useHttps ? 'https' : 'http';
-            var deviceUrl = scheme + '://' + ip + ':' + port;
-
-            // ── Method 1: Try direct browser → device (CORS may block this) ───────
-            ukuuShowStatus('loading', 'Attempting direct connection to ' + deviceUrl + ' from your browser…');
-            try {
-                var deviceResp = await ukuuFetchFromDevice(deviceUrl, user, pass, from, to, max);
-                if (deviceResp && deviceResp.events && deviceResp.events.length >= 0) {
-                    ukuuShowStatus('loading', 'Connected! Fetched ' + deviceResp.events.length + ' events. Saving to database…');
-                    var saveResp = await ukuuSaveImported(deviceResp.events, deviceResp.deviceInfo, deviceResp.faceRecog);
-                    ukuuDisplayResult(saveResp, deviceResp);
-                    return;
-                }
-            } catch (e) {
-                console.log('[Import] Method 1 (direct browser) failed:', e.message);
-            }
-
-            // ── Method 2: Try server-side proxy (works only if server is on same LAN) ──
-            ukuuShowStatus('loading', 'Direct connection blocked (CORS). Trying server-side proxy…');
-            try {
-                var payload = {
-                    ipAddress: ip, port: port, useHttps: useHttps,
-                    username: user, password: pass,
-                    from: from ? from + 'T00:00:00Z' : null,
-                    to: to ? to + 'T23:59:59Z' : null,
-                    maxResults: max
-                };
-                var resp = await fetch('/api/attendance/import-from-device', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                var data = await resp.json();
-                if (resp.ok && data.success) {
-                    ukuuDisplayResult(data, { deviceInfo: data.device, faceRecog: data.faceRecognition });
-                    return;
-                } else if (data.stage === 'connect') {
-                    // Server can't reach the device either — fall through to Method 3
-                    console.log('[Import] Method 2 (server proxy) failed: server cannot reach LAN device');
-                } else {
-                    ukuuShowStatus('error', data.error || ('HTTP ' + resp.status));
-                    return;
-                }
-            } catch (e) {
-                console.log('[Import] Method 2 (server proxy) failed:', e.message);
-            }
-
-            // ── Method 3: Show manual upload instructions (always works) ──────────
-            ukuuShowManualUpload(deviceUrl, ip, user, pass, from, to);
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // Method 1: Direct browser → Hikvision ISAPI fetch
-        // ═══════════════════════════════════════════════════════════════════════
-        async function ukuuFetchFromDevice(deviceUrl, user, pass, from, to, max) {
-            var startTime = from ? from + 'T00:00:00Z' : new Date(Date.now() - 7*24*60*60*1000).toISOString();
-            var endTime = to ? to + 'T23:59:59Z' : new Date().toISOString();
-
-            // Step 1: Get device info
-            var deviceInfo = { name: '', model: '', serial: '' };
-            try {
-                var infoResp = await fetch(deviceUrl + '/ISAPI/System/deviceInfo', {
-                    method: 'GET',
-                    headers: { 'Authorization': 'Basic ' + btoa(user + ':' + pass) }
-                });
-                if (!infoResp.ok) throw new Error('HTTP ' + infoResp.status);
-                var infoXml = await infoResp.text();
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(infoXml, 'text/xml');
-                deviceInfo.name = doc.querySelector('deviceName')?.textContent || '';
-                deviceInfo.model = doc.querySelector('model')?.textContent || '';
-                deviceInfo.serial = doc.querySelector('serialNumber')?.textContent || '';
-            } catch (e) {
-                throw new Error('Cannot reach device: ' + e.message + '. The browser may be blocking the connection (CORS/mixed-content). See Method 3 below.');
-            }
-
-            // Step 2: Probe Face Recognition
-            var faceRecog = null;
-            try {
-                var frResp = await fetch(deviceUrl + '/ISAPI/Intelligent/FaceRecognition/1/capabilities', {
-                    method: 'GET',
-                    headers: { 'Authorization': 'Basic ' + btoa(user + ':' + pass) }
-                });
-                if (frResp.ok) {
-                    faceRecog = { serviceAvailable: true, note: 'Face Recognition service detected' };
-                }
-            } catch (e) { /* face recog not available */ }
-
-            // Step 3: Fetch AcsEvent attendance records
-            var searchBody = JSON.stringify({
-                AcsEventSearchDescription: {
-                    searchID: 'browser_' + Date.now(),
-                    searchResultPosition: 0,
-                    maxResults: max,
-                    major: 0, minor: 0,
-                    startTime: startTime,
-                    endTime: endTime
-                }
-            });
-
-            var eventResp = await fetch(deviceUrl + '/ISAPI/AccessControl/AcsEvent?format=json', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Basic ' + btoa(user + ':' + pass)
-                },
-                body: searchBody
-            });
-            if (!eventResp.ok) throw new Error('AcsEvent fetch failed: HTTP ' + eventResp.status);
-            var eventData = await eventResp.json();
-
-            // Parse events into normalized format
-            var rawEvents = eventData.AcsEvent?.InfoList || eventData.AcsEvent?.EventList || eventData.InfoList || eventData.EventList || [];
-            var events = rawEvents.map(function(e) {
-                return {
-                    employeeNo: e.employeeNo || e.EmployeeNo || '',
-                    time: e.time || e.eventTime || '',
-                    major: e.major || 0,
-                    minor: e.minor || 0,
-                    eventType: (e.minor == 76) ? 'check_out' : 'check_in',
-                    verifyMode: e.verifyMode || e.VerifyMode || '',
-                    inOutMode: e.inAndOutMode || e.InOutMode || ''
-                };
-            }).filter(function(e) { return e.employeeNo && e.time; });
-
-            return { events: events, deviceInfo: deviceInfo, faceRecog: faceRecog };
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // Save imported events to the server database
-        // ═══════════════════════════════════════════════════════════════════════
-        async function ukuuSaveImported(events, deviceInfo, faceRecog) {
-            var resp = await fetch('/api/attendance/save-imported', {
+        try {
+            var resp = await fetch('/api/attendance/import-from-device', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    events: events,
-                    deviceInfo: deviceInfo,
-                    faceRecognition: faceRecog
+                    ipAddress: ip,
+                    port: 80,
+                    useHttps: false,
+                    username: user,
+                    password: pass,
+                    from: new Date(Date.now() - 7*24*60*60*1000).toISOString(),
+                    to: new Date().toISOString(),
+                    maxResults: 1000
                 })
             });
-            return await resp.json();
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // Display the import result
-        // ═══════════════════════════════════════════════════════════════════════
-        function ukuuDisplayResult(data, deviceData) {
-            var btn = document.getElementById('ukuu-import-submit');
-            var frHtml = '';
-            var fr = data.faceRecognition || deviceData.faceRecog;
-            if (fr) {
-                if (fr.serviceAvailable) {
-                    frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(20,163,127,0.08);border:1px solid rgba(20,163,127,0.3);border-radius:8px;margin-bottom:10px;">' +
-                        '<span class="material-icons-round" style="color:var(--bk-success);font-size:18px;">face</span>' +
-                        '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Active</span></div>';
-                } else {
-                    frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);border-radius:8px;margin-bottom:10px;">' +
-                        '<span class="material-icons-round" style="color:#d89c11;font-size:18px;">face</span>' +
-                        '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Not Available</span></div>';
+            var data = await resp.json();
+            if (resp.ok && data.success) {
+                var frBadge = '';
+                if (data.faceRecognition && data.faceRecognition.serviceAvailable) {
+                    frBadge = '<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(20,163,127,0.08);border:1px solid rgba(20,163,127,0.3);border-radius:8px;margin-bottom:10px;font-size:12px;color:var(--bk-success);font-weight:600;"><span class="material-icons-round" style="font-size:16px;">face</span> Face Recognition: Active</div>';
                 }
-            }
-            var dev = data.device || deviceData.deviceInfo || {};
-            var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
-                '<span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">check_circle</span>' +
-                '<strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong></div>' +
-                frHtml +
-                '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.7;">' +
-                '<div><strong>Device:</strong> ' + (dev.name || dev.model || '?') + '</div>' +
-                '<div><strong>Events fetched:</strong> ' + (data.eventsFetched || 0) + '</div>' +
-                '<div><strong>Employees matched:</strong> ' + (data.employeesMatched || 0) + '</div>' +
-                (data.employeesUnmatched > 0 ? '<div><strong>Unmatched:</strong> ' + data.employeesUnmatched + '</div>' : '') +
-                '<div><strong>Records imported/updated:</strong> ' + (data.recordsImported || 0) + '</div>' +
-                '</div>';
-            ukuuShowStatus('success', html);
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">download_for_offline</span><span>Fetch &amp; Import</span>';
-            setTimeout(function() { window.location.reload(); }, 4000);
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // Method 3: Manual upload instructions (fallback — always works)
-        // ═══════════════════════════════════════════════════════════════════════
-        function ukuuShowManualUpload(deviceUrl, ip, user, pass, from, to) {
-            var html = '<div style="margin-bottom:12px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
-                '<span class="material-icons-round" style="color:#d89c11;font-size:20px;">info</span>' +
-                '<strong style="font-size:14px;color:var(--bk-ink);">Manual Import Required</strong></div>' +
-                '<p style="font-size:13px;color:var(--bk-ink-2);line-height:1.6;margin:0 0 12px 0;">' +
-                'The online portal cannot directly reach your Hikvision device at <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;">' + ip + '</code> because it is on your local network and the portal is in the cloud. ' +
-                'To import attendance records, use one of these methods:</p></div>' +
-
-                '<div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:8px;padding:14px;margin-bottom:12px;">' +
-                '<div style="font-size:13px;font-weight:700;color:var(--bk-ink);margin-bottom:8px;">Option A: Export from Device Web UI</div>' +
-                '<ol style="font-size:12px;color:var(--bk-ink-2);line-height:1.7;margin:0;padding-left:18px;">' +
-                '<li>Open <a href="' + deviceUrl + '" target="_blank" style="color:var(--bk-accent);">' + deviceUrl + '</a> in a new tab</li>' +
-                '<li>Log in with <code>' + user + '</code> / your password</li>' +
-                '<li>Go to <strong>Attendance Report</strong> then <strong>Report Summary</strong></li>' +
-                '<li>Select the date range (' + (from || '7 days ago') + ' to ' + (to || 'today') + ')</li>' +
-                '<li>Click <strong>Export</strong> and save as CSV or JSON</li>' +
-                '<li>Upload the file below</li></ol></div>' +
-
-                '<div style="background:rgba(20,163,127,0.06);border:1px solid rgba(20,163,127,0.2);border-radius:8px;padding:14px;margin-bottom:12px;">' +
-                '<div style="font-size:13px;font-weight:700;color:var(--bk-ink);margin-bottom:8px;">Option B: Use the Python Script</div>' +
-                '<p style="font-size:12px;color:var(--bk-ink-2);line-height:1.6;margin:0 0 8px 0;">Run this command on a computer on the same network as the device:</p>' +
-                '<pre style="background:var(--bk-muted);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin:0;"><code>pip install requests openpyxl\npython hikvision_fetch.py \\\n  --host ' + ip + ' --port ' + port + ' \\\n  --user ' + user + ' --password YOUR_PASSWORD \\\n  --from ' + (from || '') + ' --to ' + (to || '') + '\n\n# Then upload the CSV file below:</code></pre></div>' +
-
-                '<div style="border:2px dashed var(--bk-line);border-radius:10px;padding:20px;text-align:center;margin-bottom:12px;">' +
-                '<input type="file" id="ukuu-import-file" accept=".json,.csv" style="display:none;" onchange="ukuuUploadFile()" />' +
-                '<button class="bk-btn bk-btn-primary" onclick="document.getElementById(\'ukuu-import-file\').click()">' +
-                '<span class="material-icons-round" style="font-size:16px;">upload_file</span> Upload Attendance File</button>' +
-                '<p style="font-size:11px;color:var(--bk-ink-3);margin-top:8px;">JSON or CSV exported from the Hikvision web UI</p></div>';
-
-            ukuuShowStatus('manual', html);
-            var btn = document.getElementById('ukuu-import-submit');
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">download_for_offline</span><span>Fetch &amp; Import</span>';
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // File upload handler (for manual import)
-        // ═══════════════════════════════════════════════════════════════════════
-        async function ukuuUploadFile() {
-            var fileInput = document.getElementById('ukuu-import-file');
-            var file = fileInput.files[0];
-            if (!file) return;
-
-            ukuuShowStatus('loading', 'Parsing ' + file.name + '…');
-            var text = await file.text();
-
-            var events = [];
-            try {
-                if (file.name.endsWith('.json')) {
-                    var data = JSON.parse(text);
-                    var rawEvents = data.AcsEvent?.InfoList || data.InfoList || data.events || data || [];
-                    if (Array.isArray(rawEvents)) {
-                        events = rawEvents.map(function(e) {
-                            return {
-                                employeeNo: e.employeeNo || e.EmployeeNo || e.employee_no || '',
-                                time: e.time || e.eventTime || e.event_time || '',
-                                major: e.major || 1,
-                                minor: e.minor || 75,
-                                eventType: (e.minor == 76) ? 'check_out' : 'check_in'
-                            };
-                        }).filter(function(e) { return e.employeeNo && e.time; });
-                    }
-                } else if (file.name.endsWith('.csv')) {
-                    var lines = text.split('\n');
-                    var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
-                    var empIdx = headers.indexOf('employeeno') >= 0 ? headers.indexOf('employeeno') : headers.indexOf('employee');
-                    var timeIdx = headers.indexOf('time') >= 0 ? headers.indexOf('time') : headers.indexOf('datetime');
-                    var typeIdx = headers.indexOf('eventtype') >= 0 ? headers.indexOf('eventtype') : -1;
-                    for (var i = 1; i < lines.length; i++) {
-                        var cols = lines[i].split(',');
-                        if (cols.length > Math.max(empIdx, timeIdx)) {
-                            events.push({
-                                employeeNo: (cols[empIdx] || '').trim(),
-                                time: (cols[timeIdx] || '').trim(),
-                                major: 1,
-                                minor: 75,
-                                eventType: 'check_in'
-                            });
-                        }
-                    }
-                }
-            } catch (e) {
-                ukuuShowStatus('error', 'Could not parse file: ' + e.message);
-                return;
-            }
-
-            if (events.length === 0) {
-                ukuuShowStatus('error', 'No attendance events found in the file. Expected JSON with employeeNo/time fields or CSV with EmployeeNo,Time columns.');
-                return;
-            }
-
-            ukuuShowStatus('loading', 'Parsed ' + events.length + ' events. Saving to database…');
-            try {
-                var resp = await ukuuSaveImported(events, { name: file.name, model: '', serial: '' }, null);
-                ukuuDisplayResult(resp, { deviceInfo: { name: file.name }, faceRecog: null });
-            } catch (e) {
-                ukuuShowStatus('error', 'Save failed: ' + e.message);
-            }
-        }
-
-        function ukuuShowStatus(type, html) {
-            var el = document.getElementById('ukuu-import-status');
-            if (!el) return;
-            el.style.display = 'block';
-            if (type === 'loading') {
-                el.style.background = 'rgba(37,99,235,0.06)'; el.style.border = '1px solid rgba(37,99,235,0.2)';
-                el.innerHTML = '<div style="display:flex;align-items:center;gap:12px;padding:14px;"><div style="width:20px;height:20px;border:2px solid rgba(37,99,235,0.2);border-top-color:var(--bk-info);border-radius:50%;animation:ukuu-spin 0.8s linear infinite;"></div><div style="font-size:13px;color:var(--bk-ink);font-weight:600;">' + html + '</div></div>';
-            } else if (type === 'error') {
-                el.style.background = 'rgba(244,63,94,0.08)'; el.style.border = '1px solid rgba(244,63,94,0.3)';
-                el.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px;padding:14px;"><span class="material-icons-round" style="color:var(--bk-error);font-size:20px;margin-top:1px;">error_outline</span><div style="font-size:13px;color:var(--bk-ink);line-height:1.5;flex:1;">' + html + '</div></div>';
-            } else if (type === 'manual') {
-                el.style.background = 'rgba(212,175,55,0.06)'; el.style.border = '1px solid rgba(212,175,55,0.3)';
-                el.innerHTML = '<div style="padding:16px;">' + html + '</div>';
+                ukuuImpStatus('success', frBadge +
+                    '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.8;">' +
+                    '<div><strong>Events fetched:</strong> ' + data.eventsFetched + '</div>' +
+                    '<div><strong>Employees matched:</strong> ' + data.employeesMatched + '</div>' +
+                    '<div><strong>Records imported:</strong> ' + data.recordsImported + '</div>' +
+                    '</div>');
+                setTimeout(function() { window.location.reload(); }, 3000);
             } else {
-                el.style.background = 'rgba(20,163,127,0.08)'; el.style.border = '1px solid rgba(20,163,127,0.3)';
-                el.innerHTML = '<div style="padding:16px;">' + html + '</div>';
+                ukuuImpStatus('error', data.error || ('HTTP ' + resp.status));
             }
+        } catch (e) {
+            ukuuImpStatus('error', 'Connection failed: ' + e.message + '. Make sure your device is reachable from this server and ISAPI is enabled.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;">download</span> Connect &amp; Import';
         }
-    </script>
-    <style>@@keyframes ukuu-spin { to { transform: rotate(360deg); } }</style>
+    }
+    function ukuuImpStatus(type, html) {
+        var el = document.getElementById('ukuu-imp-status');
+        if (!el) return;
+        el.style.display = 'block';
+        if (type === 'loading') {
+            el.style.background = 'rgba(37,99,235,0.06)';
+            el.style.border = '1px solid rgba(37,99,235,0.2)';
+            el.style.borderRadius = '10px';
+            el.style.padding = '12px';
+            el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div style="width:18px;height:18px;border:2px solid rgba(37,99,235,0.2);border-top-color:var(--bk-info);border-radius:50%;animation:ukuu-imp-spin 0.8s linear infinite;"></div><span style="font-size:13px;color:var(--bk-ink);font-weight:600;">' + html + '</span></div>';
+        } else if (type === 'error') {
+            el.style.background = 'rgba(244,63,94,0.08)';
+            el.style.border = '1px solid rgba(244,63,94,0.3)';
+            el.style.borderRadius = '10px';
+            el.style.padding = '12px';
+            el.innerHTML = '<div style="display:flex;align-items:flex-start;gap:8px;"><span class="material-icons-round" style="color:var(--bk-error);font-size:18px;">error_outline</span><span style="font-size:13px;color:var(--bk-ink);line-height:1.5;">' + html + '</span></div>';
+        } else {
+            el.style.background = 'rgba(20,163,127,0.08)';
+            el.style.border = '1px solid rgba(20,163,127,0.3)';
+            el.style.borderRadius = '10px';
+            el.style.padding = '12px';
+            el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="material-icons-round" style="color:var(--bk-success);font-size:18px;">check_circle</span><strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong></div>' + html;
+        }
+    }
+</script>
+<style>@@keyframes ukuu-imp-spin { to { transform: rotate(360deg); } }</style>
