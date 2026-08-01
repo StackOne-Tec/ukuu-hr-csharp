@@ -3009,7 +3009,8 @@ app.MapPost("/api/attendance/import-from-device", async (
     // Group events by (employeeCode, date) so we can take the earliest check-in and latest check-out per day.
     var grouped = events
         .Where(e => !string.IsNullOrEmpty(e.EmployeeCode))
-        .GroupBy(e => (e.EmployeeCode, e.EventTime.Date));
+        .GroupBy(e => (e.EmployeeCode, e.EventTime.Date))
+        .ToList();
 
     foreach (var grp in grouped)
     {
@@ -3035,12 +3036,15 @@ app.MapPost("/api/attendance/import-from-device", async (
         try
         {
             // Find or create the attendance record for this employee + date
-            var att = await db.Attendances.FirstOrDefaultAsync(a =>
-                a.OrganizationId == org.Id && a.EmployeeId == emp.Id && a.DateKey == dateKey);
+            // Use AsNoTracking so EF Core doesn't pull existing rows into the change tracker
+            // (which would cause "modified" instead of "added" for new dates).
+            var existing = await db.Attendances
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.OrganizationId == org.Id && a.EmployeeId == emp.Id && a.DateKey == dateKey);
 
-            if (att == null)
+            if (existing == null)
             {
-                att = new UkuuHr.Models.Attendance
+                var att = new UkuuHr.Models.Attendance
                 {
                     OrganizationId = org.Id,
                     EmployeeId = emp.Id,
@@ -3059,11 +3063,17 @@ app.MapPost("/api/attendance/import-from-device", async (
             }
             else
             {
-                // Update only if we have new info (avoid overwriting a later check-in with an earlier one)
+                // Update the existing row — fetch it tracked so we can modify it
+                var att = await db.Attendances.FirstAsync(a => a.Id == existing.Id);
                 var changed = false;
                 if (checkIn.HasValue && (!att.CheckIn.HasValue || checkIn < att.CheckIn)) { att.CheckIn = checkIn; changed = true; }
                 if (checkOut.HasValue && (!att.CheckOut.HasValue || checkOut > att.CheckOut)) { att.CheckOut = checkOut; changed = true; }
-                if (changed) { att.CreatedAt = DateTime.UtcNow; imported++; }
+                if (changed)
+                {
+                    att.Source = UkuuHr.Models.AttendanceSource.Import; // mark as device-imported
+                    att.CreatedAt = DateTime.UtcNow;
+                    imported++;
+                }
                 else skippedDupe++;
             }
         }
