@@ -9,7 +9,7 @@
         <div class="bk-admin-section-header-left">
             <div class="bk-admin-greeting">Workforce · @_employees.Count total employees</div>
             <h1 class="bk-admin-h1">Employee Directory</h1>
-            <p class="bk-admin-sub">Manage your workforce — @_filtered.Count() active employees across @_departments.Count departments.</p>
+            <p class="bk-admin-sub">Manage your workforce — @_employees.Count active employees across @_departments.Count departments.</p>
         </div>
         <div class="bk-admin-actions">
             <button class="bk-btn bk-btn-secondary">
@@ -32,16 +32,16 @@
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:16px 24px;">
             <div style="flex:1;min-width:260px;position:relative;">
                 <span class="material-icons-round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:20px;">search</span>
-                <input type="text" @bind="_search" @bind:event="oninput" placeholder="Search by name, email, code or job title..." style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px 0 40px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
+                <input type="text" id="ukuu-emp-search" placeholder="Search by name, email, code or job title..." oninput="ukuuFilterEmployees()" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px 0 40px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
             </div>
-            <select @bind="_filterDept" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:160px;">
+            <select id="ukuu-emp-dept" onchange="ukuuFilterEmployees()" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:160px;">
                 <option value="All">All Departments</option>
                 @foreach (var d in _departments)
                 {
                     <option value="@d">@d</option>
                 }
             </select>
-            <select @bind="_filterStatus" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:140px;">
+            <select id="ukuu-emp-status" onchange="ukuuFilterEmployees()" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:140px;">
                 <option value="All">All Status</option>
                 <option value="Active">Active</option>
                 <option value="Probation">Probation</option>
@@ -70,10 +70,10 @@
                         <th style="text-align:right;">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach (var emp in _filtered)
+                <tbody id="ukuu-emp-tbody">
+                    @foreach (var emp in _employees)
                     {
-                        <tr>
+                        <tr data-search="@(emp.FullName)|@(emp.Email ?? "")|@(emp.EmployeeCode ?? "")|@(emp.JobTitle ?? "")" data-dept="@(emp.Department ?? "")" data-status="@emp.StatusDisplay">
                             <td data-label="Employee">
                                 <div style="display:flex;align-items:center;gap:12px;">
                                     <div class="bk-admin-avatar @GetAvatarColor(emp.Id)">@emp.Initials</div>
@@ -105,36 +105,51 @@
                     }
                 </tbody>
             </table>
-            @if (!_filtered.Any())
-            {
-                <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                    <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
-                        <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">person_off</span>
-                    </div>
-                    <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No employees found</h3>
-                    <p style="font-size:13px;">Try adjusting your search or filters, or add a new employee.</p>
+            <div id="ukuu-emp-empty" style="display:none;padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
+                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">person_off</span>
                 </div>
-            }
+                <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No employees found</h3>
+                <p style="font-size:13px;">Try adjusting your search or filters, or add a new employee.</p>
+            </div>
         </div>
     }
+
+    <script>
+        function ukuuFilterEmployees() {
+            var search = (document.getElementById('ukuu-emp-search') || {}).value || '';
+            var dept = (document.getElementById('ukuu-emp-dept') || {}).value || 'All';
+            var status = (document.getElementById('ukuu-emp-status') || {}).value || 'All';
+            var rows = document.querySelectorAll('#ukuu-emp-tbody tr');
+            var visible = 0;
+            search = search.toLowerCase().trim();
+            rows.forEach(function(row) {
+                var searchData = (row.getAttribute('data-search') || '').toLowerCase();
+                var rowDept = row.getAttribute('data-dept') || '';
+                var rowStatus = row.getAttribute('data-status') || '';
+                var matchSearch = !search || searchData.indexOf(search) >= 0;
+                var matchDept = dept === 'All' || rowDept === dept;
+                var matchStatus = status === 'All' || rowStatus === status;
+                if (matchSearch && matchDept && matchStatus) {
+                    row.style.display = '';
+                    visible++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            var empty = document.getElementById('ukuu-emp-empty');
+            if (empty) empty.style.display = visible === 0 ? 'block' : 'none';
+        }
+    </script>
 </div>
 
 @code {
     private List<Employee> _employees = new();
     private List<string> _departments = new();
     private bool _loading = true;
-    private string _search = string.Empty;
-    private string _filterDept = "All";
-    private string _filterStatus = "All";
-
-    private IEnumerable<Employee> _filtered => _employees.Where(e =>
-        (string.IsNullOrWhiteSpace(_search) ||
-         e.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-         (e.Email ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-         (e.EmployeeCode ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-         (e.JobTitle ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase)) &&
-        (_filterDept == "All" || e.Department == _filterDept) &&
-        (_filterStatus == "All" || e.StatusDisplay == _filterStatus));
+    // NOTE: Search/filter is now done client-side via JavaScript (ukuuFilterEmployees)
+    // so it works without a Blazor SignalR circuit. The server renders all employees
+    // and the browser filters table rows on input/change events.
 
     protected override async Task OnInitializedAsync()
     {
