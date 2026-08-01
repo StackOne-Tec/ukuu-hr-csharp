@@ -61,45 +61,6 @@
             </div>
         </div>
 
-    @* ───── KPI cards ───── *@
-    <div class="bk-admin-kpi-grid">
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon"><span class="material-icons-round">schedule</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Kind == ShiftKind.Fixed)</div>
-            <div class="bk-admin-kpi-label">Fixed Shifts</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">autorenew</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Kind == ShiftKind.Rotating)</div>
-            <div class="bk-admin-kpi-label">Rotating</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">wb_twilight</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Kind == ShiftKind.Overnight)</div>
-            <div class="bk-admin-kpi-label">Overnight</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">swap_horiz</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_shifts.Count(s => s.Kind == ShiftKind.Flexible)</div>
-            <div class="bk-admin-kpi-label">Flexible</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">groups</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_assignments.Select(a => a.EmployeeId).Distinct().Count()</div>
-            <div class="bk-admin-kpi-label">Employees with Shifts</div>
-        </div>
-    </div>
-
     @* ───── Quick nav cards ───── *@
     <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
         <a href="/shifts/assignments" class="bk-admin-card" style="flex:1;min-width:180px;padding:16px;display:flex;align-items:center;gap:12px;text-decoration:none;cursor:pointer;">
