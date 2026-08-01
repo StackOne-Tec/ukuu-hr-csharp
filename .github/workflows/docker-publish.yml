@@ -139,33 +139,19 @@ jobs:
             BUILD_DATE=${{ needs.build-test.outputs.build-date }}
             GIT_SHA=${{ github.sha }}
 
-      # ───── Make the package public so anyone can `docker pull` without auth ─────
-      # Packages pushed by GITHUB_TOKEN default to private. The GITHUB_TOKEN
-      # (running as github-actions[bot], the package creator) CAN change visibility
-      # via the REST API, even though org-admin PATs sometimes 404 on this endpoint
-      # due to a known GitHub quirk with bot-created packages.
-      - name: Set package visibility to public
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          echo "Setting package visibility to public..."
-          # Try the org endpoint first (works for org-owned packages)
-          gh api -X PATCH \
-            -H "Accept: application/vnd.github+json" \
-            "/orgs/${{ github.repository_owner }}/packages/container/${{ github.event.repository.name }}/visibility" \
-            -f visibility=public && echo "✓ Package is now public (org endpoint)" || {
-            echo "Org endpoint failed, trying user endpoint..."
-            gh api -X PATCH \
-              -H "Accept: application/vnd.github+json" \
-              "/user/packages/container/${{ github.event.repository.name }}/visibility" \
-              -f visibility=public && echo "✓ Package is now public (user endpoint)" || {
-            echo "⚠️  Could not set visibility via API. Make the package public manually:"
-            echo "    https://github.com/orgs/${{ github.repository_owner }}/packages/container/${{ github.event.repository.name }}/settings"
-            }
-          }
-
+      # ───── Visibility note ─────
+      # Packages pushed by GITHUB_TOKEN default to private. The GitHub REST API
+      # for changing package visibility returns 404 for bot-pushed packages
+      # (confirmed limitation — both /orgs/ and /user/ endpoints fail even when
+      # called by an org admin PAT). The package must be made public manually
+      # via the web UI, ONE TIME ONLY:
+      #
+      #   https://github.com/orgs/StackOne-Tec/packages/container/ukuu-hr-csharp/settings
+      #
+      # → Danger Zone → Change visibility → Public
+      #
+      # After that one-time change, all future pushes (new latest tags) inherit
+      # the public visibility automatically.
       - name: Print pull command
         run: |
           echo ""
