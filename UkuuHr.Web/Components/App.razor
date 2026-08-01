@@ -74,7 +74,22 @@
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
-    <script src="_framework/blazor.web.js?v=@_cacheVersion"></script>
+    <script src="_framework/blazor.web.js?v=@_cacheVersion" autostart="false"></script>
+    <script>
+        // Configure Blazor to use the custom hub path mapped in Program.cs
+        // (MapBlazorHub("/_framework/blazor")). Without this, blazor.web.js
+        // tries to connect to the default /_blazor endpoint which is blocked
+        // by the Caddy proxy on Render, causing all Blazor click handlers to fail.
+        Blazor.start({
+            circuit: {
+                hubPath: '/_framework/blazor'
+            }
+        }).then(function() {
+            console.log('[Blazor] Circuit connected.');
+        }).catch(function(err) {
+            console.error('[Blazor] Circuit failed to connect:', err);
+        });
+    </script>
     <script src="_content/MudBlazor/MudBlazor.min.js?v=@_cacheVersion"></script>
     <script>
         // Theme toggle function — callable from Blazor via JS interop
