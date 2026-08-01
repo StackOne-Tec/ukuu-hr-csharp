@@ -164,6 +164,8 @@ builder.Services.AddScoped<HikvisionSyncService>();
 builder.Services.AddScoped<OvertimeService>();
 builder.Services.AddScoped<TimeCardService>();
 builder.Services.AddHttpClient("KeepAlive");
+// Default HttpClient for Blazor pages that @inject HttpClient (e.g. Import From Device)
+builder.Services.AddHttpClient();
 
 // ───── Phase 1: FR-003 / FR-004 / FR-005 — Shifts & Tolerance ─────
 builder.Services.AddScoped<ShiftService>();
@@ -2898,6 +2900,211 @@ app.MapPost("/api/subscription/redeem-coupon", async (
     return Results.Redirect("/settings?coupon=success");
 }).WithName("CouponRedeem").DisableAntiforgery();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/attendance/import-from-device
+// Live import of attendance events from a Hikvision terminal.
+// Body: { ipAddress, port, useHttps, username, password, from?, to?, maxResults? }
+// Does NOT require the device to be pre-registered in the AttendanceDevices table —
+// credentials are passed in the request body so the user can import ad-hoc.
+// ─────────────────────────────────────────────────────────────────────────────
+app.MapPost("/api/attendance/import-from-device", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    AttendanceService attendanceSvc,
+    ILogger<Program> logger) =>
+{
+    // ── 1. Parse + validate the request body ────────────────────────────────
+    ImportFromDeviceRequest? body;
+    try { body = await ctx.Request.ReadFromJsonAsync<ImportFromDeviceRequest>(); }
+    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid JSON body: " + ex.Message }); }
+    if (body == null) return Results.BadRequest(new { error = "Empty request body." });
+
+    if (string.IsNullOrWhiteSpace(body.IpAddress))
+        return Results.BadRequest(new { error = "IP address is required." });
+    if (string.IsNullOrWhiteSpace(body.Username))
+        return Results.BadRequest(new { error = "Username is required." });
+    if (string.IsNullOrWhiteSpace(body.Password))
+        return Results.BadRequest(new { error = "Password is required." });
+
+    var port = body.Port ?? (body.UseHttps ? 443 : 80);
+    var useHttps = body.UseHttps;
+    var maxResults = body.MaxResults is > 0 and <= 5000 ? body.MaxResults.Value : 1000;
+    var from = body.From ?? DateTime.UtcNow.AddDays(-7);
+    var to = body.To ?? DateTime.UtcNow;
+
+    // ── 2. Resolve the org (events get attached to the org's employees) ─────
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found. Create an organization first." });
+
+    logger.LogInformation("ImportFromDevice: connecting to {Scheme}://{Host}:{Port} as {User} (range {From} → {To}, max {Max})",
+        useHttps ? "https" : "http", body.IpAddress, port, body.Username, from, to, maxResults);
+
+    // ── 3. Construct a one-shot HikvisionIsapiClient with the provided creds ─
+    using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig
+        {
+            IpAddress = body.IpAddress.Trim(),
+            Port = port,
+            UseHttps = useHttps,
+            Username = body.Username.Trim(),
+            Password = body.Password,
+            TimeoutSeconds = 30,
+            MaxRetries = 1,
+            RetryDelayMs = 500
+        },
+        logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>
+            ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
+
+    // ── 4. Step 1: probe device info (validates connection + auth) ───────────
+    string deviceName = "Unknown", deviceModel = "Unknown", deviceSerial = "Unknown";
+    try
+    {
+        var info = await client.GetDeviceInfoAsync();
+        deviceName = info.DeviceName;
+        deviceModel = info.Model;
+        deviceSerial = info.SerialNumber;
+        logger.LogInformation("ImportFromDevice: connected to {Name} ({Model}) serial={Serial}", deviceName, deviceModel, deviceSerial);
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "ImportFromDevice: deviceInfo probe failed for {Host}", body.IpAddress);
+        return Results.Json(new
+        {
+            error = $"Could not connect to the Hikvision device at {(useHttps ? "https" : "http")}://{body.IpAddress}:{port}. " +
+                    $"Check the IP, port, HTTPS toggle, and that your machine is on the same network as the device. " +
+                    $"Detail: {ex.Message}",
+            stage = "connect"
+        }, statusCode: 502);
+    }
+
+    // ── 5. Step 2: fetch attendance events ───────────────────────────────────
+    List<UkuuHr.Services.Devices.NormalizedClockEvent> events;
+    try
+    {
+        events = await client.FetchAttendanceEventsAsync(from, maxResults);
+        logger.LogInformation("ImportFromDevice: fetched {Count} events", events.Count);
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "ImportFromDevice: fetch failed for {Host}", body.IpAddress);
+        return Results.Json(new
+        {
+            error = $"Connected to the device, but could not fetch attendance events. " +
+                    $"The device may not support the AcsEvent/AuditLog endpoints, or the date range may be invalid. " +
+                    $"Detail: {ex.Message}",
+            stage = "fetch",
+            device = new { name = deviceName, model = deviceModel, serial = deviceSerial }
+        }, statusCode: 502);
+    }
+
+    // ── 6. Step 3: match events to employees by EmployeeCode + upsert attendance ─
+    var employees = await db.Employees.Where(e => e.OrganizationId == org.Id).ToListAsync();
+    var byCode = employees.Where(e => !string.IsNullOrEmpty(e.EmployeeCode))
+                          .ToDictionary(e => e.EmployeeCode!, e => e, StringComparer.OrdinalIgnoreCase);
+
+    int matched = 0, unmatched = 0, imported = 0, skippedDupe = 0;
+    var unmatchedSamples = new List<string>();
+    var errors = new List<string>();
+
+    // Group events by (employeeCode, date) so we can take the earliest check-in and latest check-out per day.
+    var grouped = events
+        .Where(e => !string.IsNullOrEmpty(e.EmployeeCode))
+        .GroupBy(e => (e.EmployeeCode, e.EventTime.Date));
+
+    foreach (var grp in grouped)
+    {
+        var (code, date) = grp.Key;
+        if (!byCode.TryGetValue(code!, out var emp))
+        {
+            unmatched++;
+            if (unmatchedSamples.Count < 5) unmatchedSamples.Add(code!);
+            continue;
+        }
+        matched++;
+
+        var dateKey = date.ToString("yyyy-MM-dd");
+        var checkIns = grp.Where(g => g.EventType == UkuuHr.Models.ClockEventType.CheckIn).Select(g => g.EventTime).ToList();
+        var checkOuts = grp.Where(g => g.EventType == UkuuHr.Models.ClockEventType.CheckOut).Select(g => g.EventTime).ToList();
+        if (checkIns.Count == 0 && checkOuts.Count > 0) checkIns = grp.Select(g => g.EventTime).ToList(); // fall back: treat first event as check-in
+        if (checkOuts.Count == 0 && checkIns.Count > 1) checkOuts = new List<DateTime> { checkIns.Last() };
+
+        var checkIn = checkIns.Count > 0 ? checkIns.Min() : (DateTime?)null;
+        var checkOut = checkOuts.Count > 0 ? checkOuts.Max() : (DateTime?)null;
+        if (checkIn == null) { skippedDupe++; continue; }
+
+        try
+        {
+            // Find or create the attendance record for this employee + date
+            var att = await db.Attendances.FirstOrDefaultAsync(a =>
+                a.OrganizationId == org.Id && a.EmployeeId == emp.Id && a.DateKey == dateKey);
+
+            if (att == null)
+            {
+                att = new UkuuHr.Models.Attendance
+                {
+                    OrganizationId = org.Id,
+                    EmployeeId = emp.Id,
+                    EmployeeName = emp.FullName,
+                    DateKey = dateKey,
+                    Date = date,
+                    Status = UkuuHr.Models.AttendanceStatus.Present,
+                    Source = UkuuHr.Models.AttendanceSource.Import,
+                    BreakMinutes = 60,
+                    CreatedAt = DateTime.UtcNow,
+                    CheckIn = checkIn,
+                    CheckOut = checkOut
+                };
+                db.Attendances.Add(att);
+                imported++;
+            }
+            else
+            {
+                // Update only if we have new info (avoid overwriting a later check-in with an earlier one)
+                var changed = false;
+                if (checkIn.HasValue && (!att.CheckIn.HasValue || checkIn < att.CheckIn)) { att.CheckIn = checkIn; changed = true; }
+                if (checkOut.HasValue && (!att.CheckOut.HasValue || checkOut > att.CheckOut)) { att.CheckOut = checkOut; changed = true; }
+                if (changed) { att.CreatedAt = DateTime.UtcNow; imported++; }
+                else skippedDupe++;
+            }
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"Employee {code} on {dateKey}: {ex.Message}");
+        }
+    }
+
+    // ── 7. Persist + return the summary ──────────────────────────────────────
+    try
+    {
+        await db.SaveChangesAsync();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "ImportFromDevice: SaveChanges failed");
+        return Results.Json(new
+        {
+            error = $"Fetched {events.Count} events and matched {matched} employees, but failed to save to the database: {ex.Message}",
+            stage = "save",
+            eventsFetched = events.Count,
+            employeesMatched = matched
+        }, statusCode: 500);
+    }
+
+    return Results.Ok(new
+    {
+        success = true,
+        device = new { name = deviceName, model = deviceModel, serial = deviceSerial },
+        eventsFetched = events.Count,
+        employeesMatched = matched,
+        employeesUnmatched = unmatched,
+        unmatchedSampleCodes = unmatchedSamples,
+        recordsImported = imported,
+        duplicatesSkipped = skippedDupe,
+        errors = errors,
+        dateRange = new { from = from, to = to }
+    });
+}).WithName("AttendanceImportFromDevice").DisableAntiforgery();
+
 // Deployment: Map Blazor Hub at /_framework/blazor instead of the default /_blazor.
 // This container's Caddy proxy routes /_framework/* to the C# app, but NOT /_blazor.
 // Without this change, the Blazor SignalR circuit fails to connect.
@@ -2910,6 +3117,17 @@ app.Run();
 
 // ───── Phase 5: FR-013 — Module info DTO for the modular API surface ─────
 public sealed record ModuleInfo(string Key, string Name, bool Implemented, string? Endpoint);
+
+// DTO for /api/attendance/import-from-device — live Hikvision attendance import
+public sealed record ImportFromDeviceRequest(
+    string IpAddress,
+    int? Port,
+    bool UseHttps,
+    string Username,
+    string Password,
+    DateTime? From,
+    DateTime? To,
+    int? MaxResults);
 
 // DTO for leave approval/rejection requests via the API
 public sealed record ApprovalBody(string? ReviewerEmail, string? Notes);
