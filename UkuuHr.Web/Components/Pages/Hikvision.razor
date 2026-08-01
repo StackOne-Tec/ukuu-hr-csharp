@@ -71,7 +71,7 @@ The system shall classify overtime as:
             <thead>
                 <tr>
                     <th>Device Name</th>
-                    <th>IP Address</th>
+                    <th>Connection</th>
                     <th>Location</th>
                     <th>Serial</th>
                     <th>Last Sync</th>
@@ -85,7 +85,7 @@ The system shall classify overtime as:
                 {
                     <tr>
                         <td style="font-weight:600;">@device.Name</td>
-                        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;">@device.IpAddress:@device.Port</td>
+                        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;">@device.ConnectionUrl</td>
                         <td>@(device.Location ?? "—")</td>
                         <td style="font-size:11px;color:var(--bk-ink-3);">@(device.DeviceSerial ?? "—")</td>
                         <td style="font-size:12px;color:var(--bk-ink-3);">@device.LastSuccessfulSyncDisplay</td>

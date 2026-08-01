@@ -631,7 +631,7 @@
         {
             // Blazor Server: HttpClient is configured with a BaseAddress at startup.
             // We use a relative URL so it works regardless of where the app is hosted.
-            var apiUrl = $"{Nav.BaseUri.TrimEnd('/')}/api/attendance/import-from-device";
+            var apiUrl = "/api/attendance/import-from-device";
 
             // Update progress message before the call (Blazor will re-render)
             _importProgressMessage = $"Connecting to {(_importUseHttps ? "https" : "http")}://{_importIpAddress}:{_importPort} as {_importUsername}…";

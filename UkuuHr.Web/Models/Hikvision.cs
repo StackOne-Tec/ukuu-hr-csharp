@@ -45,6 +45,14 @@ public class HikvisionDevice
     public string StatusDisplay => IsActive ? "Active" : "Disabled";
     public string LastSyncDisplay => LastSyncAt?.ToString("dd MMM yyyy HH:mm") ?? "Never";
     public string LastSuccessfulSyncDisplay => LastSuccessfulSyncAt?.ToString("dd MMM yyyy HH:mm") ?? "Never";
+
+    /// <summary>URL scheme — HTTP only (legacy model has no HTTPS flag).</summary>
+    public string Scheme => "http://";
+
+    /// <summary>Formatted endpoint for display: scheme://ip:port.</summary>
+    public string ConnectionUrl => string.IsNullOrEmpty(IpAddress)
+        ? "—"
+        : $"{Scheme}{IpAddress}:{Port}";
 }
 
 /// <summary>
