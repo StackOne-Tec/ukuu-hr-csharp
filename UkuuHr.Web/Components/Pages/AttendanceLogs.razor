@@ -478,10 +478,18 @@
             if (fromEl) fromEl.value = fmt(weekAgo);
             if (toEl) toEl.value = fmt(today);
         })();
+
         function ukuuOpenImportInfoModal() { var m = document.getElementById('ukuu-import-info-modal'); if (m) m.style.display = 'flex'; }
         function ukuuCloseImportInfoModal() { var m = document.getElementById('ukuu-import-info-modal'); if (m) m.style.display = 'none'; }
         function ukuuProceedToImportForm() { ukuuCloseImportInfoModal(); var m = document.getElementById('ukuu-import-form-modal'); if (m) m.style.display = 'flex'; }
         function ukuuCloseImportFormModal() { var m = document.getElementById('ukuu-import-form-modal'); if (m) m.style.display = 'none'; }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MAIN IMPORT FUNCTION — tries 3 methods in order:
+        //   Method 1: Direct browser → Hikvision ISAPI (works if CORS is enabled)
+        //   Method 2: Server-side proxy (works if the server can reach the device)
+        //   Method 3: Manual JSON file upload (always works — fallback)
+        // ═══════════════════════════════════════════════════════════════════════
         async function ukuuExecuteImport() {
             var ip = document.getElementById('ukuu-import-ip').value.trim();
             var port = parseInt(document.getElementById('ukuu-import-port').value) || 443;
@@ -491,14 +499,34 @@
             var from = document.getElementById('ukuu-import-from').value;
             var to = document.getElementById('ukuu-import-to').value;
             var max = parseInt(document.getElementById('ukuu-import-max').value) || 1000;
+
             if (!ip) { ukuuShowStatus('error', 'Please enter the device IP address.'); return; }
             if (!user) { ukuuShowStatus('error', 'Please enter the username.'); return; }
             if (!pass) { ukuuShowStatus('error', 'Please enter the password.'); return; }
-            if (port < 1 || port > 65535) { ukuuShowStatus('error', 'Port must be 1–65535.'); return; }
+
             var btn = document.getElementById('ukuu-import-submit');
             btn.disabled = true;
             btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;animation:ukuu-spin 0.8s linear infinite;">sync</span><span>Importing…</span>';
-            ukuuShowStatus('loading', 'Connecting to ' + (useHttps ? 'https' : 'http') + '://' + ip + ':' + port + ' — probing ISAPI Face Recognition service…');
+
+            var scheme = useHttps ? 'https' : 'http';
+            var deviceUrl = scheme + '://' + ip + ':' + port;
+
+            // ── Method 1: Try direct browser → device (CORS may block this) ───────
+            ukuuShowStatus('loading', 'Attempting direct connection to ' + deviceUrl + ' from your browser…');
+            try {
+                var deviceResp = await ukuuFetchFromDevice(deviceUrl, user, pass, from, to, max);
+                if (deviceResp && deviceResp.events && deviceResp.events.length >= 0) {
+                    ukuuShowStatus('loading', 'Connected! Fetched ' + deviceResp.events.length + ' events. Saving to database…');
+                    var saveResp = await ukuuSaveImported(deviceResp.events, deviceResp.deviceInfo, deviceResp.faceRecog);
+                    ukuuDisplayResult(saveResp, deviceResp);
+                    return;
+                }
+            } catch (e) {
+                console.log('[Import] Method 1 (direct browser) failed:', e.message);
+            }
+
+            // ── Method 2: Try server-side proxy (works only if server is on same LAN) ──
+            ukuuShowStatus('loading', 'Direct connection blocked (CORS). Trying server-side proxy…');
             try {
                 var payload = {
                     ipAddress: ip, port: port, useHttps: useHttps,
@@ -513,49 +541,256 @@
                 });
                 var data = await resp.json();
                 if (resp.ok && data.success) {
-                    // Build the face recognition status section
-                    var frHtml = '';
-                    if (data.faceRecognition) {
-                        var fr = data.faceRecognition;
-                        if (fr.serviceAvailable) {
-                            frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(20,163,127,0.08);border:1px solid rgba(20,163,127,0.3);border-radius:8px;margin-bottom:10px;">' +
-                                '<span class="material-icons-round" style="color:var(--bk-success);font-size:18px;">face</span>' +
-                                '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Active</span>' +
-                                '<span style="font-size:11px;color:var(--bk-ink-3);margin-left:auto;">' +
-                                (fr.faceDatabaseCount > 0 ? fr.faceDatabaseCount + ' face DB' : '') +
-                                (fr.maxFaceTemplates > 0 ? ' · max ' + fr.maxFaceTemplates + ' templates' : '') +
-                                '</span></div>';
-                        } else {
-                            frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);border-radius:8px;margin-bottom:10px;">' +
-                                '<span class="material-icons-round" style="color:#d89c11;font-size:18px;">face</span>' +
-                                '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Not Available</span>' +
-                                '<span style="font-size:11px;color:var(--bk-ink-3);margin-left:auto;">' + (fr.note || fr.error || 'Endpoint not found') + '</span></div>';
-                        }
-                    }
-                    var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
-                        '<span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">check_circle</span>' +
-                        '<strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong></div>' +
-                        frHtml +
-                        '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.7;">' +
-                        '<div><strong>Device:</strong> ' + (data.device.name || '?') + ' (' + (data.device.model || '?') + ')</div>' +
-                        '<div><strong>Events fetched:</strong> ' + data.eventsFetched + '</div>' +
-                        '<div><strong>Employees matched:</strong> ' + data.employeesMatched + '</div>' +
-                        (data.employeesUnmatched > 0 ? '<div><strong>Unmatched:</strong> ' + data.employeesUnmatched + '</div>' : '') +
-                        '<div><strong>Records imported/updated:</strong> ' + data.recordsImported + '</div>' +
-                        (data.duplicatesSkipped > 0 ? '<div><strong>Duplicates skipped:</strong> ' + data.duplicatesSkipped + '</div>' : '') +
-                        '</div>';
-                    ukuuShowStatus('success', html);
-                    setTimeout(function() { window.location.reload(); }, 4000);
+                    ukuuDisplayResult(data, { deviceInfo: data.device, faceRecog: data.faceRecognition });
+                    return;
+                } else if (data.stage === 'connect') {
+                    // Server can't reach the device either — fall through to Method 3
+                    console.log('[Import] Method 2 (server proxy) failed: server cannot reach LAN device');
                 } else {
                     ukuuShowStatus('error', data.error || ('HTTP ' + resp.status));
+                    return;
                 }
             } catch (e) {
-                ukuuShowStatus('error', 'Network error: ' + e.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">download_for_offline</span><span>Fetch &amp; Import</span>';
+                console.log('[Import] Method 2 (server proxy) failed:', e.message);
+            }
+
+            // ── Method 3: Show manual upload instructions (always works) ──────────
+            ukuuShowManualUpload(deviceUrl, ip, user, pass, from, to);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Method 1: Direct browser → Hikvision ISAPI fetch
+        // ═══════════════════════════════════════════════════════════════════════
+        async function ukuuFetchFromDevice(deviceUrl, user, pass, from, to, max) {
+            var startTime = from ? from + 'T00:00:00Z' : new Date(Date.now() - 7*24*60*60*1000).toISOString();
+            var endTime = to ? to + 'T23:59:59Z' : new Date().toISOString();
+
+            // Step 1: Get device info
+            var deviceInfo = { name: '', model: '', serial: '' };
+            try {
+                var infoResp = await fetch(deviceUrl + '/ISAPI/System/deviceInfo', {
+                    method: 'GET',
+                    headers: { 'Authorization': 'Basic ' + btoa(user + ':' + pass) }
+                });
+                if (!infoResp.ok) throw new Error('HTTP ' + infoResp.status);
+                var infoXml = await infoResp.text();
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(infoXml, 'text/xml');
+                deviceInfo.name = doc.querySelector('deviceName')?.textContent || '';
+                deviceInfo.model = doc.querySelector('model')?.textContent || '';
+                deviceInfo.serial = doc.querySelector('serialNumber')?.textContent || '';
+            } catch (e) {
+                throw new Error('Cannot reach device: ' + e.message + '. The browser may be blocking the connection (CORS/mixed-content). See Method 3 below.');
+            }
+
+            // Step 2: Probe Face Recognition
+            var faceRecog = null;
+            try {
+                var frResp = await fetch(deviceUrl + '/ISAPI/Intelligent/FaceRecognition/1/capabilities', {
+                    method: 'GET',
+                    headers: { 'Authorization': 'Basic ' + btoa(user + ':' + pass) }
+                });
+                if (frResp.ok) {
+                    faceRecog = { serviceAvailable: true, note: 'Face Recognition service detected' };
+                }
+            } catch (e) { /* face recog not available */ }
+
+            // Step 3: Fetch AcsEvent attendance records
+            var searchBody = JSON.stringify({
+                AcsEventSearchDescription: {
+                    searchID: 'browser_' + Date.now(),
+                    searchResultPosition: 0,
+                    maxResults: max,
+                    major: 0, minor: 0,
+                    startTime: startTime,
+                    endTime: endTime
+                }
+            });
+
+            var eventResp = await fetch(deviceUrl + '/ISAPI/AccessControl/AcsEvent?format=json', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic ' + btoa(user + ':' + pass)
+                },
+                body: searchBody
+            });
+            if (!eventResp.ok) throw new Error('AcsEvent fetch failed: HTTP ' + eventResp.status);
+            var eventData = await eventResp.json();
+
+            // Parse events into normalized format
+            var rawEvents = eventData.AcsEvent?.InfoList || eventData.AcsEvent?.EventList || eventData.InfoList || eventData.EventList || [];
+            var events = rawEvents.map(function(e) {
+                return {
+                    employeeNo: e.employeeNo || e.EmployeeNo || '',
+                    time: e.time || e.eventTime || '',
+                    major: e.major || 0,
+                    minor: e.minor || 0,
+                    eventType: (e.minor == 76) ? 'check_out' : 'check_in',
+                    verifyMode: e.verifyMode || e.VerifyMode || '',
+                    inOutMode: e.inAndOutMode || e.InOutMode || ''
+                };
+            }).filter(function(e) { return e.employeeNo && e.time; });
+
+            return { events: events, deviceInfo: deviceInfo, faceRecog: faceRecog };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Save imported events to the server database
+        // ═══════════════════════════════════════════════════════════════════════
+        async function ukuuSaveImported(events, deviceInfo, faceRecog) {
+            var resp = await fetch('/api/attendance/save-imported', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    events: events,
+                    deviceInfo: deviceInfo,
+                    faceRecognition: faceRecog
+                })
+            });
+            return await resp.json();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Display the import result
+        // ═══════════════════════════════════════════════════════════════════════
+        function ukuuDisplayResult(data, deviceData) {
+            var btn = document.getElementById('ukuu-import-submit');
+            var frHtml = '';
+            var fr = data.faceRecognition || deviceData.faceRecog;
+            if (fr) {
+                if (fr.serviceAvailable) {
+                    frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(20,163,127,0.08);border:1px solid rgba(20,163,127,0.3);border-radius:8px;margin-bottom:10px;">' +
+                        '<span class="material-icons-round" style="color:var(--bk-success);font-size:18px;">face</span>' +
+                        '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Active</span></div>';
+                } else {
+                    frHtml = '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);border-radius:8px;margin-bottom:10px;">' +
+                        '<span class="material-icons-round" style="color:#d89c11;font-size:18px;">face</span>' +
+                        '<span style="font-size:13px;color:var(--bk-ink);font-weight:600;">ISAPI Face Recognition: Not Available</span></div>';
+                }
+            }
+            var dev = data.device || deviceData.deviceInfo || {};
+            var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+                '<span class="material-icons-round" style="color:var(--bk-success);font-size:20px;">check_circle</span>' +
+                '<strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong></div>' +
+                frHtml +
+                '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.7;">' +
+                '<div><strong>Device:</strong> ' + (dev.name || dev.model || '?') + '</div>' +
+                '<div><strong>Events fetched:</strong> ' + (data.eventsFetched || 0) + '</div>' +
+                '<div><strong>Employees matched:</strong> ' + (data.employeesMatched || 0) + '</div>' +
+                (data.employeesUnmatched > 0 ? '<div><strong>Unmatched:</strong> ' + data.employeesUnmatched + '</div>' : '') +
+                '<div><strong>Records imported/updated:</strong> ' + (data.recordsImported || 0) + '</div>' +
+                '</div>';
+            ukuuShowStatus('success', html);
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">download_for_offline</span><span>Fetch &amp; Import</span>';
+            setTimeout(function() { window.location.reload(); }, 4000);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Method 3: Manual upload instructions (fallback — always works)
+        // ═══════════════════════════════════════════════════════════════════════
+        function ukuuShowManualUpload(deviceUrl, ip, user, pass, from, to) {
+            var html = '<div style="margin-bottom:12px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
+                '<span class="material-icons-round" style="color:#d89c11;font-size:20px;">info</span>' +
+                '<strong style="font-size:14px;color:var(--bk-ink);">Manual Import Required</strong></div>' +
+                '<p style="font-size:13px;color:var(--bk-ink-2);line-height:1.6;margin:0 0 12px 0;">' +
+                'The online portal cannot directly reach your Hikvision device at <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;">' + ip + '</code> because it is on your local network and the portal is in the cloud. ' +
+                'To import attendance records, use one of these methods:</p></div>' +
+
+                '<div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:8px;padding:14px;margin-bottom:12px;">' +
+                '<div style="font-size:13px;font-weight:700;color:var(--bk-ink);margin-bottom:8px;">Option A: Export from Device Web UI</div>' +
+                '<ol style="font-size:12px;color:var(--bk-ink-2);line-height:1.7;margin:0;padding-left:18px;">' +
+                '<li>Open <a href="' + deviceUrl + '" target="_blank" style="color:var(--bk-accent);">' + deviceUrl + '</a> in a new tab</li>' +
+                '<li>Log in with <code>' + user + '</code> / your password</li>' +
+                '<li>Go to <strong>Attendance Report</strong> then <strong>Report Summary</strong></li>' +
+                '<li>Select the date range (' + (from || '7 days ago') + ' to ' + (to || 'today') + ')</li>' +
+                '<li>Click <strong>Export</strong> and save as CSV or JSON</li>' +
+                '<li>Upload the file below</li></ol></div>' +
+
+                '<div style="background:rgba(20,163,127,0.06);border:1px solid rgba(20,163,127,0.2);border-radius:8px;padding:14px;margin-bottom:12px;">' +
+                '<div style="font-size:13px;font-weight:700;color:var(--bk-ink);margin-bottom:8px;">Option B: Use the Python Script</div>' +
+                '<p style="font-size:12px;color:var(--bk-ink-2);line-height:1.6;margin:0 0 8px 0;">Run this command on a computer on the same network as the device:</p>' +
+                '<pre style="background:var(--bk-muted);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin:0;"><code>pip install requests openpyxl\npython hikvision_fetch.py \\\n  --host ' + ip + ' --port ' + port + ' \\\n  --user ' + user + ' --password YOUR_PASSWORD \\\n  --from ' + (from || '') + ' --to ' + (to || '') + '\n\n# Then upload the CSV file below:</code></pre></div>' +
+
+                '<div style="border:2px dashed var(--bk-line);border-radius:10px;padding:20px;text-align:center;margin-bottom:12px;">' +
+                '<input type="file" id="ukuu-import-file" accept=".json,.csv" style="display:none;" onchange="ukuuUploadFile()" />' +
+                '<button class="bk-btn bk-btn-primary" onclick="document.getElementById(\'ukuu-import-file\').click()">' +
+                '<span class="material-icons-round" style="font-size:16px;">upload_file</span> Upload Attendance File</button>' +
+                '<p style="font-size:11px;color:var(--bk-ink-3);margin-top:8px;">JSON or CSV exported from the Hikvision web UI</p></div>';
+
+            ukuuShowStatus('manual', html);
+            var btn = document.getElementById('ukuu-import-submit');
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">download_for_offline</span><span>Fetch &amp; Import</span>';
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // File upload handler (for manual import)
+        // ═══════════════════════════════════════════════════════════════════════
+        async function ukuuUploadFile() {
+            var fileInput = document.getElementById('ukuu-import-file');
+            var file = fileInput.files[0];
+            if (!file) return;
+
+            ukuuShowStatus('loading', 'Parsing ' + file.name + '…');
+            var text = await file.text();
+
+            var events = [];
+            try {
+                if (file.name.endsWith('.json')) {
+                    var data = JSON.parse(text);
+                    var rawEvents = data.AcsEvent?.InfoList || data.InfoList || data.events || data || [];
+                    if (Array.isArray(rawEvents)) {
+                        events = rawEvents.map(function(e) {
+                            return {
+                                employeeNo: e.employeeNo || e.EmployeeNo || e.employee_no || '',
+                                time: e.time || e.eventTime || e.event_time || '',
+                                major: e.major || 1,
+                                minor: e.minor || 75,
+                                eventType: (e.minor == 76) ? 'check_out' : 'check_in'
+                            };
+                        }).filter(function(e) { return e.employeeNo && e.time; });
+                    }
+                } else if (file.name.endsWith('.csv')) {
+                    var lines = text.split('\n');
+                    var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
+                    var empIdx = headers.indexOf('employeeno') >= 0 ? headers.indexOf('employeeno') : headers.indexOf('employee');
+                    var timeIdx = headers.indexOf('time') >= 0 ? headers.indexOf('time') : headers.indexOf('datetime');
+                    var typeIdx = headers.indexOf('eventtype') >= 0 ? headers.indexOf('eventtype') : -1;
+                    for (var i = 1; i < lines.length; i++) {
+                        var cols = lines[i].split(',');
+                        if (cols.length > Math.max(empIdx, timeIdx)) {
+                            events.push({
+                                employeeNo: (cols[empIdx] || '').trim(),
+                                time: (cols[timeIdx] || '').trim(),
+                                major: 1,
+                                minor: 75,
+                                eventType: 'check_in'
+                            });
+                        }
+                    }
+                }
+            } catch (e) {
+                ukuuShowStatus('error', 'Could not parse file: ' + e.message);
+                return;
+            }
+
+            if (events.length === 0) {
+                ukuuShowStatus('error', 'No attendance events found in the file. Expected JSON with employeeNo/time fields or CSV with EmployeeNo,Time columns.');
+                return;
+            }
+
+            ukuuShowStatus('loading', 'Parsed ' + events.length + ' events. Saving to database…');
+            try {
+                var resp = await ukuuSaveImported(events, { name: file.name, model: '', serial: '' }, null);
+                ukuuDisplayResult(resp, { deviceInfo: { name: file.name }, faceRecog: null });
+            } catch (e) {
+                ukuuShowStatus('error', 'Save failed: ' + e.message);
             }
         }
+
         function ukuuShowStatus(type, html) {
             var el = document.getElementById('ukuu-import-status');
             if (!el) return;
@@ -566,6 +801,9 @@
             } else if (type === 'error') {
                 el.style.background = 'rgba(244,63,94,0.08)'; el.style.border = '1px solid rgba(244,63,94,0.3)';
                 el.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px;padding:14px;"><span class="material-icons-round" style="color:var(--bk-error);font-size:20px;margin-top:1px;">error_outline</span><div style="font-size:13px;color:var(--bk-ink);line-height:1.5;flex:1;">' + html + '</div></div>';
+            } else if (type === 'manual') {
+                el.style.background = 'rgba(212,175,55,0.06)'; el.style.border = '1px solid rgba(212,175,55,0.3)';
+                el.innerHTML = '<div style="padding:16px;">' + html + '</div>';
             } else {
                 el.style.background = 'rgba(20,163,127,0.08)'; el.style.border = '1px solid rgba(20,163,127,0.3)';
                 el.innerHTML = '<div style="padding:16px;">' + html + '</div>';

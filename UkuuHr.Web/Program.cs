@@ -3150,6 +3150,108 @@ app.MapPost("/api/attendance/import-from-device", async (
     });
 }).WithName("AttendanceImportFromDevice").DisableAntiforgery();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/attendance/save-imported
+// Accepts pre-fetched attendance events from the browser (which fetched them
+// directly from the Hikvision device) and saves them to the database.
+// This endpoint is used when the browser can reach the device but the server
+// cannot (e.g. device is on a LAN, server is in the cloud).
+// Body: { events: [{ employeeNo, time, major, minor, eventType }], deviceInfo, faceRecognition }
+// ─────────────────────────────────────────────────────────────────────────────
+app.MapPost("/api/attendance/save-imported", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    SaveImportedRequest? body;
+    try { body = await ctx.Request.ReadFromJsonAsync<SaveImportedRequest>(); }
+    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid JSON: " + ex.Message }); }
+    if (body == null || body.Events == null) return Results.BadRequest(new { error = "No events in request body." });
+
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var employees = await db.Employees.Where(e => e.OrganizationId == org.Id).ToListAsync();
+    var byCode = employees.Where(e => !string.IsNullOrEmpty(e.EmployeeCode))
+                          .ToDictionary(e => e.EmployeeCode!, e => e, StringComparer.OrdinalIgnoreCase);
+
+    int matched = 0, unmatched = 0, imported = 0, skippedDupe = 0;
+    var unmatchedSamples = new List<string>();
+
+    // Group events by (employeeCode, date)
+    var grouped = body.Events
+        .Where(e => !string.IsNullOrEmpty(e.EmployeeNo))
+        .GroupBy(e => { DateTime.TryParse(e.Time, out var d); return (e.EmployeeNo, d.Date); })
+        .Where(g => g.Key.Date != DateTime.MinValue);
+
+    foreach (var grp in grouped)
+    {
+        var (code, date) = grp.Key;
+        if (!byCode.TryGetValue(code!, out var emp))
+        {
+            unmatched++;
+            if (unmatchedSamples.Count < 5) unmatchedSamples.Add(code!);
+            continue;
+        }
+        matched++;
+
+        var dateKey = date.ToString("yyyy-MM-dd");
+        var checkIns = grp.Where(g => g.EventType == "check_in").Select(g => DateTime.Parse(g.Time)).ToList();
+        var checkOuts = grp.Where(g => g.EventType == "check_out").Select(g => DateTime.Parse(g.Time)).ToList();
+        if (checkIns.Count == 0 && checkOuts.Count > 0) checkIns = grp.Select(g => DateTime.Parse(g.Time)).ToList();
+        if (checkOuts.Count == 0 && checkIns.Count > 1) checkOuts = new List<DateTime> { checkIns.Last() };
+
+        var checkIn = checkIns.Count > 0 ? checkIns.Min() : (DateTime?)null;
+        var checkOut = checkOuts.Count > 0 ? checkOuts.Max() : (DateTime?)null;
+        if (checkIn == null) { skippedDupe++; continue; }
+
+        var existing = await db.Attendances.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.OrganizationId == org.Id && a.EmployeeId == emp.Id && a.DateKey == dateKey);
+
+        if (existing == null)
+        {
+            db.Attendances.Add(new UkuuHr.Models.Attendance
+            {
+                OrganizationId = org.Id, EmployeeId = emp.Id, EmployeeName = emp.FullName,
+                DateKey = dateKey, Date = date, Status = UkuuHr.Models.AttendanceStatus.Present,
+                Source = UkuuHr.Models.AttendanceSource.Import, BreakMinutes = 60,
+                CreatedAt = DateTime.UtcNow, CheckIn = checkIn, CheckOut = checkOut
+            });
+            imported++;
+        }
+        else
+        {
+            var att = await db.Attendances.FirstAsync(a => a.Id == existing.Id);
+            var changed = false;
+            if (checkIn.HasValue && (!att.CheckIn.HasValue || checkIn < att.CheckIn)) { att.CheckIn = checkIn; changed = true; }
+            if (checkOut.HasValue && (!att.CheckOut.HasValue || checkOut > att.CheckOut)) { att.CheckOut = checkOut; changed = true; }
+            if (changed) { att.Source = UkuuHr.Models.AttendanceSource.Import; att.CreatedAt = DateTime.UtcNow; imported++; }
+            else skippedDupe++;
+        }
+    }
+
+    try { await db.SaveChangesAsync(); }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "SaveImported: SaveChanges failed");
+        return Results.Json(new { error = "Save failed: " + ex.Message }, statusCode: 500);
+    }
+
+    return Results.Ok(new
+    {
+        success = true,
+        device = body.DeviceInfo ?? new { },
+        faceRecognition = body.FaceRecognition,
+        eventsFetched = body.Events.Count,
+        employeesMatched = matched,
+        employeesUnmatched = unmatched,
+        unmatchedSampleCodes = unmatchedSamples,
+        recordsImported = imported,
+        duplicatesSkipped = skippedDupe,
+        errors = new List<string>()
+    });
+}).WithName("AttendanceSaveImported").DisableAntiforgery();
+
 // Deployment: Map Blazor Hub at /_framework/blazor instead of the default /_blazor.
 // This container's Caddy proxy routes /_framework/* to the C# app, but NOT /_blazor.
 // Without this change, the Blazor SignalR circuit fails to connect.
@@ -3173,6 +3275,23 @@ public sealed record ImportFromDeviceRequest(
     DateTime? From,
     DateTime? To,
     int? MaxResults);
+
+// DTO for /api/attendance/save-imported — events pre-fetched by the browser
+public sealed class SaveImportedRequest
+{
+    public List<ImportedEvent> Events { get; set; } = new();
+    public object? DeviceInfo { get; set; }
+    public object? FaceRecognition { get; set; }
+}
+
+public sealed class ImportedEvent
+{
+    public string EmployeeNo { get; set; } = "";
+    public string Time { get; set; } = "";
+    public int Major { get; set; }
+    public int Minor { get; set; }
+    public string EventType { get; set; } = "check_in";
+}
 
 // DTO for leave approval/rejection requests via the API
 public sealed record ApprovalBody(string? ReviewerEmail, string? Notes);
