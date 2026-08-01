@@ -357,8 +357,103 @@
         }
     }
 
-    <!-- Import From Device — Stage 1: Info popup (plain HTML/JS) — inside bk-admin-fade-in, after @if/@else -->
-<div id="ukuu-import-info-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportInfoModal()">
+</div>
+
+@code {
+    private string _tab = "daily";
+    private DateTime _date = DateTime.Today;
+    private string _dateStr = DateTime.Today.ToString("yyyy-MM-dd");
+    private string _prevDateStr = "";
+    private string _nextDateStr = "";
+    private DateTime _fromDate = DateTime.Today.AddDays(-7);
+    private DateTime _toDate = DateTime.Today;
+    private string _fromDateStr = DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd");
+    private string _toDateStr = DateTime.Today.ToString("yyyy-MM-dd");
+    private int _daysInMonth;
+    private string? _loadError;
+
+    private List<DailyAttendanceRow> _daily = new();
+    private List<WeeklyAttendanceRow> _weekly = new();
+    private List<MonthlyAttendanceRow> _monthly = new();
+    private List<WeeklyAttendanceRow> _customRows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Parse query string
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var qTab = query["tab"];
+            var qDate = query["date"];
+            var qFrom = query["from"];
+            var qTo = query["to"];
+            if (!string.IsNullOrEmpty(qTab) && (qTab == "daily" || qTab == "weekly" || qTab == "monthly" || qTab == "custom"))
+                _tab = qTab;
+            if (DateTime.TryParse(qDate, out var parsedDate))
+                _date = parsedDate;
+            if (DateTime.TryParse(qFrom, out var parsedFrom))
+                _fromDate = parsedFrom;
+            if (DateTime.TryParse(qTo, out var parsedTo))
+                _toDate = parsedTo;
+            _dateStr = _date.ToString("yyyy-MM-dd");
+            _fromDateStr = _fromDate.ToString("yyyy-MM-dd");
+            _toDateStr = _toDate.ToString("yyyy-MM-dd");
+
+            // Compute prev/next dates
+            _prevDateStr = (_tab switch { "weekly" => _date.AddDays(-7), "monthly" => _date.AddMonths(-1), _ => _date.AddDays(-1) }).ToString("yyyy-MM-dd");
+            _nextDateStr = (_tab switch { "weekly" => _date.AddDays(7), "monthly" => _date.AddMonths(1), _ => _date.AddDays(1) }).ToString("yyyy-MM-dd");
+
+            _daysInMonth = DateTime.DaysInMonth(_date.Year, _date.Month);
+
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load attendance logs");
+            _loadError = "We couldn't load the attendance data. Please try refreshing the page.";
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _loadError = "No organization found.";
+                return;
+            }
+
+            _loadError = null;
+
+            if (_tab == "daily")
+                _daily = await TimeCardSvc.GetDailyAsync(org.Id, _date);
+            else if (_tab == "weekly")
+                _weekly = await TimeCardSvc.GetWeeklyAsync(org.Id, _date);
+            else if (_tab == "monthly")
+                _monthly = await TimeCardSvc.GetMonthlyAsync(org.Id, _date);
+            else if (_tab == "custom")
+                _customRows = await TimeCardSvc.GetCustomRangeAsync(org.Id, _fromDate, _toDate);
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load attendance logs");
+            _loadError = "We couldn't load the attendance data. Please try refreshing the page.";
+        }
+    }
+
+    // NOTE: Import From Device uses plain HTML/JS (see <script> block above) —
+    // no Blazor state or handlers needed. The JS calls POST /api/attendance/
+    // import-from-device directly via fetch().
+}
+
+<!-- Import From Device modals + script — AFTER @code block so they render unconditionally -->
+    <!-- Import From Device — Stage 1: Info popup (plain HTML/JS) -->
+    <div id="ukuu-import-info-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportInfoModal()">
         <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
             <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
                 <div>
@@ -374,7 +469,7 @@
                     <div style="display:flex;align-items:flex-start;gap:10px;">
                         <span class="material-icons-round" style="color:var(--bk-info);font-size:20px;margin-top:1px;">face</span>
                         <div style="font-size:13px;color:var(--bk-ink);line-height:1.5;">
-                            <strong>ISAPI Face Recognition Service:</strong> When you connect, the system will automatically probe the device Face Recognition capabilities via the ISAPI Intelligent FaceRecognition endpoint and report whether face recognition is active, how many face templates are supported, and how many face databases are configured.
+                            <strong>ISAPI Face Recognition Service:</strong> When you connect, the system will automatically probe the device's Face Recognition capabilities via <code style="background:var(--bk-muted);padding:1px 5px;border-radius:3px;font-size:12px;">/ISAPI/Intelligent/FaceRecognition/1/capabilities</code> and report whether face recognition is active, how many face templates are supported, and how many face databases are configured.
                         </div>
                     </div>
                 </div>
@@ -811,97 +906,3 @@
         }
     </script>
     <style>@@keyframes ukuu-spin { to { transform: rotate(360deg); } }</style>
-
-</div>
-
-@code {
-    private string _tab = "daily";
-    private DateTime _date = DateTime.Today;
-    private string _dateStr = DateTime.Today.ToString("yyyy-MM-dd");
-    private string _prevDateStr = "";
-    private string _nextDateStr = "";
-    private DateTime _fromDate = DateTime.Today.AddDays(-7);
-    private DateTime _toDate = DateTime.Today;
-    private string _fromDateStr = DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd");
-    private string _toDateStr = DateTime.Today.ToString("yyyy-MM-dd");
-    private int _daysInMonth;
-    private string? _loadError;
-
-    private List<DailyAttendanceRow> _daily = new();
-    private List<WeeklyAttendanceRow> _weekly = new();
-    private List<MonthlyAttendanceRow> _monthly = new();
-    private List<WeeklyAttendanceRow> _customRows = new();
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            // Parse query string
-            var uri = Nav.ToAbsoluteUri(Nav.Uri);
-            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            var qTab = query["tab"];
-            var qDate = query["date"];
-            var qFrom = query["from"];
-            var qTo = query["to"];
-            if (!string.IsNullOrEmpty(qTab) && (qTab == "daily" || qTab == "weekly" || qTab == "monthly" || qTab == "custom"))
-                _tab = qTab;
-            if (DateTime.TryParse(qDate, out var parsedDate))
-                _date = parsedDate;
-            if (DateTime.TryParse(qFrom, out var parsedFrom))
-                _fromDate = parsedFrom;
-            if (DateTime.TryParse(qTo, out var parsedTo))
-                _toDate = parsedTo;
-            _dateStr = _date.ToString("yyyy-MM-dd");
-            _fromDateStr = _fromDate.ToString("yyyy-MM-dd");
-            _toDateStr = _toDate.ToString("yyyy-MM-dd");
-
-            // Compute prev/next dates
-            _prevDateStr = (_tab switch { "weekly" => _date.AddDays(-7), "monthly" => _date.AddMonths(-1), _ => _date.AddDays(-1) }).ToString("yyyy-MM-dd");
-            _nextDateStr = (_tab switch { "weekly" => _date.AddDays(7), "monthly" => _date.AddMonths(1), _ => _date.AddDays(1) }).ToString("yyyy-MM-dd");
-
-            _daysInMonth = DateTime.DaysInMonth(_date.Year, _date.Month);
-
-            await LoadData();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to load attendance logs");
-            _loadError = "We couldn't load the attendance data. Please try refreshing the page.";
-        }
-    }
-
-    private async Task LoadData()
-    {
-        try
-        {
-            var org = await Db.Organizations.FirstOrDefaultAsync();
-            if (org == null)
-            {
-                _loadError = "No organization found.";
-                return;
-            }
-
-            _loadError = null;
-
-            if (_tab == "daily")
-                _daily = await TimeCardSvc.GetDailyAsync(org.Id, _date);
-            else if (_tab == "weekly")
-                _weekly = await TimeCardSvc.GetWeeklyAsync(org.Id, _date);
-            else if (_tab == "monthly")
-                _monthly = await TimeCardSvc.GetMonthlyAsync(org.Id, _date);
-            else if (_tab == "custom")
-                _customRows = await TimeCardSvc.GetCustomRangeAsync(org.Id, _fromDate, _toDate);
-
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to load attendance logs");
-            _loadError = "We couldn't load the attendance data. Please try refreshing the page.";
-        }
-    }
-
-    // NOTE: Import From Device uses plain HTML/JS (see <script> block above) —
-    // no Blazor state or handlers needed. The JS calls POST /api/attendance/
-    // import-from-device directly via fetch().
-}
