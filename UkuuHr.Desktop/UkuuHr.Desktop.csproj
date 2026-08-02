@@ -5,12 +5,19 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>UkuuHr.Desktop</RootNamespace>
-    <AssemblyName>UkuuHr</AssemblyName>
+    <RootNamespace>UkuuHr.Sync</RootNamespace>
+    <AssemblyName>UkuuHrSync</AssemblyName>
     <Version>1.0.0</Version>
     <Company>Ukuu HR</Company>
-    <Product>Ukuu HR Desktop</Product>
-    <Description>Ukuu HR — Modern HRMS for Africa (Desktop Launcher)</Description>
+    <Product>Ukuu HR Sync Bridge</Product>
+    <Description>Ukuu HR Sync Bridge — connects to Hikvision devices via ISAPI and syncs attendance to the cloud</Description>
+
+    <!-- Single-file publish, self-contained (no .NET runtime needed on target machine) -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
 
 </Project>
