@@ -452,32 +452,34 @@
 }
 
 
-<!-- Import From Device - Simple modal with IP, username, password -->
+<!-- Import From Device - Direct data paste modal -->
 <div id="ukuu-import-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportModal()">
-    <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+    <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
         <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;">
-            <h3 style="margin:0;font-size:18px;font-weight:700;color:var(--bk-ink);">Import From Hikvision Device</h3>
+            <h3 style="margin:0;font-size:18px;font-weight:700;color:var(--bk-ink);">Import Attendance From Device</h3>
             <button onclick="ukuuCloseImportModal()" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
                 <span class="material-icons-round">close</span>
             </button>
         </div>
         <div style="padding:28px;">
-            <div style="margin-bottom:20px;">
-                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">IP Address</label>
-                <input type="text" id="ukuu-imp-ip" value="192.168.1.137" placeholder="e.g. 192.168.1.137" style="width:100%;height:44px;border:1px solid var(--bk-line);border-radius:10px;padding:0 16px;font-family:inherit;font-size:14px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+            <div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:10px;padding:14px;margin-bottom:20px;">
+                <div style="display:flex;align-items:flex-start;gap:10px;">
+                    <span class="material-icons-round" style="color:var(--bk-info);font-size:18px;margin-top:1px;">info</span>
+                    <div style="font-size:12px;color:var(--bk-ink-2);line-height:1.6;">
+                        <strong style="color:var(--bk-ink);">How to get data:</strong>
+                        Open your Hikvision device web UI, go to <strong>Attendance Report</strong>, export the records as CSV, then paste the data below.
+                        Each row should have: <code style="background:var(--bk-muted);padding:1px 4px;border-radius:3px;">EmployeeNo, Time, EventType</code>
+                    </div>
+                </div>
             </div>
             <div style="margin-bottom:20px;">
-                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">Username</label>
-                <input type="text" id="ukuu-imp-user" value="admin" placeholder="admin" style="width:100%;height:44px;border:1px solid var(--bk-line);border-radius:10px;padding:0 16px;font-family:inherit;font-size:14px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
-            </div>
-            <div style="margin-bottom:24px;">
-                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">Password</label>
-                <input type="password" id="ukuu-imp-pass" placeholder="Enter device password" style="width:100%;height:44px;border:1px solid var(--bk-line);border-radius:10px;padding:0 16px;font-family:inherit;font-size:14px;color:var(--bk-ink);outline:none;box-sizing:border-box;" />
+                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">Paste Attendance Data (CSV)</label>
+                <textarea id="ukuu-imp-data" rows="10" placeholder="EmployeeNo,Time,EventType&#10;UKU-001,2025-07-30 08:15:00,check_in&#10;UKU-001,2025-07-30 17:05:00,check_out&#10;UKU-002,2025-07-30 08:30:00,check_in&#10;..." style="width:100%;border:1px solid var(--bk-line);border-radius:10px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--bk-ink);outline:none;box-sizing:border-box;resize:vertical;line-height:1.5;"></textarea>
             </div>
             <div id="ukuu-imp-status" style="display:none;margin-bottom:16px;"></div>
             <button class="bk-btn bk-btn-primary" id="ukuu-imp-btn" onclick="ukuuDoImport()" style="width:100%;height:44px;font-size:14px;font-weight:600;">
                 <span class="material-icons-round" style="font-size:18px;">download</span>
-                Connect &amp; Import
+                Import Records
             </button>
         </div>
     </div>
@@ -492,54 +494,71 @@
         if (m) m.style.display = 'none';
     }
     async function ukuuDoImport() {
-        var ip = document.getElementById('ukuu-imp-ip').value.trim();
-        var user = document.getElementById('ukuu-imp-user').value.trim();
-        var pass = document.getElementById('ukuu-imp-pass').value;
-        if (!ip) { ukuuImpStatus('error', 'Please enter the device IP address.'); return; }
-        if (!user) { ukuuImpStatus('error', 'Please enter the username.'); return; }
-        if (!pass) { ukuuImpStatus('error', 'Please enter the password.'); return; }
+        var raw = document.getElementById('ukuu-imp-data').value.trim();
+        if (!raw) { ukuuImpStatus('error', 'Please paste attendance data first.'); return; }
+
+        var events = [];
+        var lines = raw.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line || line.startsWith('#')) continue;
+            var cols = line.split(',');
+            if (cols.length < 2) continue;
+
+            // Skip header row
+            var empNo = cols[0].trim();
+            var time = cols[1].trim();
+            if (empNo.toLowerCase() === 'employeeno' || empNo.toLowerCase() === 'employee') continue;
+
+            // Try to parse the event type from column 3, or infer from the time pattern
+            var eventType = 'check_in';
+            if (cols.length >= 3) {
+                var et = cols[2].trim().toLowerCase();
+                if (et.indexOf('out') >= 0 || et.indexOf('exit') >= 0 || et === '76') eventType = 'check_out';
+                else eventType = 'check_in';
+            }
+
+            events.push({ employeeNo: empNo, time: time, eventType: eventType, major: 1, minor: eventType === 'check_out' ? 76 : 75 });
+        }
+
+        if (events.length === 0) {
+            ukuuImpStatus('error', 'No valid rows found. Expected format: EmployeeNo,Time,EventType (one per line).');
+            return;
+        }
 
         var btn = document.getElementById('ukuu-imp-btn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;animation:ukuu-imp-spin 0.8s linear infinite;">sync</span> Connecting...';
-        ukuuImpStatus('loading', 'Connecting to ' + ip + ' and fetching attendance records...');
+        btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;animation:ukuu-imp-spin 0.8s linear infinite;">sync</span> Importing ' + events.length + ' records...';
+        ukuuImpStatus('loading', 'Saving ' + events.length + ' attendance records to the database...');
 
         try {
-            var resp = await fetch('/api/attendance/import-from-device', {
+            var resp = await fetch('/api/attendance/save-imported', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    ipAddress: ip,
-                    port: 80,
-                    useHttps: false,
-                    username: user,
-                    password: pass,
-                    from: new Date(Date.now() - 7*24*60*60*1000).toISOString(),
-                    to: new Date().toISOString(),
-                    maxResults: 1000
+                    events: events,
+                    deviceInfo: { name: 'Manual Import', model: '', serial: '' },
+                    faceRecognition: null
                 })
             });
             var data = await resp.json();
             if (resp.ok && data.success) {
-                var frBadge = '';
-                if (data.faceRecognition && data.faceRecognition.serviceAvailable) {
-                    frBadge = '<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(20,163,127,0.08);border:1px solid rgba(20,163,127,0.3);border-radius:8px;margin-bottom:10px;font-size:12px;color:var(--bk-success);font-weight:600;"><span class="material-icons-round" style="font-size:16px;">face</span> Face Recognition: Active</div>';
-                }
-                ukuuImpStatus('success', frBadge +
+                ukuuImpStatus('success',
                     '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.8;">' +
-                    '<div><strong>Events fetched:</strong> ' + data.eventsFetched + '</div>' +
+                    '<div><strong>Events processed:</strong> ' + data.eventsFetched + '</div>' +
                     '<div><strong>Employees matched:</strong> ' + data.employeesMatched + '</div>' +
-                    '<div><strong>Records imported:</strong> ' + data.recordsImported + '</div>' +
+                    (data.employeesUnmatched > 0 ? '<div><strong>Unmatched (skipped):</strong> ' + data.employeesUnmatched + '</div>' : '') +
+                    '<div><strong>Records imported/updated:</strong> ' + data.recordsImported + '</div>' +
                     '</div>');
                 setTimeout(function() { window.location.reload(); }, 3000);
             } else {
                 ukuuImpStatus('error', data.error || ('HTTP ' + resp.status));
             }
         } catch (e) {
-            ukuuImpStatus('error', 'Connection failed: ' + e.message + '. Make sure your device is reachable from this server and ISAPI is enabled.');
+            ukuuImpStatus('error', 'Import failed: ' + e.message);
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;">download</span> Connect &amp; Import';
+            btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;">download</span> Import Records';
         }
     }
     function ukuuImpStatus(type, html) {
