@@ -243,8 +243,9 @@ class Program
             }
             if (infoList.ValueKind != JsonValueKind.Array)
             {
-                doc.RootElement.TryGetProperty("InfoList", out infoList) ||
-                doc.RootElement.TryGetProperty("EventList", out infoList);
+                doc.RootElement.TryGetProperty("InfoList", out infoList);
+                if (infoList.ValueKind != JsonValueKind.Array)
+                    doc.RootElement.TryGetProperty("EventList", out infoList);
             }
 
             if (infoList.ValueKind != JsonValueKind.Array) return events;
@@ -321,14 +322,14 @@ class Program
             try
             {
                 var json = File.ReadAllText(path);
-                var settings = JsonSerializer.Deserialize<SyncSettings>(json, new JsonSerializerOptions
+                var loaded = JsonSerializer.Deserialize<SyncSettings>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
-                if (settings != null && settings.IsValid())
+                if (loaded != null && loaded.IsValid())
                 {
                     Console.WriteLine($"  Loaded settings from: {path}");
-                    return settings;
+                    return loaded;
                 }
             }
             catch (Exception ex)
