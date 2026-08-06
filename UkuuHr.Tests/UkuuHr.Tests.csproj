@@ -18,6 +18,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UkuuHr.Web\UkuuHr.Web.csproj" />
+    <!-- The desktop app (UkuuHrSync) carries the Hikvision ISAPI parsers that
+         ship in the Windows .exe / macOS .dmg — test them directly. -->
+    <ProjectReference Include="..\UkuuHr.Desktop\UkuuHr.Desktop.csproj" />
   </ItemGroup>
 
 </Project>
