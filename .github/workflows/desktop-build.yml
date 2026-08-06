@@ -1,5 +1,21 @@
 name: Build Desktop Apps
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Builds the Ukuu HR Sync Bridge desktop app and attaches the installers to a
+# GitHub Release so the landing page can always serve the LATEST version:
+#
+#   https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/latest/download/UkuuHr-Windows-x64.exe
+#   https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/latest/download/UkuuHr-macOS-arm64.dmg
+#
+# On every v* tag push:
+#   1. Windows job  — publishes a self-contained single-file .exe (win-x64)
+#   2. macOS job    — publishes the arm64 binary and wraps it in a .dmg
+#                     (hdiutil requires a real macOS runner)
+#   3. Release job  — attaches UkuuHr-Windows-x64.exe + UkuuHr-macOS-arm64.dmg
+#                     to the GitHub Release. GitHub's "releases/latest" then
+#                     always resolves to this newest pair.
+# ─────────────────────────────────────────────────────────────────────────────
+
 on:
   push:
     tags:
@@ -10,42 +26,117 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  # ── Job 1: Windows — self-contained single-file .exe ───────────────────────
+  windows:
+    name: Windows .exe (x64)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-      - name: Publish Windows x64
-        run: dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish/windows
-      - name: Publish macOS arm64
-        run: dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -o ./publish/macos
-      - name: Zip Windows
-        run: cd ./publish/windows && zip -r ../../UkuuHr-Windows-x64.zip . && cd ../..
-      - name: Zip macOS
-        run: cd ./publish/macos && zip -r ../../UkuuHr-macOS-arm64.zip . && cd ../..
-      - name: Upload artifacts
+
+      - name: Publish Windows x64 single-file exe
+        run: |
+          dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj -c Release -r win-x64 \
+            --self-contained true -p:PublishSingleFile=true -o ./publish/windows
+          # The app's product name is Ukuu HR — ship the exe as UkuuHr.exe
+          mv ./publish/windows/UkuuHrSync.exe ./publish/windows/UkuuHr.exe
+
+      - name: Upload Windows exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-apps
-          path: |
-            ./UkuuHr-Windows-x64.zip
-            ./UkuuHr-macOS-arm64.zip
+          name: windows-exe
+          path: ./publish/windows/UkuuHr.exe
+
+  # ── Job 2: macOS — arm64 binary wrapped in a .dmg (needs a macOS runner) ───
+  macos:
+    name: macOS .dmg (arm64)
+    runs-on: macos-14   # arm64 runner — publishes osx-arm64 natively
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish macOS arm64 single-file binary
+        run: |
+          dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj -c Release -r osx-arm64 \
+            --self-contained true -p:PublishSingleFile=true -o ./publish/macos
+
+      - name: Stage .dmg contents
+        run: |
+          mkdir -p ./dmg/UkuuHrSync
+          cp ./publish/macos/UkuuHrSync ./dmg/UkuuHrSync/UkuuHrSync
+          chmod +x ./dmg/UkuuHrSync/UkuuHrSync
+          cat > ./dmg/UkuuHrSync/README.txt <<'EOF'
+          UKUU HR — SYNC BRIDGE
+
+          Connects a Hikvision biometric terminal to the Ukuu HR cloud via ISAPI.
+
+          Usage (from a Terminal in this folder):
+            ./UkuuHrSync                      interactive first-time setup, then auto-sync
+            ./UkuuHrSync --once               single sync, then exit
+            ./UkuuHrSync --config=settings.json   use a saved config file
+
+          Notes:
+            - Settings are stored in settings.json next to the binary.
+            - This is an unsigned build. If macOS blocks it: right-click the
+              binary -> Open, or run: xattr -dr com.apple.quarantine UkuuHrSync
+          EOF
+
+      - name: Create .dmg
+        run: |
+          hdiutil create -volname "Ukuu HR Sync" -srcfolder ./dmg/UkuuHrSync \
+            -ov -format UDZO UkuuHr-macOS-arm64.dmg
+
+      - name: Verify .dmg
+        run: hdiutil verify UkuuHr-macOS-arm64.dmg
+
+      - name: Upload macOS dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: ./UkuuHr-macOS-arm64.dmg
+
+  # ── Job 3: Release — attach both binaries to the GitHub Release ────────────
+  release:
+    name: Attach to GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows exe
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: ./release
+
+      - name: Download macOS dmg
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: ./release
+
+      - name: Stage release files
+        run: mv ./release/UkuuHr.exe ./release/UkuuHr-Windows-x64.exe
+
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Ukuu HR Desktop ${{ github.ref_name }}
           body: |
             ## Downloads
-            - **UkuuHr-Windows-x64.zip** — Windows 10+, unzip and run UkuuHr.exe
-            - **UkuuHr-macOS-arm64.zip** — macOS 11+ (Apple Silicon), unzip and run UkuuHr
+            - **UkuuHr-Windows-x64.exe** — Windows 10+ (64-bit). Self-contained single-file executable — no .NET runtime needed. Run `UkuuHr.exe` for first-time setup.
+            - **UkuuHr-macOS-arm64.dmg** — macOS 11+ (Apple Silicon). Disk image containing the `UkuuHrSync` binary. Unsigned build — right-click → Open on first launch.
           files: |
-            ./UkuuHr-Windows-x64.zip
-            ./UkuuHr-macOS-arm64.zip
+            ./release/UkuuHr-Windows-x64.exe
+            ./release/UkuuHr-macOS-arm64.dmg
           draft: false
           prerelease: false
         env:
