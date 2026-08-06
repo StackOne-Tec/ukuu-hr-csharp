@@ -33,7 +33,7 @@ COPY --from=build /app/publish .
 # inotify instances has been reached". A dedicated UID gets its own budget.
 # (Program.cs also disables config reload as defense-in-depth.)
 # /app is made writable so the SQLite dev fallback (ukuuhr.db) still works.
-RUN chown -R $APP_UID:$APP_GID /app
+RUN chown -R $APP_UID:$APP_UID /app
 USER $APP_UID
 
 # Render sets $PORT — bind to it
