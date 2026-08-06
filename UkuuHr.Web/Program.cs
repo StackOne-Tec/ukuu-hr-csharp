@@ -18,6 +18,29 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ───────────── Config reload OFF (defense-in-depth vs Render inotify crash) ─────────────
+// Render's shared containers cap inotify instances at 128 per user, and the
+// default appsettings.json sources register a FileSystemWatcher (one inotify
+// instance each) for runtime config reload. When the container runs as root
+// (all root containers share one budget) this exhausts the limit and the app
+// dies with "The configured user limit (128) on the number of inotify
+// instances has been reached" (System.IO.IOException).
+// The PRIMARY fix is in the Dockerfile: run as a non-root user (USER $APP_UID)
+// so the app has its own inotify budget. Containers are immutable anyway, so
+// file reload is pointless here — re-register the same sources with
+// reloadOnChange: false (env vars + command line already have no watchers),
+// preserving the original override order, so the app needs zero watchers.
+builder.Configuration.Sources.Clear();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false);
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+}
+builder.Configuration.AddEnvironmentVariables();
+builder.Configuration.AddCommandLine(args);
+
 // ───────────── Database (PostgreSQL in prod, SQLite fallback for local dev) ─────────────
 // Priority: explicit Npgsql connection string env var > DATABASE_URL (if postgres://) > SQLite local file
 // When running in our Docker container, entrypoint.sh exports POSTGRES_CONNECTION_STRING pointing to localhost.
@@ -281,10 +304,11 @@ using (var scope = app.Services.CreateScope())
                 // EnsureCreatedAsync() only creates tables if the DB doesn't exist; it does NOT
                 // add new columns to existing tables. We add a small set of safe ALTER TABLE
                 // statements here to bring legacy databases (e.g. the long-running Prisma
-                // Postgres instance) up to the current model. Each statement is wrapped in a
-                // try/catch so it's idempotent — if the column already exists, the ALTER fails
-                // silently and we continue.
-                await RunIdempotentMigrationsAsync(db, logger);
+                // Postgres instance) up to the current model. Column existence is checked
+                // first (IdempotentMigrationRunner) and a plain ADD COLUMN runs only when the
+                // column is missing — each step is wrapped in try/catch so a failure is logged
+                // and startup continues.
+                await IdempotentMigrationRunner.RunIdempotentMigrationsAsync(db, logger, useSqlite);
                 await DbSeeder.SeedAsync(db);
                 logger.LogInformation("Database initialized & seeded.");
                 break;
@@ -300,37 +324,6 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         logger.LogError(ex, "Failed to initialize database after retries.");
-    }
-}
-
-// ───────────── Phase 30: Idempotent schema migrations ─────
-// Adds columns the EF model expects but that legacy databases may be missing.
-// Each ALTER TABLE is wrapped in try/catch — if the column already exists,
-// PostgreSQL returns a duplicate-column error which we swallow.
-static async Task RunIdempotentMigrationsAsync(UkuuHrDbContext db, ILogger logger)
-{
-    var migrations = new (string Table, string Column, string Sql)[]
-    {
-        ("LeaveHolidays", "IsRecurring",
-            @"ALTER TABLE ""LeaveHolidays"" ADD COLUMN IF NOT EXISTS ""IsRecurring"" boolean NOT NULL DEFAULT false"),
-        ("Employees", "PayrollId",
-            @"ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""PayrollId"" varchar(50)"),
-        ("AttendanceDevices", "UseHttps",
-            @"ALTER TABLE ""AttendanceDevices"" ADD COLUMN IF NOT EXISTS ""UseHttps"" boolean NOT NULL DEFAULT false"),
-    };
-
-    foreach (var (table, column, sql) in migrations)
-    {
-        try
-        {
-            await db.Database.ExecuteSqlRawAsync(sql);
-            logger.LogInformation("Migration: ensured {Table}.{Column} exists", table, column);
-        }
-        catch (Exception ex)
-        {
-            // Likely "column already exists" — log and continue
-            logger.LogWarning("Migration skipped for {Table}.{Column}: {Message}", table, column, ex.Message);
-        }
     }
 }
 
