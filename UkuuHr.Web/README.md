@@ -116,13 +116,20 @@ Tanzania and Malawi configurations are supported via `PayrollCountryConfig.Tanza
 
 ## 🚀 Run
 
+Requires the **.NET 9 SDK + runtime** (targets `net9.0` — do *not* run it on a rolled-forward .NET 10 runtime, see below).
+
 ```bash
-# .NET 9 SDK required
+# Sanity-check: you need Microsoft.AspNetCore.App 9.0.x installed
+dotnet --list-runtimes | grep 'AspNetCore.App 9'
+
 cd UkuuHr.Web
 dotnet run
 
-# Open http://localhost:5000
+# Open http://localhost:5118   (from launchSettings.json)
+# Demo login: admin@ukuuhr.demo / Admin@2025
 ```
+
+> **Why .NET 9 exactly?** The app targets `net9.0`. If only a .NET 10 runtime is installed and you force roll-forward (`DOTNET_ROLL_FORWARD=LatestMajor`), Blazor Server interactivity breaks: the framework's `_framework/blazor.web.js` is served from the shared-framework folder baked into the build-time static-assets manifest (9.0.x). When that folder is absent the file 404s and the browser reports `Blazor is not defined` — pages render server-side, but buttons/forms/dialogs do nothing. App-level assets (`_content/MudBlazor/*`) still work because they are copied into the publish output. Fix: install the matching 9.0.x runtime and run on it (on this machine the .NET 9 SDK lives at `~/.dotnet` — `export PATH="$HOME/.dotnet:$PATH"`).
 
 On first launch the SQLite database (`ukuuhr.db`) is created automatically and seeded with:
 - 1 demo organization (UkuuHR Demo Ltd)
