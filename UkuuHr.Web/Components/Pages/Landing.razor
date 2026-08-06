@@ -1,6 +1,7 @@
 @page "/landing"
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
+@inject HttpClient Http
 
 <div class="bk-body">
 
@@ -330,8 +331,16 @@
                 <h2 class="bk-h2" style="margin-top:12px;color:#FCFBFF;">Install Ukuu HR on your computer</h2>
                 <p class="bk-lead" style="color:rgba(255,255,255,0.7);max-width:600px;margin:12px auto 0;">
                     Run Ukuu HR as a native desktop application — no browser needed.
-                    Available for Windows and macOS. Self-contained, no .NET runtime required.
+                    Available as a Windows <strong style="color:#FCFBFF;">.exe</strong> and a macOS <strong style="color:#FCFBFF;">.dmg</strong>.
+                    Always the latest release, self-contained, no .NET runtime required.
                 </p>
+                @if (!string.IsNullOrEmpty(_latestVersion))
+                {
+                    <div style="display:inline-flex;align-items:center;gap:8px;margin-top:18px;padding:8px 18px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);border-radius:999px;">
+                        <span style="width:7px;height:7px;border-radius:50%;background:#26c56a;flex-shrink:0;"></span>
+                        <span style="font-size:12px;color:rgba(255,255,255,0.85);">Latest release: <strong style="color:#FCFBFF;letter-spacing:0.02em;">@_latestVersion</strong></span>
+                    </div>
+                }
             </div>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;max-width:900px;margin:0 auto;">
@@ -341,13 +350,14 @@
                         <span class="material-icons-round" style="font-size:36px;color:#4A90D9;">desktop_windows</span>
                     </div>
                     <h3 style="font-size:20px;font-weight:700;color:#FCFBFF;margin-bottom:8px;">Windows</h3>
-                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">Windows 10 or later · 64-bit<br/>Self-contained .exe (no .NET install needed)</p>
-                    <a href="https://github.com/CHAMA18/ukuu-hr-csharp/releases/latest/download/UkuuHr-Windows-x64.zip"
+                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">Windows 10 or later · 64-bit<br/>Self-contained single-file .exe (no .NET install needed)</p>
+                    <a href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/latest/download/UkuuHr-Windows-x64.exe"
                        class="bk-btn bk-btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);border:1px solid rgba(255,255,255,0.2);">
                         <span class="material-icons-round" style="font-size:18px;">download</span>
-                        Download for Windows
+                        Download .exe
                     </a>
-                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .zip file</p>
+                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .exe file</p>
+                    <p style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:6px;">Unsigned build — SmartScreen may warn: “More info” → “Run anyway”.</p>
                 </div>
 
                 @* macOS download card *@
@@ -356,13 +366,14 @@
                         <span class="material-icons-round" style="font-size:36px;color:#FCFBFF;">laptop_mac</span>
                     </div>
                     <h3 style="font-size:20px;font-weight:700;color:#FCFBFF;margin-bottom:8px;">macOS</h3>
-                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">macOS 11 (Big Sur) or later<br/>Apple Silicon (M1/M2/M3) · .app bundle</p>
-                    <a href="https://github.com/CHAMA18/ukuu-hr-csharp/releases/latest/download/UkuuHr-macOS-arm64.zip"
+                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">macOS 11 (Big Sur) or later<br/>Apple Silicon (M1/M2/M3) · .dmg disk image</p>
+                    <a href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/latest/download/UkuuHr-macOS-arm64.dmg"
                        class="bk-btn bk-btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);border:1px solid rgba(255,255,255,0.2);">
                         <span class="material-icons-round" style="font-size:18px;">download</span>
-                        Download for macOS
+                        Download .dmg
                     </a>
-                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .zip file</p>
+                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .dmg file</p>
+                    <p style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:6px;">Unsigned build — first launch: right-click → Open.</p>
                 </div>
             </div>
 
@@ -413,7 +424,7 @@
                     <ul>
                         <li><a href="/login">Sign in</a></li>
                         <li><a href="/signup">Create an account</a></li>
-                        <li><a href="https://github.com/CHAMA18/ukuu-hr-csharp">GitHub repo</a></li>
+                        <li><a href="https://github.com/StackOne-Tec/ukuu-hr-csharp">GitHub repo</a></li>
                         <li><a href="/health">Health status</a></li>
                     </ul>
                 </div>
@@ -430,6 +441,56 @@
 </div>
 
 @code {
+    private static string? _latestVersionCache;
+    private static DateTime _latestVersionFetchedAt = DateTime.MinValue;
+    private string? _latestVersion;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLatestVersionAsync();
+    }
+
+    // Fetch the newest desktop release from GitHub so the download section always
+    // reflects the actual latest version. Falls back silently (no badge) if the
+    // GitHub API is unreachable, rate-limited, or no release exists yet — the
+    // .exe/.dmg links keep working regardless. Cached 1 hour per server process.
+    private async Task LoadLatestVersionAsync()
+    {
+        if (_latestVersionCache != null &&
+            DateTime.UtcNow - _latestVersionFetchedAt < TimeSpan.FromHours(1))
+        {
+            _latestVersion = _latestVersionCache;
+            return;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                "https://api.github.com/repos/StackOne-Tec/ukuu-hr-csharp/releases/latest");
+            request.Headers.TryAddWithoutValidation("User-Agent", "UkuuHR-Landing/1.0");
+            request.Headers.TryAddWithoutValidation("Accept", "application/vnd.github+json");
+
+            using var response = await Http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return;
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var tag = doc.RootElement.TryGetProperty("tag_name", out var tagValue)
+                ? tagValue.GetString() : null;
+
+            if (!string.IsNullOrEmpty(tag))
+            {
+                _latestVersion = tag;
+                _latestVersionCache = tag;
+                _latestVersionFetchedAt = DateTime.UtcNow;
+            }
+        }
+        catch
+        {
+            // GitHub API unreachable or rate-limited — show no badge, keep links working.
+        }
+    }
+
     private List<(string Number, string Phase, string Title, string Description, string Link)> _stages = new()
     {
         ("01", "Onboard", "Something new.", "Add new hires with a 4-step wizard: personal, employment, banking, statutory details.", "/employees/add"),
