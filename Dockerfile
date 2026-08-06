@@ -24,6 +24,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=build /app/publish .
 
+# ── Run as a non-root user with its own UID ──
+# Render's shared hosts cap inotify instances at 128 per USER. The .NET runtime
+# registers FileSystemWatchers (1 inotify instance each) for config reload inside
+# WebApplication.CreateBuilder; when the container runs as root it shares root's
+# budget with every other root container on the host, which exhausts the limit
+# and crashes the app with "The configured user limit (128) on the number of
+# inotify instances has been reached". A dedicated UID gets its own budget.
+# (Program.cs also disables config reload as defense-in-depth.)
+# /app is made writable so the SQLite dev fallback (ukuuhr.db) still works.
+RUN chown -R $APP_UID:$APP_GID /app
+USER $APP_UID
+
 # Render sets $PORT — bind to it
 ENV ASPNETCORE_URLS=http://+:${PORT:-8080}
 ENV ASPNETCORE_ENVIRONMENT=Production
