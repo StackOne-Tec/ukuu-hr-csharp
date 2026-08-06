@@ -38,13 +38,28 @@ docker run --rm -p 8080:8080 \
 
 ### Run from source
 
+Requires the **.NET 9 SDK** *and* the matching **.NET 9 runtime** — see the roll-forward gotcha below.
+
 ```bash
-dotnet restore UkuuHr.sln
-dotnet build UkuuHr.sln -c Release
-cd UkuuHr.Web && dotnet bin/Release/net9.0/UkuuHr.Web.dll
+# 1. Sanity-check your SDK + runtime (you need Microsoft.AspNetCore.App 9.0.x)
+dotnet --version                 # SDK 9.0.x (e.g. 9.0.316)
+dotnet --list-runtimes | grep 'AspNetCore.App 9'   # must show 9.0.x
+
+# 2. Run the web app (launchSettings.json: Development, port 5118)
+cd UkuuHr.Web
+dotnet run
 ```
 
-Visit http://localhost:5000.
+Then open **http://localhost:5118** and log in with `admin@ukuuhr.demo` / `Admin@2025`.
+
+On first launch the SQLite database (`UkuuHr.Web/ukuuhr.db`) is created and seeded automatically (demo org, 8 employees, attendance, payroll, leave, holidays). To use Postgres instead, set `POSTGRES_CONNECTION_STRING` — see [Configuration](#-configuration).
+
+> **⚠️ Gotcha — do not roll forward to .NET 10.** The app targets `net9.0`. If only a .NET 10 runtime is installed and you force it (e.g. `DOTNET_ROLL_FORWARD=LatestMajor`), the app *starts* but Blazor interactivity silently breaks: the build-time static-assets manifest points `_framework/blazor.web.js` at the `.NET 9` shared-framework folder, which doesn't exist on a .NET 10-only machine, so the file 404s and the browser console logs `Blazor is not defined`. Pages render (server-side HTML) but buttons, forms and dialogs do nothing. Install the matching .NET 9 runtime (9.0.x) and run on it. On machines where the .NET 9 SDK lives outside `PATH` (e.g. `~/.dotnet`):
+>
+> ```bash
+> export PATH="$HOME/.dotnet:$PATH"
+> cd UkuuHr.Web && dotnet run
+> ```
 
 ---
 
@@ -115,7 +130,7 @@ UkuuHr.Web/
 dotnet test UkuuHr.sln -c Release
 ```
 
-81 tests covering API integration, attendance reports, shift engine, and vendor connectors.
+1316 tests covering API integration, attendance reports, shift engine, vendor connectors, and the desktop Hikvision ISAPI parsers.
 
 ---
 
