@@ -345,7 +345,7 @@ class Program
     {
         Console.WriteLine();
         Console.WriteLine("  ╔═══════════════════════════════════════════════╗");
-        Console.WriteLine("  ║         UKUU HR — SYNC BRIDGE v1.2.0          ║");
+        Console.WriteLine("  ║         UKUU HR — SYNC BRIDGE v1.3.0          ║");
         Console.WriteLine("  ╠═══════════════════════════════════════════════╣");
         Console.WriteLine("  ║  Connects Hikvision devices to Ukuu HR cloud  ║");
         Console.WriteLine("  ╚═══════════════════════════════════════════════╝");

@@ -20,7 +20,12 @@ const APP_SHELL = [
     '/css/ukuu.css',
     '/css/app.css',
     '/manifest.json',
-    '/favicon.png'
+    '/favicon.png',
+    '/apple-touch-icon.png',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/ukuu-brand-white.png',
+    '/ukuu-brand-mark.png'
 ];
 
 self.addEventListener('install', (event) => {
