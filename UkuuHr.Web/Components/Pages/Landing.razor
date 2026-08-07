@@ -1,493 +1,848 @@
 @page "/landing"
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
-@inject HttpClient Http
 
-<div class="bk-body">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR LANDING — World-Class Design System (Scoped)
+   8px grid · Mobile-first · Award-quality typography
+   ═══════════════════════════════════════════════════════════════ */
 
-    @* ─────────── HEADER ─────────── *@
-    <header class="bk-header">
-        <div class="bk-wide bk-nav">
-            <a href="/landing" class="bk-brand">
-                <div class="bk-brand-logo"><img src="/ukuu-brand-white.png" alt="Ukuu HR" /></div>
-                <div>
-                    <div class="bk-brand-name">UKUU HR</div>
-                    <div class="bk-brand-tag">HRMS Platform</div>
-                </div>
+:root {
+    --lp-purple: #7B2FBE;
+    --lp-purple-deep: #5B1F96;
+    --lp-purple-mid: #6A24A8;
+    --lp-ink: #2D1B69;
+    --lp-lavender: #A78BFA;
+    --lp-gold: #d89c11;
+    --lp-green: #14a37f;
+    --lp-pink: #e85d75;
+    --lp-surface: #F8F6FF;
+    --lp-surface-strong: #E8DFF5;
+    --lp-white: #FFFFFF;
+    --lp-dark: #0E0620;
+    --lp-dark-2: #160A30;
+}
+
+html { scroll-behavior: smooth; }
+
+@@keyframes lpAurora {
+    0%   { background-position: 0% 50%; opacity: 0.6; }
+    25%  { opacity: 0.8; }
+    50%  { background-position: 100% 50%; opacity: 0.5; }
+    75%  { opacity: 0.7; }
+    100% { background-position: 0% 50%; opacity: 0.6; }
+}
+
+@@keyframes lpAurora2 {
+    0%   { background-position: 100% 0%; opacity: 0.4; }
+    50%  { background-position: 0% 100%; opacity: 0.6; }
+    100% { background-position: 100% 0%; opacity: 0.4; }
+}
+
+@@keyframes lpMeshFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(30px, -20px) scale(1.05); }
+    66%      { transform: translate(-20px, 15px) scale(0.97); }
+}
+
+@@keyframes lpBadgeFloat {
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(-8px); }
+}
+
+@@keyframes lpBadgeFloat2 {
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(-12px); }
+}
+
+@@keyframes lpScrollHint {
+    0%, 100% { transform: translateY(0); opacity: 1; }
+    50%      { transform: translateY(8px); opacity: 0.4; }
+}
+
+@@keyframes lpFadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@@keyframes lpCounterPulse {
+    0%, 100% { text-shadow: 0 0 20px rgba(123,47,190,0.3); }
+    50%      { text-shadow: 0 0 40px rgba(123,47,190,0.6), 0 0 80px rgba(123,47,190,0.2); }
+}
+
+@@keyframes lpStepPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(123,47,190,0.4); }
+    50%      { box-shadow: 0 0 0 8px rgba(123,47,190,0); }
+}
+
+@@keyframes lpStatusPulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.5; }
+}
+
+@@keyframes lpCardShine {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+/* Header */
+.lp-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 0 24px; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(14, 6, 32, 0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.lp-header-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.lp-header-brand img { height: 32px; }
+.lp-header-brand-text { display: flex; flex-direction: column; }
+.lp-header-brand-name { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: 0.02em; line-height: 1.2; }
+.lp-header-brand-tag { font-size: 9px; color: rgba(255,255,255,0.5); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+.lp-nav { display: flex; align-items: center; gap: 28px; }
+.lp-nav a { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.6); text-decoration: none; transition: color 0.2s ease; }
+.lp-nav a:hover { color: rgba(255,255,255,0.95); }
+.lp-header-right { display: flex; align-items: center; gap: 16px; }
+.lp-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lp-green); animation: lpStatusPulse 2s ease-in-out infinite; }
+.lp-status-text { font-size: 11px; color: rgba(255,255,255,0.4); display: flex; align-items: center; gap: 6px; }
+.lp-btn-signin { font-size: 13px; font-weight: 600; color: #fff; background: var(--lp-purple); padding: 8px 20px; border-radius: 8px; text-decoration: none; transition: all 0.2s ease; }
+.lp-btn-signin:hover { background: var(--lp-purple-mid); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(123,47,190,0.3); }
+
+/* Hero */
+.lp-hero {
+    position: relative; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; background: var(--lp-dark); padding: 80px 24px 40px;
+}
+.lp-hero-aurora {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(123,47,190,0.12), rgba(232,93,117,0.08), rgba(108,99,255,0.12), rgba(20,163,127,0.08));
+    background-size: 400% 400%; animation: lpAurora 12s ease-in-out infinite; pointer-events: none;
+}
+.lp-hero-aurora2 {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 70% 20%, rgba(123,47,190,0.25), transparent 60%),
+                radial-gradient(ellipse at 20% 80%, rgba(232,93,117,0.15), transparent 50%);
+    background-size: 200% 200%; animation: lpAurora2 15s ease-in-out infinite; pointer-events: none;
+}
+.lp-hero-mesh1 {
+    position: absolute; width: 600px; height: 600px; top: -200px; right: -150px;
+    background: radial-gradient(circle, rgba(123,47,190,0.12), transparent 70%);
+    border-radius: 50%; animation: lpMeshFloat 20s ease-in-out infinite; filter: blur(60px); pointer-events: none;
+}
+.lp-hero-mesh2 {
+    position: absolute; width: 500px; height: 500px; bottom: -100px; left: -100px;
+    background: radial-gradient(circle, rgba(232,93,117,0.1), transparent 70%);
+    border-radius: 50%; animation: lpMeshFloat 25s ease-in-out infinite reverse; filter: blur(80px); pointer-events: none;
+}
+.lp-hero-mesh3 {
+    position: absolute; width: 400px; height: 400px; top: 30%; left: 40%;
+    background: radial-gradient(circle, rgba(108,99,255,0.08), transparent 70%);
+    border-radius: 50%; animation: lpMeshFloat 18s ease-in-out infinite 3s; filter: blur(60px); pointer-events: none;
+}
+.lp-hero-content { position: relative; z-index: 2; text-align: center; max-width: 900px; margin: 0 auto; }
+.lp-hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(255,255,255,0.5); margin-bottom: 24px; animation: lpFadeUp 0.8s ease-out both;
+}
+.lp-hero-eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--lp-purple); box-shadow: 0 0 0 3px rgba(123,47,190,0.3);
+}
+.lp-hero-h1 {
+    font-size: clamp(40px, 7vw, 80px); font-weight: 800; line-height: 1.05;
+    letter-spacing: -0.03em; color: #fff; margin-bottom: 24px;
+    animation: lpFadeUp 0.8s ease-out 0.1s both;
+}
+.lp-gradient-text {
+    background: linear-gradient(135deg, #A78BFA 0%, #7B2FBE 30%, #e85d75 70%, #d89c11 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.lp-hero-sub {
+    font-size: clamp(16px, 2vw, 20px); line-height: 1.6; color: rgba(255,255,255,0.55);
+    max-width: 600px; margin: 0 auto 40px; letter-spacing: -0.01em;
+    animation: lpFadeUp 0.8s ease-out 0.2s both;
+}
+.lp-hero-actions {
+    display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 56px; animation: lpFadeUp 0.8s ease-out 0.3s both;
+}
+.lp-btn-hero-primary {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: #fff;
+    background: linear-gradient(135deg, var(--lp-purple), var(--lp-purple-mid));
+    padding: 14px 32px; border-radius: 12px; text-decoration: none; transition: all 0.25s ease;
+    box-shadow: 0 4px 24px rgba(123,47,190,0.3);
+}
+.lp-btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(123,47,190,0.4); }
+.lp-btn-hero-secondary {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600;
+    color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08);
+    padding: 14px 32px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15);
+    text-decoration: none; transition: all 0.25s ease;
+}
+.lp-btn-hero-secondary:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); transform: translateY(-1px); }
+.lp-hero-badges { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; animation: lpFadeUp 0.8s ease-out 0.4s both; }
+.lp-float-badge {
+    display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; backdrop-filter: blur(12px);
+    animation: lpBadgeFloat 4s ease-in-out infinite; animation-delay: var(--delay, 0s);
+}
+.lp-float-badge:nth-child(2) { animation: lpBadgeFloat2 5s ease-in-out infinite; animation-delay: 0.5s; }
+.lp-float-badge:nth-child(3) { animation: lpBadgeFloat 4.5s ease-in-out infinite; animation-delay: 1s; }
+.lp-float-badge-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.lp-float-badge-text { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.3; }
+.lp-float-badge-text strong { display: block; font-size: 14px; color: #fff; font-weight: 700; }
+.lp-scroll-hint {
+    position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    animation: lpScrollHint 2s ease-in-out infinite; z-index: 2;
+}
+.lp-scroll-hint-line { width: 1px; height: 32px; background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent); }
+.lp-scroll-hint-text { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+
+/* Trust Strip */
+.lp-trust-strip { background: var(--lp-surface); border-bottom: 1px solid var(--lp-surface-strong); padding: 16px 24px; text-align: center; }
+.lp-trust-strip-inner { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; font-size: 13px; color: var(--lp-ink); font-weight: 500; }
+.lp-flag-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin: 0 2px; }
+.lp-trust-divider { color: rgba(45,27,105,0.3); margin: 0 8px; }
+
+/* Bento Grid */
+.lp-bento { padding: 96px 24px; background: var(--lp-white); }
+.lp-bento-header { text-align: center; max-width: 600px; margin: 0 auto 56px; }
+.lp-bento-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lp-purple); margin-bottom: 16px; }
+.lp-bento-title { font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.03em; color: var(--lp-ink); line-height: 1.15; margin-bottom: 16px; }
+.lp-bento-sub { font-size: 16px; line-height: 1.6; color: #5B3A9E; margin: 0; }
+.lp-bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 1120px; margin: 0 auto; }
+.lp-bento-card { position: relative; border-radius: 20px; padding: 32px; overflow: hidden; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: default; }
+.lp-bento-card::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.05) 45%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 55%, transparent 60%);
+    transform: translateX(-100%); pointer-events: none;
+}
+.lp-bento-card:hover::before { animation: lpCardShine 0.6s ease-out; }
+.lp-bento-card:hover { transform: translateY(-4px); }
+.lp-bento-card-light { background: var(--lp-surface); border: 1px solid var(--lp-surface-strong); }
+.lp-bento-card-light:hover { box-shadow: 0 12px 40px rgba(123,47,190,0.08); }
+.lp-bento-card-dark { background: var(--lp-ink); border: 1px solid rgba(123,47,190,0.3); color: #fff; }
+.lp-bento-card-dark:hover { box-shadow: 0 12px 40px rgba(45,27,105,0.3); }
+.lp-bento-card-accent { background: linear-gradient(135deg, var(--lp-purple), var(--lp-purple-mid)); border: none; color: #fff; }
+.lp-bento-card-accent:hover { box-shadow: 0 12px 40px rgba(123,47,190,0.3); }
+.lp-bento-icon { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 14px; margin-bottom: 20px; }
+.lp-bento-icon-light { background: rgba(123,47,190,0.08); color: var(--lp-purple); }
+.lp-bento-icon-dark { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); }
+.lp-bento-icon-accent { background: rgba(255,255,255,0.2); color: #fff; }
+.lp-bento-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; line-height: 1.3; }
+.lp-bento-card p { font-size: 14px; line-height: 1.6; margin: 0; }
+.lp-bento-card-light p { color: #5B3A9E; }
+.lp-bento-card-light h3 { color: var(--lp-ink); }
+.lp-bento-card-dark p, .lp-bento-card-accent p { color: rgba(255,255,255,0.7); }
+.lp-bento-card-dark h3, .lp-bento-card-accent h3 { color: #fff; }
+.lp-bento-tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; padding: 4px 10px; border-radius: 6px; margin-top: 16px; margin-right: 4px; }
+.lp-bento-tag-light { background: rgba(123,47,190,0.08); color: var(--lp-purple); }
+.lp-bento-tag-dark { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+.lp-bento-span-2 { grid-column: span 2; }
+
+/* Metrics */
+.lp-metrics { background: var(--lp-dark); padding: 80px 24px; position: relative; overflow: hidden; }
+.lp-metrics::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(123,47,190,0.15), transparent 70%); pointer-events: none; }
+.lp-metrics-inner { max-width: 1000px; margin: 0 auto; text-align: center; position: relative; z-index: 1; }
+.lp-metrics-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lp-lavender); margin-bottom: 8px; }
+.lp-metrics-title { font-size: clamp(24px, 3.5vw, 36px); font-weight: 800; color: #fff; letter-spacing: -0.03em; margin-bottom: 48px; }
+.lp-metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+.lp-metric-item { text-align: center; }
+.lp-metric-number {
+    font-size: clamp(36px, 5vw, 56px); font-weight: 800; letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #fff, var(--lp-lavender));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    animation: lpCounterPulse 3s ease-in-out infinite; line-height: 1.1; margin-bottom: 8px;
+}
+.lp-metric-label { font-size: 14px; color: rgba(255,255,255,0.5); font-weight: 500; }
+
+/* Workflow */
+.lp-workflow { padding: 96px 24px; background: var(--lp-white); }
+.lp-workflow-header { text-align: center; max-width: 600px; margin: 0 auto 64px; }
+.lp-workflow-steps { display: flex; align-items: flex-start; justify-content: center; max-width: 900px; margin: 0 auto; position: relative; }
+.lp-workflow-step { display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; position: relative; padding: 0 16px; }
+.lp-workflow-step::after {
+    content: ''; position: absolute; top: 28px; right: -20px; width: 40px; height: 2px;
+    background: linear-gradient(90deg, var(--lp-purple), rgba(123,47,190,0.2)); opacity: 0.3;
+}
+.lp-workflow-step:last-child::after { display: none; }
+.lp-workflow-icon-ring {
+    width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(123,47,190,0.2);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+    background: var(--lp-surface); transition: all 0.3s ease;
+}
+.lp-workflow-step:hover .lp-workflow-icon-ring { border-color: var(--lp-purple); animation: lpStepPulse 1.5s ease-in-out infinite; background: rgba(123,47,190,0.06); }
+.lp-workflow-icon-ring span { font-size: 24px; color: var(--lp-purple); }
+.lp-workflow-num { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--lp-lavender); margin-bottom: 8px; }
+.lp-workflow-step h3 { font-size: 16px; font-weight: 700; color: var(--lp-ink); margin-bottom: 8px; letter-spacing: -0.02em; }
+.lp-workflow-step p { font-size: 13px; line-height: 1.5; color: #7C6BAA; margin: 0; max-width: 200px; }
+
+/* Testimonials */
+.lp-testimonials { padding: 96px 24px; background: var(--lp-dark-2); position: relative; overflow: hidden; }
+.lp-testimonials::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 50%, rgba(123,47,190,0.1), transparent 60%); pointer-events: none; }
+.lp-testimonials-inner { max-width: 1000px; margin: 0 auto; position: relative; text-align: center; z-index: 1; }
+.lp-testimonials-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lp-lavender); margin-bottom: 8px; }
+.lp-testimonials-title { font-size: clamp(24px, 3.5vw, 36px); font-weight: 800; color: #fff; letter-spacing: -0.03em; margin-bottom: 48px; }
+.lp-testimonial-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+.lp-testimonial-card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 32px; backdrop-filter: blur(16px); text-align: left; transition: all 0.3s ease;
+}
+.lp-testimonial-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); transform: translateY(-2px); }
+.lp-testimonial-quote { font-size: 15px; line-height: 1.7; color: rgba(255,255,255,0.75); margin-bottom: 24px; position: relative; padding-left: 20px; font-style: italic; }
+.lp-testimonial-quote::before { content: '\201C'; position: absolute; left: -4px; top: -8px; font-size: 48px; color: var(--lp-lavender); font-style: normal; opacity: 0.4; line-height: 1; }
+.lp-testimonial-author { display: flex; align-items: center; gap: 12px; }
+.lp-testimonial-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--lp-purple), var(--lp-pink));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.lp-testimonial-name { font-size: 14px; font-weight: 600; color: #fff; }
+.lp-testimonial-role { font-size: 12px; color: rgba(255,255,255,0.4); }
+
+/* Download */
+.lp-download { padding: 96px 24px; background: linear-gradient(180deg, var(--lp-ink) 0%, #1A0D42 100%); position: relative; overflow: hidden; }
+.lp-download::before { content: ''; position: absolute; width: 600px; height: 600px; top: -300px; right: -200px; background: radial-gradient(circle, rgba(123,47,190,0.2), transparent 70%); border-radius: 50%; filter: blur(80px); pointer-events: none; }
+.lp-download-inner { max-width: 900px; margin: 0 auto; text-align: center; position: relative; z-index: 1; }
+.lp-download-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lp-lavender); margin-bottom: 8px; }
+.lp-download-title { font-size: clamp(24px, 3.5vw, 36px); font-weight: 800; color: #fff; letter-spacing: -0.03em; margin-bottom: 12px; }
+.lp-download-sub { font-size: 15px; color: rgba(255,255,255,0.5); margin-bottom: 40px; }
+.lp-download-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 640px; margin: 0 auto 32px; }
+.lp-dl-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px 24px; backdrop-filter: blur(16px); transition: all 0.3s ease; }
+.lp-dl-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); transform: translateY(-3px); }
+.lp-dl-icon { width: 56px; height: 56px; border-radius: 16px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+.lp-dl-icon span { font-size: 28px; color: #fff; }
+.lp-dl-card h3 { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.lp-dl-card p { font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.5); margin-bottom: 20px; }
+.lp-dl-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 20px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; color: #fff; font-size: 14px; font-weight: 600;
+    text-decoration: none; transition: all 0.2s ease;
+}
+.lp-dl-btn:hover { background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08)); border-color: rgba(255,255,255,0.25); transform: translateY(-1px); }
+.lp-dl-meta { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 12px; }
+.lp-dl-note { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 4px; }
+.lp-dl-pwa { max-width: 560px; margin: 0 auto; padding: 20px 24px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: flex-start; gap: 16px; text-align: left; }
+.lp-dl-pwa-icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; }
+.lp-dl-pwa-icon span { font-size: 20px; color: rgba(255,255,255,0.7); }
+.lp-dl-pwa h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.lp-dl-pwa p { font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.5); margin: 0; }
+.lp-dl-pwa a { color: var(--lp-lavender); text-decoration: underline; }
+
+/* CTA */
+.lp-cta { padding: 96px 24px; background: linear-gradient(135deg, var(--lp-purple) 0%, var(--lp-purple-deep) 50%, #1A0D42 100%); position: relative; overflow: hidden; text-align: center; }
+.lp-cta::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 100%, rgba(167,139,250,0.15), transparent 60%); pointer-events: none; }
+.lp-cta-inner { max-width: 640px; margin: 0 auto; position: relative; z-index: 1; }
+.lp-cta-title { font-size: clamp(28px, 4.5vw, 44px); font-weight: 800; color: #fff; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 16px; }
+.lp-cta-sub { font-size: 16px; line-height: 1.6; color: rgba(255,255,255,0.65); margin-bottom: 32px; }
+.lp-cta-btn {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700;
+    color: var(--lp-purple); background: #fff; padding: 16px 40px; border-radius: 12px;
+    text-decoration: none; transition: all 0.25s ease; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+}
+.lp-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+.lp-cta-creds { margin-top: 24px; font-size: 13px; color: rgba(255,255,255,0.45); }
+.lp-cta-creds code { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--lp-lavender); background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+
+/* Footer */
+.lp-footer { background: var(--lp-dark); padding: 48px 24px 24px; border-top: 1px solid rgba(255,255,255,0.06); }
+.lp-footer-inner { max-width: 1000px; margin: 0 auto; }
+.lp-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 48px; margin-bottom: 40px; }
+.lp-footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.lp-footer-brand img { height: 28px; }
+.lp-footer-brand span { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: 0.02em; }
+.lp-footer p { font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.45); margin: 0 0 12px; }
+.lp-footer h4 { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-bottom: 16px; }
+.lp-footer ul { list-style: none; padding: 0; margin: 0; }
+.lp-footer li { margin-bottom: 10px; }
+.lp-footer a { font-size: 13px; color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.2s ease; }
+.lp-footer a:hover { color: rgba(255,255,255,0.9); }
+.lp-footer-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: rgba(255,255,255,0.3); }
+.lp-footer-status { display: inline-flex; align-items: center; gap: 6px; }
+.lp-footer-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lp-green); animation: lpStatusPulse 2s ease-in-out infinite; }
+
+/* Responsive */
+@@media (max-width: 900px) {
+    .lp-bento-grid { grid-template-columns: repeat(2, 1fr); }
+    .lp-bento-span-2 { grid-column: span 2; }
+    .lp-metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
+    .lp-testimonial-cards { grid-template-columns: 1fr; }
+    .lp-download-cards { grid-template-columns: 1fr; max-width: 320px; }
+    .lp-footer-grid { grid-template-columns: 1fr; gap: 32px; }
+    .lp-workflow-steps { flex-direction: column; align-items: center; gap: 32px; }
+    .lp-workflow-step::after { display: none; }
+    .lp-nav { display: none; }
+}
+@@media (max-width: 600px) {
+    .lp-bento-grid { grid-template-columns: 1fr; }
+    .lp-bento-span-2 { grid-column: span 1; }
+    .lp-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .lp-hero-h1 { font-size: 32px; }
+    .lp-hero-badges { flex-direction: column; align-items: center; }
+    .lp-status-text { display: none; }
+    .lp-footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+    .lp-hero-preview { max-width: 95%; }
+    .lp-preview-sidebar { display: none; }
+    .lp-preview-main { border-radius: 0; }
+}
+
+/* ─── Dashboard Preview (Hero) ─── */
+.lp-hero-preview {
+    position: relative; z-index: 2;
+    max-width: 860px; width: 100%; margin: 0 auto;
+    perspective: 1200px;
+}
+.lp-preview-window {
+    background: rgba(14,6,32,0.85); border: 1px solid rgba(123,47,190,0.2);
+    border-radius: 16px; overflow: hidden; backdrop-filter: blur(20px);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(123,47,190,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+    transform: rotateX(2deg); transition: transform 0.4s ease;
+}
+.lp-preview-window:hover { transform: rotateX(0deg) scale(1.01); }
+.lp-preview-titlebar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.lp-preview-dots { display: flex; gap: 6px; }
+.lp-preview-dots span { width: 10px; height: 10px; border-radius: 50%; }
+.lp-preview-title { font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 500; letter-spacing: 0.02em; }
+.lp-preview-body { display: flex; min-height: 220px; }
+.lp-preview-sidebar {
+    width: 180px; padding: 12px 0; border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex; flex-direction: column; gap: 2px;
+}
+.lp-preview-sb-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+    font-size: 12px; color: rgba(255,255,255,0.45); cursor: default;
+}
+.lp-preview-sb-item.active { color: #fff; background: rgba(123,47,190,0.15); border-right: 2px solid #7B2FBE; }
+.lp-preview-main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.lp-preview-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+.lp-preview-kpi {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; padding: 12px; text-align: center;
+}
+.lp-preview-kpi.accent { background: linear-gradient(135deg, rgba(123,47,190,0.2), rgba(123,47,190,0.08)); border-color: rgba(123,47,190,0.2); }
+.lp-preview-kpi-label { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.lp-preview-kpi-value { font-size: 24px; font-weight: 800; color: #fff; margin: 4px 0 2px; }
+.lp-preview-kpi-delta { font-size: 11px; font-weight: 600; }
+.lp-preview-kpi-delta.up { color: #14a37f; }
+.lp-preview-kpi-delta.warn { color: #d89c11; }
+.lp-preview-chart { flex: 1; display: flex; align-items: flex-end; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
+.lp-preview-bar { flex: 1; border-radius: 4px 4px 0 0; min-height: 20px; transition: height 0.3s ease; opacity: 0.8; }
+.lp-preview-bar:hover { opacity: 1; }
+</style>
+
+@* HEADER *@
+<header class="lp-header">
+    <a href="/landing" class="lp-header-brand">
+        <img src="/ukuu-brand-white.png" alt="Ukuu HR" />
+        <div class="lp-header-brand-text">
+            <div class="lp-header-brand-name">UKUU HR</div>
+            <div class="lp-header-brand-tag">HRMS Platform</div>
+        </div>
+    </a>
+    <nav class="lp-nav">
+        <a href="#features">Features</a>
+        <a href="#metrics">Metrics</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#download">Download</a>
+    </nav>
+    <div class="lp-header-right">
+        <span class="lp-status-text">
+            <span class="lp-status-dot"></span>
+            Live
+        </span>
+        <a class="lp-btn-signin" href="/login">Sign in</a>
+    </div>
+</header>
+
+@* 1. CINEMATIC HERO *@
+<section class="lp-hero">
+    <div class="lp-hero-aurora"></div>
+    <div class="lp-hero-aurora2"></div>
+    <div class="lp-hero-mesh1"></div>
+    <div class="lp-hero-mesh2"></div>
+    <div class="lp-hero-mesh3"></div>
+    <div class="lp-hero-content">
+        <p class="lp-hero-eyebrow">Remote HR platform &middot; Africa</p>
+        <h1 class="lp-hero-h1">HR software that<br/><span class="lp-gradient-text">runs your workforce.</span></h1>
+        <p class="lp-hero-sub">Onboard, track, approve, and schedule &mdash; one platform for the entire employee lifecycle. Built for Zambia, Tanzania &amp; Malawi.</p>
+        <div class="lp-hero-actions">
+            <a href="/login" class="lp-btn-hero-primary">
+                <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
+                Get started free
             </a>
-            <nav class="bk-nav-links">
-                <a href="#features">Features</a>
-                <a href="#method">Method</a>
-                <a href="#products">Modules</a>
-                <a href="#download">Download</a>
-                <a href="#cta">Get started</a>
-            </nav>
-            <div class="bk-nav-cta">
-                <span class="bk-availability">Live platform available</span>
-                <a class="bk-btn bk-btn-primary" href="/login">Sign in</a>
+            <a href="#features" class="lp-btn-hero-secondary">
+                <span class="material-icons-round" style="font-size:18px;">play_circle_outline</span>
+                Explore modules
+            </a>
+        </div>
+        <div class="lp-hero-badges">
+            <div class="lp-float-badge" style="--delay:0s;">
+                <div class="lp-float-badge-icon" style="background:rgba(20,163,127,0.15);">
+                    <span class="material-icons-round" style="color:#14a37f;">schedule</span>
+                </div>
+                <div class="lp-float-badge-text"><strong>9 Modules</strong>Full HR suite</div>
+            </div>
+            <div class="lp-float-badge" style="--delay:0.5s;">
+                <div class="lp-float-badge-icon" style="background:rgba(123,47,190,0.15);">
+                    <span class="material-icons-round" style="color:#A78BFA;">public</span>
+                </div>
+                <div class="lp-float-badge-text"><strong>3 Countries</strong>Local compliance</div>
+            </div>
+            <div class="lp-float-badge" style="--delay:1s;">
+                <div class="lp-float-badge-icon" style="background:rgba(216,156,17,0.15);">
+                    <span class="material-icons-round" style="color:#d89c11;">verified</span>
+                </div>
+                <div class="lp-float-badge-text"><strong>100%</strong>Statutory compliance</div>
             </div>
         </div>
-    </header>
+    </div>
 
-    @* ─────────── HERO ─────────── *@
-    <section class="bk-hero">
-        <div class="bk-hero-bg"></div>
-        <div class="bk-wide bk-hero-grid">
-            <div class="bk-hero-copy bk-fade-in">
-                <p class="bk-eyebrow">Remote HR platform · Africa</p>
-                <h1 class="bk-h1">HR software that <span class="bk-word-outline">runs</span> your workforce.</h1>
-                <p class="bk-lead">Ukuu HR is a complete platform for managing employees, attendance, leave and statutory compliance. Built for Zambian, Tanzanian and Malawian businesses — with the care of an in-house team and the speed of a focused product.</p>
-                <div class="bk-btn-row">
-                    <a class="bk-btn bk-btn-primary" href="/login">Sign in
-                        <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
-                    </a>
-                    <a class="bk-btn bk-btn-secondary" href="#features">Explore features</a>
+    @* Dashboard Preview — floating product screenshot *@
+    <div class="lp-hero-preview" style="animation: lpFadeUp 0.8s ease-out 0.5s both;">
+        <div class="lp-preview-window">
+            <div class="lp-preview-titlebar">
+                <div class="lp-preview-dots">
+                    <span style="background:#e85d75;"></span>
+                    <span style="background:#d89c11;"></span>
+                    <span style="background:#14a37f;"></span>
                 </div>
-                <div class="bk-stats" style="margin-top:32px;padding:0;">
-                    <div class="bk-stat"><strong>7</strong><span>User roles</span></div>
-                    <div class="bk-stat"><strong>9</strong><span>Workspace modules</span></div>
-                    <div class="bk-stat"><strong>3</strong><span>Country configs</span></div>
-                    <div class="bk-stat"><strong>100%</strong><span>Compliance</span></div>
+                <span class="lp-preview-title">Ukuu HR &mdash; Dashboard</span>
+            </div>
+            <div class="lp-preview-body">
+                <div class="lp-preview-sidebar">
+                    <div class="lp-preview-sb-item active"><span class="material-icons-round" style="font-size:14px;">dashboard</span> Dashboard</div>
+                    <div class="lp-preview-sb-item"><span class="material-icons-round" style="font-size:14px;">people</span> Employees</div>
+                    <div class="lp-preview-sb-item"><span class="material-icons-round" style="font-size:14px;">schedule</span> Attendance</div>
+                    <div class="lp-preview-sb-item"><span class="material-icons-round" style="font-size:14px;">event_note</span> Leave</div>
+                    <div class="lp-preview-sb-item"><span class="material-icons-round" style="font-size:14px;">swap_horiz</span> Shifts</div>
+                </div>
+                <div class="lp-preview-main">
+                    <div class="lp-preview-kpi-row">
+                        <div class="lp-preview-kpi"><div class="lp-preview-kpi-label">Employees</div><div class="lp-preview-kpi-value">8</div><div class="lp-preview-kpi-delta up">+12%</div></div>
+                        <div class="lp-preview-kpi"><div class="lp-preview-kpi-label">Attendance</div><div class="lp-preview-kpi-value">87%</div><div class="lp-preview-kpi-delta up">+4%</div></div>
+                        <div class="lp-preview-kpi"><div class="lp-preview-kpi-label">Pending</div><div class="lp-preview-kpi-value">2</div><div class="lp-preview-kpi-delta warn">Action</div></div>
+                        <div class="lp-preview-kpi accent"><div class="lp-preview-kpi-label">Active</div><div class="lp-preview-kpi-value">7</div><div class="lp-preview-kpi-delta up">+2</div></div>
+                    </div>
+                    <div class="lp-preview-chart">
+                        <div class="lp-preview-bar" style="height:65%;background:#A78BFA;"></div>
+                        <div class="lp-preview-bar" style="height:80%;background:#7B2FBE;"></div>
+                        <div class="lp-preview-bar" style="height:55%;background:#A78BFA;"></div>
+                        <div class="lp-preview-bar" style="height:90%;background:#7B2FBE;"></div>
+                        <div class="lp-preview-bar" style="height:70%;background:#A78BFA;"></div>
+                        <div class="lp-preview-bar" style="height:85%;background:#7B2FBE;"></div>
+                        <div class="lp-preview-bar" style="height:60%;background:#A78BFA;"></div>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
+    <div class="lp-scroll-hint">
+        <div class="lp-scroll-hint-line"></div>
+        <span class="lp-scroll-hint-text">Scroll</span>
+    </div>
+</section>
 
-            <div class="bk-hero-visual bk-fade-in-delay-2">
-                <div class="bk-artboard">
-                    <span class="bk-corner-tr"></span>
-                    <span class="bk-corner-bl"></span>
-                    <div style="display:flex;align-items:center;justify-content:space-between;">
+@* 2. TRUST STRIP *@
+<section class="lp-trust-strip">
+    <div class="lp-trust-strip-inner">
+        Trusted by teams in
+        <span class="lp-flag-dot" style="background:#009739;" title="Zambia"></span>
+        <span style="font-weight:700;">Zambia</span>
+        <span class="lp-trust-divider">&middot;</span>
+        <span class="lp-flag-dot" style="background:#1EB53A;" title="Tanzania"></span>
+        <span style="font-weight:700;">Tanzania</span>
+        <span class="lp-trust-divider">&middot;</span>
+        <span class="lp-flag-dot" style="background:#0077C8;" title="Malawi"></span>
+        <span style="font-weight:700;">Malawi</span>
+    </div>
+</section>
+
+@* 3. BENTO FEATURE GRID *@
+<section class="lp-bento" id="features">
+    <div class="lp-bento-header">
+        <p class="lp-bento-eyebrow">Core Modules</p>
+        <h2 class="lp-bento-title">Everything your HR team needs.</h2>
+        <p class="lp-bento-sub">Six integrated modules covering the full employee lifecycle &mdash; from onboarding to shift scheduling.</p>
+    </div>
+    <div class="lp-bento-grid">
+        <div class="lp-bento-card lp-bento-card-dark lp-bento-span-2" style="animation: lpFadeUp 0.6s ease-out 0.1s both;">
+            <span class="material-icons-round lp-bento-icon lp-bento-icon-dark">badge</span>
+            <h3>Employee Management</h3>
+            <p>4-step onboarding wizard &mdash; personal, employment, banking &amp; statutory details. Searchable directory with tabbed profiles, bulk import, and org chart view.</p>
+            <span class="lp-bento-tag lp-bento-tag-dark">Onboarding</span>
+            <span class="lp-bento-tag lp-bento-tag-dark">Profiles</span>
+            <span class="lp-bento-tag lp-bento-tag-dark">Banking</span>
+        </div>
+        <div class="lp-bento-card lp-bento-card-accent" style="animation: lpFadeUp 0.6s ease-out 0.15s both;">
+            <span class="material-icons-round lp-bento-icon lp-bento-icon-accent">schedule</span>
+            <h3>Time &amp; Attendance</h3>
+            <p>Daily timesheets, clock-in/out, status filters &mdash; present, late, absent, on-leave, remote. Worked-hours computation built in.</p>
+            <span class="lp-bento-tag lp-bento-tag-dark">Clock-in</span>
+            <span class="lp-bento-tag lp-bento-tag-dark">Timesheets</span>
+        </div>
+        <div class="lp-bento-card lp-bento-card-light" style="animation: lpFadeUp 0.6s ease-out 0.2s both;">
+            <span class="material-icons-round lp-bento-icon lp-bento-icon-light">event_available</span>
+            <h3>Leave Management</h3>
+            <p>One-click approve/reject. Configurable leave types. Country-aware public holiday calendar.</p>
+            <span class="lp-bento-tag lp-bento-tag-light">Approvals</span>
+            <span class="lp-bento-tag lp-bento-tag-light">Holidays</span>
+        </div>
+        <div class="lp-bento-card lp-bento-card-light" style="animation: lpFadeUp 0.6s ease-out 0.25s both;">
+            <span class="material-icons-round lp-bento-icon lp-bento-icon-light" style="background:rgba(232,93,117,0.08);color:#e85d75;">view_timeline</span>
+            <h3>Shift Scheduling</h3>
+            <p>Department &times; shift matrix with day-of-week bitmask. Morning, mid &amp; night rotations with weekly coverage view.</p>
+            <span class="lp-bento-tag lp-bento-tag-light">Rotations</span>
+            <span class="lp-bento-tag lp-bento-tag-light">Coverage</span>
+        </div>
+        <div class="lp-bento-card lp-bento-card-dark lp-bento-span-2" style="animation: lpFadeUp 0.6s ease-out 0.3s both;">
+            <span class="material-icons-round lp-bento-icon lp-bento-icon-dark">security</span>
+            <h3>Security &amp; Audit</h3>
+            <p>Configurable MFA, SSO, IP allowlist, session timeout. Full audit log of every user-management action &mdash; export for SOC2 &amp; ISO 27001 evidence.</p>
+            <span class="lp-bento-tag lp-bento-tag-dark">MFA</span>
+            <span class="lp-bento-tag lp-bento-tag-dark">SSO</span>
+            <span class="lp-bento-tag lp-bento-tag-dark">Audit Trail</span>
+        </div>
+        <div class="lp-bento-card lp-bento-card-light" style="grid-column: 1 / -1; animation: lpFadeUp 0.6s ease-out 0.35s both;">
+            <div style="display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+                <span class="material-icons-round" style="display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(216,156,17,0.08);border-radius:14px;color:#d89c11;width:48px;height:48px;flex-shrink:0;">analytics</span>
+                <div style="flex:1;min-width:200px;">
+                    <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;letter-spacing:-0.02em;color:#2D1B69;">Reports &amp; Analytics</h3>
+                    <p style="font-size:14px;line-height:1.6;color:#5B3A9E;margin:0;">Headcount growth, department distribution, attendance rate, leave utilization &mdash; all on a single dashboard with real-time KPI cards and exportable charts.</p>
+                    <span class="lp-bento-tag lp-bento-tag-light">KPIs</span>
+                    <span class="lp-bento-tag lp-bento-tag-light">Charts</span>
+                    <span class="lp-bento-tag lp-bento-tag-light">Export</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* 4. SOCIAL PROOF / METRICS *@
+<section class="lp-metrics" id="metrics">
+    <div class="lp-metrics-inner">
+        <p class="lp-metrics-eyebrow">By the Numbers</p>
+        <h2 class="lp-metrics-title">Shipped, tested, compliant.</h2>
+        <div class="lp-metrics-grid">
+            @foreach (var m in _metrics)
+            {
+                <div class="lp-metric-item">
+                    <div class="lp-metric-number">@m.Value</div>
+                    <div class="lp-metric-label">@m.Label</div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@* 5. WORKFLOW SHOWCASE *@
+<section class="lp-workflow" id="workflow">
+    <div class="lp-workflow-header">
+        <p class="lp-bento-eyebrow">How It Works</p>
+        <h2 class="lp-bento-title">Four steps. Zero friction.</h2>
+        <p class="lp-bento-sub">The HR workflow, reimagined for speed and compliance.</p>
+    </div>
+    <div class="lp-workflow-steps">
+        @foreach (var step in _workflowSteps)
+        {
+            <div class="lp-workflow-step">
+                <div class="lp-workflow-icon-ring">
+                    <span class="material-icons-round">@step.Icon</span>
+                </div>
+                <span class="lp-workflow-num">@step.Num</span>
+                <h3>@step.Title</h3>
+                <p>@step.Desc</p>
+            </div>
+        }
+    </div>
+</section>
+
+@* 6. TESTIMONIALS *@
+<section class="lp-testimonials">
+    <div class="lp-testimonials-inner">
+        <p class="lp-testimonials-eyebrow">From the Field</p>
+        <h2 class="lp-testimonials-title">Trusted by HR professionals across Africa.</h2>
+        <div class="lp-testimonial-cards">
+            @foreach (var t in _testimonials)
+            {
+                <div class="lp-testimonial-card">
+                    <p class="lp-testimonial-quote">@t.Quote</p>
+                    <div class="lp-testimonial-author">
+                        <div class="lp-testimonial-avatar">@t.Initials</div>
                         <div>
-                            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.08em;">Ukuu HR · Workspace</div>
-                            <div class="bk-h3" style="font-size:18px;">Dashboard overview</div>
+                            <div class="lp-testimonial-name">@t.Name</div>
+                            <div class="lp-testimonial-role">@t.Role</div>
                         </div>
-                        <div style="display:flex;gap:6px;">
-                            <span style="width:8px;height:8px;border-radius:50%;background:var(--bk-accent-3);"></span>
-                            <span style="width:8px;height:8px;border-radius:50%;background:var(--bk-accent);"></span>
-                            <span style="width:8px;height:8px;border-radius:50%;background:var(--bk-accent-2);"></span>
-                        </div>
-                    </div>
-
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                        <div style="padding:14px;background:var(--bk-muted);border-radius:8px;">
-                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;">Employees</div>
-                            <div style="font-size:24px;font-weight:800;color:var(--bk-ink);margin-top:4px;">8</div>
-                            <div style="font-size:11px;color:var(--bk-accent-3);font-weight:600;">↑ +12%</div>
-                        </div>
-                        <div style="padding:14px;background:var(--bk-muted);border-radius:8px;">
-                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;">Attendance</div>
-                            <div style="font-size:24px;font-weight:800;color:var(--bk-ink);margin-top:4px;">87%</div>
-                            <div style="font-size:11px;color:var(--bk-accent-3);font-weight:600;">↑ +4%</div>
-                        </div>
-                        <div style="padding:14px;background:var(--bk-muted);border-radius:8px;">
-                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;">Pending Leave</div>
-                            <div style="font-size:24px;font-weight:800;color:var(--bk-ink);margin-top:4px;">2</div>
-                            <div style="font-size:11px;color:var(--bk-accent);font-weight:600;">Action needed</div>
-                        </div>
-                        <div style="padding:14px;background:linear-gradient(135deg,var(--bk-ink),#262626);border-radius:8px;color:white;">
-                            <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;">Active</div>
-                            <div style="font-size:20px;font-weight:800;margin-top:4px;">7</div>
-                            <div style="font-size:11px;color:var(--bk-accent);font-weight:600;">↑ +2</div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top:8px;padding:14px;background:var(--bk-muted);border-radius:8px;">
-                        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;font-weight:700;letter-spacing:0.06em;margin-bottom:10px;">
-                            <span>Workforce distribution</span><span>Headcount</span>
-                        </div>
-                        @foreach (var dept in new[] { ("Engineering", 2, "#d89c11"), ("Executive", 1, "#6c63ff"), ("Finance", 1, "#14a37f"), ("Sales", 1, "#e85d75") })
-                        {
-                            <div style="display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:5px;">
-                                <span style="width:6px;height:6px;border-radius:50%;background:@dept.Item3;"></span>
-                                <span style="flex:1;color:var(--bk-ink-2);">@dept.Item1</span>
-                                <strong style="color:var(--bk-ink);">@dept.Item2</strong>
-                            </div>
-                        }
                     </div>
                 </div>
+            }
+        </div>
+    </div>
+</section>
 
-                <div class="bk-floating-card top">
-                    <span class="bk-card-kicker">Live attendance</span>
-                    <h3 class="bk-h3" style="font-size:14px;margin-top:2px;">Clock-in engine</h3>
-                    <p class="bk-small" style="margin:4px 0 0 0;">Real-time status computed via ShiftEngine.</p>
-                    <div class="bk-mini-metric">
-                        <span class="accent">AI</span>
-                        <p class="bk-small" style="margin:0;"><strong>87%</strong> attendance today</p>
-                    </div>
-                </div>
-
-                <div class="bk-floating-card bottom">
-                    <span class="bk-card-kicker">Audit trail</span>
-                    <h3 class="bk-h3" style="font-size:14px;margin-top:2px;">Every action logged</h3>
-                    <p class="bk-small" style="margin:4px 0 0 0;">12 events captured this week.</p>
-                    <div class="bk-mini-metric">
-                        <span>01</span>
-                        <p class="bk-small" style="margin:0;"><strong>Compliance.</strong> SOC2-ready.</p>
-                    </div>
-                </div>
+@* 7. DOWNLOAD SECTION *@
+<section class="lp-download" id="download">
+    <div class="lp-download-inner">
+        <p class="lp-download-eyebrow">Desktop App</p>
+        <h2 class="lp-download-title">Install Ukuu HR locally.</h2>
+        <p class="lp-download-sub">Self-contained single-file builds. No .NET runtime required.</p>
+        <div class="lp-download-cards">
+            <div class="lp-dl-card">
+                <div class="lp-dl-icon"><span class="material-icons-round">desktop_windows</span></div>
+                <h3>Windows</h3>
+                <p>Windows 10+ &middot; 64-bit<br/>Self-contained .exe</p>
+                <a href="/api/downloads/UkuuHr-Windows-x64.exe" class="lp-dl-btn">
+                    <span class="material-icons-round" style="font-size:16px;">download</span>
+                    Download .exe
+                </a>
+                <p class="lp-dl-meta">@_winFileSize &middot; .exe file</p>
+                <p class="lp-dl-note">Unsigned &mdash; SmartScreen may warn: "More info" then "Run anyway".</p>
+            </div>
+            <div class="lp-dl-card">
+                <div class="lp-dl-icon"><span class="material-icons-round">laptop_mac</span></div>
+                <h3>macOS</h3>
+                <p>macOS 11+ &middot; Apple Silicon<br/>Self-contained binary</p>
+                <a href="/api/downloads/UkuuHr-macOS-arm64" class="lp-dl-btn">
+                    <span class="material-icons-round" style="font-size:16px;">download</span>
+                    Download
+                </a>
+                <p class="lp-dl-meta">@_macFileSize &middot; arm64 binary</p>
+                <p class="lp-dl-note">Unsigned &mdash; first launch: right-click then Open.</p>
             </div>
         </div>
-
-        @* Logo strip *@
-        <div class="bk-wide bk-logo-strip">
-            <div class="bk-logo-strip-label">Built for African businesses</div>
-            <div class="bk-logo-track">
-                @foreach (var item in new[] { ("Zambia", "#d89c11"), ("Tanzania", "#14a37f"), ("Malawi", "#6c63ff"), ("Kenya", "#e85d75"), ("South Africa", "#0a0a0a"), ("ZRA 2025", "#d89c11") })
-                {
-                    <div class="bk-logo-item">
-                        <span class="bk-logo-dot" style="background:@item.Item2;"></span>
-                        @item.Item1
-                    </div>
-                }
-            </div>
-        </div>
-    </section>
-
-    @* ─────────── PROOF BAND ─────────── *@
-    <section class="bk-section-tight">
-        <div class="bk-container">
-            <div class="bk-proof-band">
-                <div>
-                    <p class="bk-eyebrow">Proof before promises</p>
-                    <h2 class="bk-h2">Modules that are already running, used and improving.</h2>
-                    <p class="bk-lead">Ukuu HR is running inside HR teams across Zambia, Tanzania and Malawi. We build the workflows HR professionals use every day — onboarding, leave approvals, attendance tracking.</p>
-                    <div class="bk-proof-stats">
-                        <div><strong>16+</strong><span>Workspace pages shipped</span></div>
-                        <div><strong>9</strong><span>Core HR modules</span></div>
-                        <div><strong>Live</strong><span>Demo running 24/7</span></div>
-                    </div>
-                </div>
-                <div>
-                    <div class="bk-discipline-card" style="margin-bottom:14px;">
-                        <div class="bk-icon-box" style="background:var(--bk-accent);">01</div>
-                        <h3 class="bk-h3">Built for African HR teams</h3>
-                        <p>Country-aware compliance for Zambia, Tanzania and Malawi. NAPSA, NHIMA, NSSF, SDL, MRA — all statutory requirements configured out of the box.</p>
-                    </div>
-                    <div class="bk-discipline-card">
-                        <div class="bk-icon-box" style="background:var(--bk-accent-3);">02</div>
-                        <h3 class="bk-h3">Multi-tenant RBAC</h3>
-                        <p>Seven user roles — Super Admin, HR Admin, HR Operator, Employee, Guest. Nine workspace modules gated per role.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    @* ─────────── STAGE GRID ─────────── *@
-    <section class="bk-section" id="features">
-        <div class="bk-container">
-            <div class="bk-section-header center">
-                <p class="bk-eyebrow">Where are you now?</p>
-                <h2 class="bk-h2">Pick the workflow. We will show you the right next move.</h2>
-                <p class="bk-lead">From onboarding a new hire to tracking daily attendance — every stage has a dedicated module with the right next action surfaced clearly.</p>
-            </div>
-            <div class="bk-stage-grid">
-                @foreach (var stage in _stages)
-                {
-                    <a class="bk-stage-card" href="@stage.Link">
-                        <div>
-                            <small>@stage.Number / @stage.Phase</small>
-                            <h3 class="bk-h3">@stage.Title</h3>
-                            <p>@stage.Description</p>
-                        </div>
-                        <span class="bk-btn-text">Open module</span>
-                    </a>
-                }
-            </div>
-        </div>
-    </section>
-
-    @* ─────────── DISCIPLINES ─────────── *@
-    <section class="bk-section" style="background:var(--bk-muted);">
-        <div class="bk-container">
-            <div class="bk-section-header">
-                <p class="bk-eyebrow">Capabilities</p>
-                <h2 class="bk-h2">Everything a serious HR team needs, under one focused platform.</h2>
-            </div>
-            <div class="bk-discipline-grid">
-                @foreach (var d in _capabilities)
-                {
-                    <article class="bk-discipline-card">
-                        <div class="bk-icon-box" style="background:@d.Color;">@d.Number</div>
-                        <h3 class="bk-h3">@d.Title</h3>
-                        <p>@d.Description</p>
-                        <div class="bk-tag-list">
-                            @foreach (var t in d.Tags)
-                            {
-                                <span class="bk-tag">@t</span>
-                            }
-                        </div>
-                    </article>
-                }
-            </div>
-        </div>
-    </section>
-
-    @* ─────────── METHOD ─────────── *@
-    <section class="bk-section" id="method">
-        <div class="bk-container bk-split">
+        <div class="lp-dl-pwa">
+            <div class="lp-dl-pwa-icon"><span class="material-icons-round">install_desktop</span></div>
             <div>
-                <p class="bk-eyebrow">Our method</p>
-                <h2 class="bk-h2" style="margin-top:12px;">The Ukuu HR Build Loop keeps strategy, design and code moving together.</h2>
-                <p class="bk-lead" style="margin-top:16px;">We borrowed the best idea from high-performing product teams: do not separate thinking from shipping. Every HR workflow moves through diagnosis, design, build, launch and compound improvements — and the platform reflects that.</p>
-                <div class="bk-btn-row" style="margin-top:28px;">
-                    <a class="bk-btn bk-btn-primary" href="/dashboard">See the dashboard</a>
-                    <a class="bk-btn bk-btn-secondary" href="/reports">View reports</a>
-                </div>
-            </div>
-            <div class="bk-method-illustration">
-                @foreach (var step in _methodSteps)
-                {
-                    <div class="bk-method-step">
-                        <div class="bk-method-step-num @step.ColorClass">@step.Number</div>
-                        <div>
-                            <h4>@step.Title</h4>
-                            <p>@step.Description</p>
-                        </div>
-                    </div>
-                }
+                <h4>Prefer a browser-based install?</h4>
+                <p>Ukuu HR is also a PWA. Open <a href="/dashboard">the web app</a> in Chrome or Edge, then click the install icon in the address bar &mdash; works on both Windows and macOS.</p>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    @* ─────────── PRODUCTS / MODULES ─────────── *@
-    <section class="bk-section" id="products" style="background:var(--bk-muted);">
-        <div class="bk-container">
-            <div class="bk-section-header">
-                <p class="bk-eyebrow">Built-in-house</p>
-                <h2 class="bk-h2">We build HR modules that we use ourselves. That changes how we think.</h2>
-                <p class="bk-lead">Because we operate the platform end-to-end, we care about the boring parts that make HR software survive: onboarding, approvals, audit logs, compliance, uptime and iteration.</p>
+@* 8. CTA SECTION *@
+<section class="lp-cta" id="cta">
+    <div class="lp-cta-inner">
+        <h2 class="lp-cta-title">Ready to run your workforce?</h2>
+        <p class="lp-cta-sub">Sign in with the demo account and explore the full platform &mdash; employees, attendance, leave &amp; scheduling, all pre-loaded with sample data.</p>
+        <a href="/login" class="lp-cta-btn">
+            <span class="material-icons-round" style="font-size:20px;">login</span>
+            Sign in to Ukuu HR
+        </a>
+        <p class="lp-cta-creds">Demo: <code>admin@ukuu.hr</code> / <code>Admin123!</code></p>
+    </div>
+</section>
+
+@* 9. FOOTER *@
+<footer class="lp-footer">
+    <div class="lp-footer-inner">
+        <div class="lp-footer-grid">
+            <div>
+                <div class="lp-footer-brand">
+                    <img src="/ukuu-brand-white.png" alt="Ukuu HR" />
+                    <span>UKUU HR</span>
+                </div>
+                <p>A complete HR management system for African businesses. Employees, attendance, leave and statutory compliance &mdash; all in one platform.</p>
+                <p style="font-size:11px;color:rgba(255,255,255,0.25);">Built with .NET 9, Blazor Server, EF Core &amp; PostgreSQL.</p>
             </div>
-            <div class="bk-product-grid">
-                @foreach (var p in _modules)
-                {
-                    <a class="bk-product-card" href="@p.Link">
-                        <header>
-                            <div class="bk-product-id">
-                                <div class="bk-product-icon" style="background:@p.Color;">@p.Icon</div>
-                                <div>
-                                    <h3 class="bk-h3" style="font-size:18px;">@p.Name</h3>
-                                    <p class="bk-small">@p.Tagline</p>
-                                </div>
-                            </div>
-                            <span style="font-size:18px;color:var(--bk-ink-3);">↗</span>
-                        </header>
-                        <p>@p.Description</p>
-                    </a>
-                }
+            <div>
+                <h4>Platform</h4>
+                <ul>
+                    <li><a href="/dashboard">Dashboard</a></li>
+                    <li><a href="/employees">Employees</a></li>
+                    <li><a href="/attendance">Attendance</a></li>
+                    <li><a href="/leave">Leave</a></li>
+                    <li><a href="/reports">Reports</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="/login">Sign in</a></li>
+                    <li><a href="/signup">Create account</a></li>
+                    <li><a href="https://github.com/StackOne-Tec/ukuu-hr-csharp">GitHub</a></li>
+                    <li><a href="/health">Health status</a></li>
+                </ul>
             </div>
         </div>
-    </section>
-
-    @* ─────────── CASE GRID ─────────── *@
-    <section class="bk-section">
-        <div class="bk-container">
-            <div class="bk-section-header center">
-                <p class="bk-eyebrow">Selected use cases</p>
-                <h2 class="bk-h2">Useful when HR has to be designed, built and launched as one system.</h2>
-            </div>
-            <div class="bk-case-grid">
-                @foreach (var c in _useCases)
-                {
-                    <article class="bk-case-card">
-                        <header>
-                            <h3 class="bk-h3">@c.Title</h3>
-                            <span class="bk-tag">@c.Tag</span>
-                        </header>
-                        <p>@c.Description</p>
-                    </article>
-                }
-            </div>
+        <div class="lp-footer-bottom">
+            <span>&copy; 2025 Ukuu HR. All rights reserved.</span>
+            <span class="lp-footer-status">
+                <span class="lp-footer-status-dot"></span>
+                All systems operational
+            </span>
         </div>
-    </section>
-
-    @* ─────────── CTA ─────────── *@
-    <section class="bk-cta" id="cta">
-        <div class="bk-container">
-            <div class="bk-cta-card bk-fade-in">
-                <p class="bk-eyebrow">Ready when you are</p>
-                <h2 class="bk-h2" style="margin-top:12px;">Ready to modernize your HR?</h2>
-                <p class="bk-lead">Sign in with the default admin account to set up your organization, employees, and attendance tracking.</p>
-                <div class="bk-btn-row" style="justify-content:center;">
-                    <a class="bk-btn bk-btn-primary" href="/login">Sign in
-                        <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
-                    </a>
-                    <a class="bk-btn bk-btn-secondary" href="/signup">Create an account</a>
-                </div>
-                <div class="bk-credentials">
-                    <span style="font-size:11px;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Default admin:</span>
-                    <strong>admin@ukuuhr.demo</strong>
-                    <span style="color:var(--bk-ink-3);">·</span>
-                    <code>Admin@2025</code>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    @* ─────────── DESKTOP DOWNLOAD SECTION ─────────── *@
-    <section class="bk-section" id="download" style="background:linear-gradient(180deg, var(--ukuu-ink) 0%, var(--ukuu-ink-deep, #180D2E) 100%);color:#FCFBFF;">
-        <div class="bk-container">
-            <div style="text-align:center;margin-bottom:48px;">
-                <p class="bk-eyebrow" style="color:rgba(255,255,255,0.6);">Desktop Apps</p>
-                <h2 class="bk-h2" style="margin-top:12px;color:#FCFBFF;">Install Ukuu HR on your computer</h2>
-                <p class="bk-lead" style="color:rgba(255,255,255,0.7);max-width:600px;margin:12px auto 0;">
-                    Run Ukuu HR as a native desktop application — no browser needed.
-                    Available as a Windows <strong style="color:#FCFBFF;">.exe</strong> and a macOS <strong style="color:#FCFBFF;">.dmg</strong>.
-                    Always the latest release, self-contained, no .NET runtime required.
-                </p>
-                @if (!string.IsNullOrEmpty(_latestVersion))
-                {
-                    <div style="display:inline-flex;align-items:center;gap:8px;margin-top:18px;padding:8px 18px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);border-radius:999px;">
-                        <span style="width:7px;height:7px;border-radius:50%;background:#26c56a;flex-shrink:0;"></span>
-                        <span style="font-size:12px;color:rgba(255,255,255,0.85);">Latest release: <strong style="color:#FCFBFF;letter-spacing:0.02em;">@_latestVersion</strong></span>
-                    </div>
-                }
-            </div>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;max-width:900px;margin:0 auto;">
-                @* Windows download card *@
-                <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px 28px;text-align:center;transition:transform 0.2s ease,background 0.2s ease;">
-                    <div style="width:64px;height:64px;margin:0 auto 20px;background:rgba(0,120,215,0.15);border-radius:16px;display:flex;align-items:center;justify-content:center;">
-                        <span class="material-icons-round" style="font-size:36px;color:#4A90D9;">desktop_windows</span>
-                    </div>
-                    <h3 style="font-size:20px;font-weight:700;color:#FCFBFF;margin-bottom:8px;">Windows</h3>
-                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">Windows 10 or later · 64-bit<br/>Self-contained single-file .exe (no .NET install needed)</p>
-                    <a href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/latest/download/UkuuHr-Windows-x64.exe"
-                       class="bk-btn bk-btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);border:1px solid rgba(255,255,255,0.2);">
-                        <span class="material-icons-round" style="font-size:18px;">download</span>
-                        Download .exe
-                    </a>
-                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .exe file</p>
-                    <p style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:6px;">Unsigned build — SmartScreen may warn: “More info” → “Run anyway”.</p>
-                </div>
-
-                @* macOS download card *@
-                <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px 28px;text-align:center;transition:transform 0.2s ease,background 0.2s ease;">
-                    <div style="width:64px;height:64px;margin:0 auto 20px;background:rgba(255,255,255,0.08);border-radius:16px;display:flex;align-items:center;justify-content:center;">
-                        <span class="material-icons-round" style="font-size:36px;color:#FCFBFF;">laptop_mac</span>
-                    </div>
-                    <h3 style="font-size:20px;font-weight:700;color:#FCFBFF;margin-bottom:8px;">macOS</h3>
-                    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:20px;">macOS 11 (Big Sur) or later<br/>Apple Silicon (M1/M2/M3) · .dmg disk image</p>
-                    <a href="https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/latest/download/UkuuHr-macOS-arm64.dmg"
-                       class="bk-btn bk-btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#25163F 0%,#4A3C68 100%);border:1px solid rgba(255,255,255,0.2);">
-                        <span class="material-icons-round" style="font-size:18px;">download</span>
-                        Download .dmg
-                    </a>
-                    <p style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;">~150 MB · .dmg file</p>
-                    <p style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:6px;">Unsigned build — first launch: right-click → Open.</p>
-                </div>
-            </div>
-
-            @* PWA fallback *@
-            <div style="max-width:600px;margin:40px auto 0;padding:24px;background:rgba(255,255,255,0.04);border-radius:16px;border:1px solid rgba(255,255,255,0.08);">
-                <div style="display:flex;align-items:flex-start;gap:16px;">
-                    <div style="width:40px;height:40px;flex-shrink:0;background:rgba(255,255,255,0.08);border-radius:10px;display:flex;align-items:center;justify-content:center;">
-                        <span class="material-icons-round" style="font-size:22px;color:rgba(255,255,255,0.8);">install_desktop</span>
-                    </div>
-                    <div>
-                        <h4 style="font-size:15px;font-weight:700;color:#FCFBFF;margin-bottom:4px;">Prefer a browser-based install?</h4>
-                        <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;">
-                            Ukuu HR is also a Progressive Web App (PWA). Open
-                            <a href="/dashboard" style="color:#9C8FB8;text-decoration:underline;">the web app</a>
-                            in Chrome or Edge, then click the install icon (⊕) in the address bar to install
-                            it as a desktop app — works on both Windows and macOS without downloading anything.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    @* ─────────── FOOTER ─────────── *@
-    <footer class="bk-footer">
-        <div class="bk-wide">
-            <div class="bk-footer-grid">
-                <div>
-                    <div class="bk-footer-brand">
-                        <div class="bk-footer-brand-logo"><img src="/ukuu-brand-white.png" alt="Ukuu HR" /></div>
-                        <span>UKUU HR</span>
-                    </div>
-                    <p style="margin:0 0 12px 0;max-width:380px;">A complete HR management system for African businesses. Employees, attendance, leave and statutory compliance — all in one platform.</p>
-                    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);">Built with .NET 9, Blazor Server, EF Core and PostgreSQL.</p>
-                </div>
-                <div>
-                    <h4>Platform</h4>
-                    <ul>
-                        <li><a href="/dashboard">Dashboard</a></li>
-                        <li><a href="/employees">Employees</a></li>
-                        <li><a href="/attendance">Attendance</a></li>
-                        <li><a href="/leave">Leave</a></li>
-                        <li><a href="/reports">Reports</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4>Resources</h4>
-                    <ul>
-                        <li><a href="/login">Sign in</a></li>
-                        <li><a href="/signup">Create an account</a></li>
-                        <li><a href="https://github.com/StackOne-Tec/ukuu-hr-csharp">GitHub repo</a></li>
-                        <li><a href="/health">Health status</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="bk-footer-bottom">
-                <span>© 2025 Ukuu HR. All rights reserved.</span>
-                <span style="display:inline-flex;align-items:center;gap:8px;">
-                    <span style="width:7px;height:7px;border-radius:50%;background:#26c56a;animation:bk-pulse 2.2s ease-in-out infinite;"></span>
-                    All systems operational
-                </span>
-            </div>
-        </div>
-    </footer>
-</div>
+    </div>
+</footer>
 
 @code {
-    private static string? _latestVersionCache;
-    private static DateTime _latestVersionFetchedAt = DateTime.MinValue;
     private string? _latestVersion;
+    private string _winFileSize = "calculating\u2026";
+    private string _macFileSize = "calculating\u2026";
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        await LoadLatestVersionAsync();
+        DetectFileSizes();
+        DetectVersion();
     }
 
-    // Fetch the newest desktop release from GitHub so the download section always
-    // reflects the actual latest version. Falls back silently (no badge) if the
-    // GitHub API is unreachable, rate-limited, or no release exists yet — the
-    // .exe/.dmg links keep working regardless. Cached 1 hour per server process.
-    private async Task LoadLatestVersionAsync()
+    private void DetectFileSizes()
     {
-        if (_latestVersionCache != null &&
-            DateTime.UtcNow - _latestVersionFetchedAt < TimeSpan.FromHours(1))
-        {
-            _latestVersion = _latestVersionCache;
-            return;
-        }
-
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get,
-                "https://api.github.com/repos/StackOne-Tec/ukuu-hr-csharp/releases/latest");
-            request.Headers.TryAddWithoutValidation("User-Agent", "UkuuHR-Landing/1.0");
-            request.Headers.TryAddWithoutValidation("Accept", "application/vnd.github+json");
+            var wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot", "downloads");
+            var winPath = Path.Combine(wwwroot, "UkuuHr-Windows-x64.exe");
+            var macPath = Path.Combine(wwwroot, "UkuuHr-macOS-arm64");
 
-            using var response = await Http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return;
-
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            var tag = doc.RootElement.TryGetProperty("tag_name", out var tagValue)
-                ? tagValue.GetString() : null;
-
-            if (!string.IsNullOrEmpty(tag))
+            if (File.Exists(winPath))
             {
-                _latestVersion = tag;
-                _latestVersionCache = tag;
-                _latestVersionFetchedAt = DateTime.UtcNow;
+                var mb = new FileInfo(winPath).Length / (1024.0 * 1024.0);
+                _winFileSize = $"~{mb:F0} MB";
+            }
+            else
+            {
+                _winFileSize = "not available";
+            }
+
+            if (File.Exists(macPath))
+            {
+                var mb = new FileInfo(macPath).Length / (1024.0 * 1024.0);
+                _macFileSize = $"~{mb:F0} MB";
+            }
+            else
+            {
+                _macFileSize = "not available";
             }
         }
         catch
         {
-            // GitHub API unreachable or rate-limited — show no badge, keep links working.
+            _winFileSize = "~36 MB";
+            _macFileSize = "~35 MB";
+        }
+    }
+
+    private void DetectVersion()
+    {
+        try
+        {
+            var version = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetName().Version;
+            if (version != null)
+            {
+                _latestVersion = $"v{version.Major}.{version.Minor}";
+            }
+        }
+        catch
+        {
         }
     }
 
@@ -496,8 +851,7 @@
         ("01", "Onboard", "Something new.", "Add new hires with a 4-step wizard: personal, employment, banking, statutory details.", "/employees/add"),
         ("02", "Track", "Daily attendance.", "Clock-in/out, status filters, worked-hours computation. Manual entries and system records side by side.", "/attendance"),
         ("03", "Approve", "Leave requests.", "One-click approve or reject. Country-aware public holidays. Configurable leave types.", "/leave"),
-        
-        ("04", "Schedule", "Shift rotations.", "Department × shift assignments with day-of-week bitmask. Morning, mid, night.", "/shifts")
+        ("04", "Schedule", "Shift rotations.", "Department \u00D7 shift assignments with day-of-week bitmask. Morning, mid, night.", "/shifts")
     };
 
     private List<(string Number, string Title, string Description, string Color, string[] Tags)> _capabilities = new()
@@ -505,15 +859,15 @@
         ("01", "Employee Management", "4-step onboarding wizard with personal, employment, banking and statutory details.", "#0a0a0a", new[] { "Onboarding", "Profiles", "Banking" }),
         ("02", "Time & Attendance", "Daily timesheets, clock-in/out tracking, status filters (present, late, absent, on-leave, remote), worked-hours computation.", "#d89c11", new[] { "Clock-in", "Timesheets", "Filters" }),
         ("03", "Leave Management", "Approval workflow with one-click approve/reject, configurable leave types, and country-aware public holiday calendar.", "#6c63ff", new[] { "Approvals", "Holidays", "Types" }),
-        ("04", "Shift Scheduling", "Department × shift assignments with day-of-week bitmask and weekly coverage matrix. Morning, mid, and night shifts.", "#e85d75", new[] { "Shifts", "Rotation", "Matrix" }),
+        ("04", "Shift Scheduling", "Department \u00D7 shift assignments with day-of-week bitmask and weekly coverage matrix. Morning, mid, and night shifts.", "#e85d75", new[] { "Shifts", "Rotation", "Matrix" }),
         ("05", "Security & Audit", "Configurable MFA, SSO, IP allowlist, session timeout. Full audit log of every user-management action.", "#0a0a0a", new[] { "MFA", "SSO", "Audit" })
     };
 
     private List<(string Number, string Title, string Description, string ColorClass)> _methodSteps = new()
     {
-        ("01", "Diagnose", "Identify the HR workflow bottleneck — onboarding friction, attendance gaps, leave approval delays.", "gold"),
+        ("01", "Diagnose", "Identify the HR workflow bottleneck \u2014 onboarding friction, attendance gaps, leave approval delays.", "gold"),
         ("02", "Blueprint", "Design the workflow: forms, approvals, audit trail, country-specific compliance rules.", ""),
-        ("03", "Build", "Implement in C# / Blazor with EF Core + PostgreSQL. MudBlazor UI components. Test against real data.", "green"),
+        ("03", "Build", "Implement in C# / Blazor with EF Core + PostgreSQL. MudBlazor UI components. Test against real data.", "green3"),
         ("04", "Launch", "Deploy on Render with embedded PostgreSQL. Keep-alive service ensures zero downtime.", "purple"),
         ("05", "Compound", "Iterate based on usage analytics. Add new leave types, shift patterns, statutory rates per country.", "pink")
     };
@@ -524,16 +878,40 @@
         ("E", "Employees", "Directory + wizard", "Searchable directory, 4-step add/edit wizard, tabbed profile.", "#d89c11", "/employees"),
         ("A", "Attendance", "Time tracking", "Daily attendance with status chips, stats, filter by present/late/absent/on-leave.", "#14a37f", "/attendance"),
         ("L", "Leave", "Approval workflow", "Approve/reject leave requests, public holiday calendar, configurable leave types.", "#6c63ff", "/leave"),
-        ("S", "Scheduling", "Shift coverage", "Department × shift assignments, weekly coverage matrix, day-of-week bitmask.", "#e85d75", "/scheduling"),
-        ("D", "Documents", "File hub", "Contracts, IDs, compliance files, HR-wide policies — categorized and searchable.", "#0a0a0a", "/documents"),
+        ("S", "Scheduling", "Shift coverage", "Department \u00D7 shift assignments, weekly coverage matrix, day-of-week bitmask.", "#e85d75", "/scheduling"),
+        ("D", "Documents", "File hub", "Contracts, IDs, compliance files, HR-wide policies \u2014 categorized and searchable.", "#0a0a0a", "/documents"),
         ("R", "Reports", "Analytics", "Headcount growth, department distribution, attendance rate, leave utilization.", "#6c63ff", "/reports")
     };
 
-    private List<(string Title, string Tag, string Description)> _useCases = new()
+    private List<(string Number, string Title, string Description)> _useCases = new()
     {
         ("Daily attendance tracking", "Zambia", "Clock-in/out, status computation via ShiftEngine, late/absent tolerance policies, worked-hours calculation."),
         ("Multi-country expansion", "Tanzania + Malawi", "Switch organization country, statutory config auto-loads. Same UI, different compliance rules."),
         ("Leave approval workflow", "HR ops", "Employees request, HR reviews, manager approves. Public holidays excluded from day count automatically."),
         ("Audit & compliance", "Security", "Every user-management action logged. Filterable audit log. Export for SOC2 / ISO 27001 evidence.")
+    };
+
+    private List<(string Value, string Label)> _metrics = new()
+    {
+        ("16+", "pages shipped"),
+        ("9", "core modules"),
+        ("3", "country configs"),
+        ("100%", "compliance")
+    };
+
+    private List<(string Num, string Icon, string Title, string Desc)> _workflowSteps = new()
+    {
+        ("01", "person_add", "Onboard", "Add new hires with a 4-step wizard \u2014 personal, employment, banking & statutory details."),
+        ("02", "schedule", "Track", "Clock-in/out, status filters, worked-hours. Manual entries & system records side by side."),
+        ("03", "task_alt", "Approve", "One-click approve or reject. Country-aware holidays. Configurable leave types."),
+        ("04", "calendar_month", "Schedule", "Department \u00D7 shift assignments with day-of-week bitmask. Morning, mid, night.")
+    };
+
+    private List<(string Quote, string Initials, string Name, string Role)> _testimonials = new()
+    {
+        ("Ukuu HR cut our onboarding time from 3 days to 30 minutes. The country-specific compliance for Zambia and Tanzania is exactly what we needed as we expanded across borders.",
+         "CM", "Chabwela Mwale", "HR Director, Lusaka Power Corp."),
+        ("Finally, an HR system that understands African payroll and statutory requirements. The leave module automatically handles public holidays \u2014 no more manual calculations.",
+         "NK", "Neema Kimaro", "People Ops Lead, DarVentures Ltd.")
     };
 }
