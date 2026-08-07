@@ -67,7 +67,7 @@
                 <p class="bk-auth-sub">Sign in to your Ukuu HR workspace to continue.</p>
             </div>
 
-            <form method="post" action="/auth/login" class="bk-form">
+            <form method="post" action="/auth/login@(_returnUrlEncoded)" class="bk-form">
                 @if (_error != null)
                 {
                     <div style="margin-bottom:16px;padding:10px 14px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;color:#991b1b;font-size:13px;display:flex;align-items:center;gap:8px;">
@@ -158,10 +158,14 @@
     [SupplyParameterFromQuery(Name = "error")]
     public string? ErrorParam { get; set; }
 
+    [SupplyParameterFromQuery(Name = "ReturnUrl")]
+    public string? ReturnUrl { get; set; }
+
     [SupplyParameterFromForm(FormName = "login")]
     public LoginModel? FormData { get; set; }
 
     private string? _error = null;
+    private string _returnUrlEncoded = "";
 
     protected override void OnInitialized()
     {
@@ -169,6 +173,11 @@
         if (ErrorParam == "1")
         {
             _error = "Invalid email or password. Try admin@ukuuhr.demo / Admin@2025";
+        }
+        // Preserve ReturnUrl in the form action so the POST /auth/login can redirect back
+        if (!string.IsNullOrEmpty(ReturnUrl) && ReturnUrl.StartsWith("/"))
+        {
+            _returnUrlEncoded = $"?ReturnUrl={Uri.EscapeDataString(ReturnUrl)}";
         }
     }
 
