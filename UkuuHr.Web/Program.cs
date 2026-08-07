@@ -128,9 +128,9 @@ static string SanitizeRedirectMessage(string? message)
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/login";
+        options.LoginPath = "/landing";
         options.LogoutPath = "/logout";
-        options.AccessDeniedPath = "/login";
+        options.AccessDeniedPath = "/landing";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
         options.Cookie.Name = "UkuuHr.Auth";
@@ -513,6 +513,7 @@ app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Pro
     var email = form["FormData.Email"].ToString();
     var password = form["FormData.Password"].ToString();
     var rememberMe = form["FormData.RememberMe"] == "true";
+    var returnUrl = ctx.Request.Query["ReturnUrl"].ToString();
 
     logger.LogInformation("Login POST: email={Email}, rememberMe={RememberMe}", email, rememberMe);
 
@@ -526,7 +527,11 @@ app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Pro
 
     if (success)
     {
-        return Results.Redirect("/dashboard");
+        // Redirect to the originally requested page, or default to /dashboard
+        var redirectUrl = !string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith("/") && !returnUrl.StartsWith("/login") && !returnUrl.StartsWith("/landing")
+            ? returnUrl
+            : "/dashboard";
+        return Results.Redirect(redirectUrl);
     }
     return Results.Redirect("/login?error=1");
 });

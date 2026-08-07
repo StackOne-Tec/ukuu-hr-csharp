@@ -1,6 +1,9 @@
+@page "/"
 @page "/landing"
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpAccessor
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -948,4 +951,14 @@ html { scroll-behavior: smooth; }
         ("Finally, an HR system that understands African payroll and statutory requirements. The leave module automatically handles public holidays \u2014 no more manual calculations.",
          "NK", "Neema Kimaro", "People Ops Lead, DarVentures Ltd.")
     };
+
+    // ── If user is already authenticated, redirect straight to Dashboard ──
+    protected override void OnInitialized()
+    {
+        var user = HttpAccessor.HttpContext?.User;
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            Nav.NavigateTo("/dashboard", forceLoad: true);
+        }
+    }
 }
