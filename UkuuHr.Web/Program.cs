@@ -372,11 +372,24 @@ app.Use(async (ctx, next) =>
 
 app.UseStaticFiles(new StaticFileOptions
 {
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream",
     OnPrepareResponse = ctx =>
     {
         // Default: no-cache for all static files unless overridden above
         if (!ctx.Context.Response.Headers.ContainsKey("Cache-Control"))
             ctx.Context.Response.Headers["Cache-Control"] = "no-cache, must-revalidate";
+
+        // For downloadable executables, set Content-Disposition to trigger browser download
+        var fileName = ctx.File.Name;
+        if (fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".dmg", StringComparison.OrdinalIgnoreCase) ||
+            fileName.Contains("macOS-arm64", StringComparison.OrdinalIgnoreCase))
+        {
+            var downloadName = Path.GetFileName(fileName);
+            ctx.Context.Response.Headers["Content-Disposition"] = $"attachment; filename=\"{downloadName}\"";
+            ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=3600";
+        }
     }
 });
 app.UseRouting();
@@ -391,6 +404,12 @@ app.UseAntiforgery();
 app.Use(async (ctx, next) =>
 {
     var path = ctx.Request.Path.Value ?? "";
+    // Allow public access to download endpoints (desktop app binaries)
+    if (path.StartsWith("/api/downloads/", StringComparison.OrdinalIgnoreCase))
+    {
+        await next();
+        return;
+    }
     if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
     {
         var apiKey = Environment.GetEnvironmentVariable("UKUU_API_KEY");
@@ -426,6 +445,34 @@ app.MapGet("/health", () => Results.Ok(new {
     db_host = ExtractHost(connectionString),
     env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "<not set>"
 }));
+
+// ───── Desktop app download endpoint ─────
+// Serves self-contained executables from wwwroot/downloads/ with proper
+// Content-Disposition (attachment) headers so the browser triggers a file
+// download instead of navigating to the URL. Also sets the correct MIME type.
+app.MapGet("/api/downloads/{filename}", (string filename, HttpContext ctx) =>
+{
+    // Sanitize: only allow known download file names (prevent path traversal)
+    var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "UkuuHr-Windows-x64.exe",
+        "UkuuHr-macOS-arm64"
+    };
+
+    if (!allowed.Contains(filename))
+        return Results.NotFound(new { error = "File not found." });
+
+    var filePath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "downloads", filename);
+    if (!File.Exists(filePath))
+        return Results.NotFound(new { error = "File not found on server.", hint = "Desktop builds may not be included in this deployment." });
+
+    // Determine content type
+    var contentType = filename.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+        ? "application/vnd.microsoft.portable-executable"
+        : "application/octet-stream";
+
+    return Results.File(filePath, contentType, filename, enableRangeProcessing: true);
+}).AllowAnonymous();
 
 // ───── Phase 13.6: Availability endpoints (99.9% uptime target) ─────
 
