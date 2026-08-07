@@ -284,6 +284,13 @@ builder.Services.AddHostedService<KeepAliveService>();
 // ───── Phase 5: FR-002 — Automatic device sync background service ─────
 builder.Services.AddHostedService<DeviceAutoSyncService>();
 
+// ───────────── Background service fault tolerance ─────────────
+// Without this, any unhandled exception in a BackgroundService (e.g. DeviceAutoSyncService
+// timing out when a Hikvision device is unreachable) crashes the entire host.
+// Setting Ignore keeps the host running — the failing service simply stops retrying.
+builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(opts =>
+    opts.BackgroundServiceExceptionBehavior = Microsoft.Extensions.Hosting.BackgroundServiceExceptionBehavior.Ignore);
+
 var app = builder.Build();
 
 // ───────────── Initialize DB ─────────────
