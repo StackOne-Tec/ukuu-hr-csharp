@@ -17,8 +17,11 @@ namespace UkuuHr.Sync;
 ///   UkuuHrSync                    — interactive setup, then continuous sync
 ///   UkuuHrSync --once             — single sync, then exit
 ///   UkuuHrSync --config=settings.json  — use a config file
+///   UkuuHrSync --headless         — non-interactive mode (requires settings.json)
 /// 
 /// The app reads/writes settings.json in the same directory for persistence.
+/// When launched as a macOS .app bundle (no TTY), it runs in headless mode
+/// automatically and creates a default settings.json if none exists.
 /// </summary>
 class Program
 {
@@ -27,30 +30,89 @@ class Program
         Timeout = TimeSpan.FromSeconds(30)
     };
 
+    /// <summary>
+    /// Detects whether stdin is connected to a terminal (TTY).
+    /// On macOS, when the .app is launched from Finder, no TTY is attached
+    /// and Console.ReadLine() / Console.ReadKey() throw IOException.
+    /// </summary>
+    private static bool HasTty()
+    {
+        try
+        {
+            // On Unix/macOS, try to check if stdin is a terminal
+            if (Console.IsInputRedirected) return false;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     static async Task<int> Main(string[] args)
     {
-        Console.OutputEncoding = Encoding.UTF8;
+        // ── Top-level exception handler — prevents SIGABRT on unhandled exceptions ──
+        try
+        {
+            return await RunApp(args);
+        }
+        catch (Exception ex)
+        {
+            // Last-resort catch: log to file and console, then exit cleanly
+            var logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync-error.log");
+            try
+            {
+                await File.WriteAllTextAsync(logPath,
+                    $"[{DateTime.UtcNow:O}] FATAL: {ex}\n");
+            }
+            catch { /* give up */ }
+
+            try { Console.Error.WriteLine($"FATAL: {ex.Message}"); }
+            catch { /* no console */ }
+
+            return 2;
+        }
+    }
+
+    static async Task<int> RunApp(string[] args)
+    {
+        try { Console.OutputEncoding = Encoding.UTF8; }
+        catch { /* no console — headless mode */ }
 
         bool onceMode = args.Contains("--once");
+        bool headlessMode = args.Contains("--headless");
         string? configPath = args.FirstOrDefault(a => a.StartsWith("--config="))?["--config=".Length..];
         configPath ??= Path.Combine(AppContext.BaseDirectory, "settings.json");
+
+        // ── Auto-detect headless mode (no TTY = launched from Finder) ───────
+        if (!headlessMode && !HasTty())
+        {
+            headlessMode = true;
+            WriteLog("Running in headless mode (no TTY detected — likely launched from Finder/Dock).");
+        }
 
         PrintBanner();
 
         // ── Load or create settings ──────────────────────────────────────────
-        var settings = LoadOrCreateSettings(configPath);
-        if (settings == null) return 1;
+        var settings = LoadOrCreateSettings(configPath, headlessMode);
+        if (settings == null)
+        {
+            WriteLog($"No settings found at: {configPath}");
+            WriteLog("Run from Terminal with: ./UkuuHrSync");
+            WriteLog("Or create settings.json manually. See README for format.");
+            return 1;
+        }
 
         var scheme = settings.UseHttps.GetValueOrDefault(true) ? "https" : "http";
-        Console.WriteLine($"\n  Device:   {scheme}://{settings.DeviceIp}:{settings.DevicePort}");
-        Console.WriteLine($"  Username: {settings.DeviceUsername}");
-        Console.WriteLine($"  Cloud:    {settings.CloudUrl}");
-        Console.WriteLine($"  Interval: {settings.SyncIntervalMinutes} min");
-        Console.WriteLine();
+        WriteLog($"\n  Device:   {scheme}://{settings.DeviceIp}:{settings.DevicePort}");
+        WriteLog($"  Username: {settings.DeviceUsername}");
+        WriteLog($"  Cloud:    {settings.CloudUrl}");
+        WriteLog($"  Interval: {settings.SyncIntervalMinutes} min");
+        WriteLog("");
 
         if (!onceMode)
         {
-            Console.WriteLine("  Press Ctrl+C to stop. The bridge will auto-sync every " +
+            WriteLog("  Press Ctrl+C to stop. The bridge will auto-sync every " +
                 $"{settings.SyncIntervalMinutes} minutes.\n");
         }
 
@@ -65,11 +127,11 @@ class Program
             {
                 await RunSync(settings, lastSync, cts.Token);
                 lastSync = DateTime.UtcNow;
-                Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] Sync complete. Next sync in {settings.SyncIntervalMinutes} min.\n");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Sync complete. Next sync in {settings.SyncIntervalMinutes} min.\n");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}\n");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}\n");
             }
 
             if (onceMode) break;
@@ -78,8 +140,27 @@ class Program
             catch (TaskCanceledException) { break; }
         }
 
-        Console.WriteLine("  Ukuu HR Sync Bridge stopped.");
+        WriteLog("  Ukuu HR Sync Bridge stopped.");
         return 0;
+    }
+
+    /// <summary>
+    /// Write a log line to both the console (if available) and a persistent log file.
+    /// This ensures messages are visible even in headless / no-TTY mode.
+    /// </summary>
+    static void WriteLog(string message)
+    {
+        // Write to console if possible
+        try { Console.WriteLine(message); }
+        catch { /* no console — ignore */ }
+
+        // Always append to log file for headless debugging
+        try
+        {
+            var logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.log");
+            File.AppendAllText(logPath, $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {message}\n");
+        }
+        catch { /* can't write log — nothing more we can do */ }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -91,7 +172,7 @@ class Program
         var baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
         var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.DeviceUsername}:{settings.DevicePassword}"));
 
-        Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] Connecting to device at {baseUrl}...");
+        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connecting to device at {baseUrl}...");
 
         // ── Step 1: Get device info (validates connection) ───────────────────
         string deviceName = "Unknown", deviceModel = "Unknown";
@@ -109,16 +190,16 @@ class Program
                 var xml = await infoResp.Content.ReadAsStringAsync(ct);
                 deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
                 deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
-                Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] Connected: {deviceName} ({deviceModel})");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connected: {deviceName} ({deviceModel})");
             }
             else
             {
-                Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] WARNING: Could not get device info (HTTP {(int)infoResp.StatusCode}). Continuing with event fetch...");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Could not get device info (HTTP {(int)infoResp.StatusCode}). Continuing with event fetch...");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] WARNING: Device info probe failed: {ex.Message}. Continuing...");
+            WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Device info probe failed: {ex.Message}. Continuing...");
         }
 
         // ── Step 2: Fetch attendance events via AcsEvent ─────────────────────
@@ -151,7 +232,7 @@ class Program
             if (!eventResp.IsSuccessStatusCode)
             {
                 // Fallback: try AuditLog XML endpoint
-                Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] AcsEvent returned HTTP {(int)eventResp.StatusCode}, trying AuditLog...");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent returned HTTP {(int)eventResp.StatusCode}, trying AuditLog...");
                 var auditUrl = $"{baseUrl}/ISAPI/AccessControl/AuditLog/search?searchID=sync_{DateTime.UtcNow:yyyyMMddHHmmss}&startTime={Uri.EscapeDataString(fromTime)}&endTime={Uri.EscapeDataString(toTime)}&maxResults=1000";
                 var auditResp = await _httpClient.GetAsync(auditUrl, ct);
                 if (auditResp.IsSuccessStatusCode)
@@ -172,17 +253,17 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] ERROR fetching events: {ex.Message}");
+            WriteLog($"  [{DateTime.Now:HH:mm:ss}] ERROR fetching events: {ex.Message}");
             return;
         }
 
         if (events.Count == 0)
         {
-            Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] No new attendance events found (range: {fromTime} to {toTime}).");
+            WriteLog($"  [{DateTime.Now:HH:mm:ss}] No new attendance events found (range: {fromTime} to {toTime}).");
             return;
         }
 
-        Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] Fetched {events.Count} attendance events. Pushing to cloud...");
+        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Fetched {events.Count} attendance events. Pushing to cloud...");
 
         // ── Step 3: Push events to the cloud API ────────────────────────────
         var payload = JsonSerializer.Serialize(new
@@ -207,21 +288,38 @@ class Program
 
             if (cloudResp.IsSuccessStatusCode)
             {
-                using var doc = JsonDocument.Parse(cloudJson);
-                var root = doc.RootElement;
-                Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] Cloud sync complete: " +
-                    $"{root.GetProperty("eventsFetched").GetInt32()} events, " +
-                    $"{root.GetProperty("employeesMatched").GetInt32()} matched, " +
-                    $"{root.GetProperty("recordsImported").GetInt32()} imported.");
+                // ── Parse cloud response safely — never crash on unexpected JSON ──
+                try
+                {
+                    using var doc = JsonDocument.Parse(cloudJson);
+                    var root = doc.RootElement;
+
+                    int fetched = 0, matched = 0, imported = 0;
+                    if (root.TryGetProperty("eventsFetched", out var ef) && ef.ValueKind == JsonValueKind.Number)
+                        fetched = ef.GetInt32();
+                    if (root.TryGetProperty("employeesMatched", out var em) && em.ValueKind == JsonValueKind.Number)
+                        matched = em.GetInt32();
+                    if (root.TryGetProperty("recordsImported", out var ri) && ri.ValueKind == JsonValueKind.Number)
+                        imported = ri.GetInt32();
+
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud sync complete: " +
+                        $"{fetched} events, {matched} matched, {imported} imported.");
+                }
+                catch (JsonException jex)
+                {
+                    // API returned 200 but unexpected JSON body — log but don't crash
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud sync OK (response: {cloudJson[..Math.Min(cloudJson.Length, 200)]})");
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] NOTE: Could not parse cloud response details: {jex.Message}");
+                }
             }
             else
             {
-                Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] Cloud API error (HTTP {(int)cloudResp.StatusCode}): {cloudJson[..Math.Min(cloudJson.Length, 200)]}");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud API error (HTTP {(int)cloudResp.StatusCode}): {cloudJson[..Math.Min(cloudJson.Length, 200)]}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] ERROR pushing to cloud: {ex.Message}");
+            WriteLog($"  [{DateTime.Now:HH:mm:ss}] ERROR pushing to cloud: {ex.Message}");
         }
     }
 
@@ -233,7 +331,7 @@ class Program
     // ═══════════════════════════════════════════════════════════════════════
     // Settings
     // ═══════════════════════════════════════════════════════════════════════
-    static SyncSettings? LoadOrCreateSettings(string path)
+    static SyncSettings? LoadOrCreateSettings(string path, bool headlessMode)
     {
         if (File.Exists(path))
         {
@@ -246,46 +344,74 @@ class Program
                 });
                 if (loaded != null && loaded.IsValid())
                 {
-                    Console.WriteLine($"  Loaded settings from: {path}");
+                    WriteLog($"  Loaded settings from: {path}");
                     return loaded;
+                }
+                else
+                {
+                    WriteLog($"  WARNING: settings.json at {path} is invalid. Falling back to defaults.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"  WARNING: Could not load settings.json: {ex.Message}");
+                WriteLog($"  WARNING: Could not load settings.json: {ex.Message}");
             }
         }
 
-        // Interactive setup
+        // ── Headless mode: create default settings.json and return it ────────
+        // When launched from Finder (no TTY), we can't do interactive setup.
+        // Write a default config that the user can edit manually.
+        if (headlessMode || !HasTty())
+        {
+            var defaults = new SyncSettings();
+            try
+            {
+                var json = JsonSerializer.Serialize(defaults, new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                File.WriteAllText(path, json);
+                WriteLog($"\n  No settings.json found. Created default at: {path}");
+                WriteLog("  Edit this file with your Hikvision device details, then restart.");
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"\n  WARNING: Could not save default settings: {ex.Message}");
+            }
+            return defaults;
+        }
+
+        // ── Interactive setup (TTY available) ───────────────────────────────
         Console.WriteLine("  First-time setup — enter your Hikvision device details:\n");
 
         Console.Write("  Device IP Address [192.168.1.137]: ");
-        var ip = Console.ReadLine()?.Trim();
+        var ip = ReadLineSafe()?.Trim();
         if (string.IsNullOrEmpty(ip)) ip = "192.168.1.137";
 
         Console.Write("  Port [80]: ");
-        var portStr = Console.ReadLine()?.Trim();
+        var portStr = ReadLineSafe()?.Trim();
         int port = int.TryParse(portStr, out var p) ? p : 80;
 
         Console.Write("  Use HTTPS? (y/n) [n]: ");
-        var https = Console.ReadLine()?.Trim().ToLower() == "y";
+        var https = ReadLineSafe()?.Trim().ToLower() == "y";
 
         Console.Write("  Username [admin]: ");
-        var user = Console.ReadLine()?.Trim();
+        var user = ReadLineSafe()?.Trim();
         if (string.IsNullOrEmpty(user)) user = "admin";
 
         Console.Write("  Password: ");
         var pass = ReadPassword();
 
         Console.Write("  Cloud URL [https://ukuuhr.com]: ");
-        var cloudUrl = Console.ReadLine()?.Trim();
+        var cloudUrl = ReadLineSafe()?.Trim();
         if (string.IsNullOrEmpty(cloudUrl)) cloudUrl = "https://ukuuhr.com";
 
         Console.Write("  API Key (leave empty if not set): ");
-        var apiKey = Console.ReadLine()?.Trim();
+        var apiKey = ReadLineSafe()?.Trim();
 
         Console.Write("  Sync interval in minutes [5]: ");
-        var intervalStr = Console.ReadLine()?.Trim();
+        var intervalStr = ReadLineSafe()?.Trim();
         int interval = int.TryParse(intervalStr, out var i) ? i : 5;
 
         var settings = new SyncSettings
@@ -319,22 +445,46 @@ class Program
         return settings;
     }
 
+    /// <summary>
+    /// Safe wrapper for Console.ReadLine() — returns null instead of throwing
+    /// when no TTY is attached (macOS .app bundle launched from Finder).
+    /// </summary>
+    static string? ReadLineSafe()
+    {
+        try { return Console.ReadLine(); }
+        catch (IOException) { return null; }
+        catch (InvalidOperationException) { return null; }
+    }
+
     static string ReadPassword()
     {
         var pass = new StringBuilder();
         while (true)
         {
-            var key = Console.ReadKey(true);
+            ConsoleKeyInfo key;
+            try { key = Console.ReadKey(true); }
+            catch (IOException)
+            {
+                // No TTY — can't read password interactively, return empty
+                Console.WriteLine();
+                return "";
+            }
+            catch (InvalidOperationException)
+            {
+                Console.WriteLine();
+                return "";
+            }
+
             if (key.Key == ConsoleKey.Enter) break;
             if (key.Key == ConsoleKey.Backspace && pass.Length > 0)
             {
                 pass.Remove(pass.Length - 1, 1);
-                Console.Write("\b \b");
+                try { Console.Write("\b \b"); } catch { }
             }
             else if (key.KeyChar != '\0')
             {
                 pass.Append(key.KeyChar);
-                Console.Write("*");
+                try { Console.Write("*"); } catch { }
             }
         }
         Console.WriteLine();
@@ -343,13 +493,21 @@ class Program
 
     static void PrintBanner()
     {
-        Console.WriteLine();
-        Console.WriteLine("  ╔═══════════════════════════════════════════════╗");
-        Console.WriteLine("  ║         UKUU HR — SYNC BRIDGE v1.3.0          ║");
-        Console.WriteLine("  ╠═══════════════════════════════════════════════╣");
-        Console.WriteLine("  ║  Connects Hikvision devices to Ukuu HR cloud  ║");
-        Console.WriteLine("  ╚═══════════════════════════════════════════════╝");
-        Console.WriteLine();
+        var lines = new[]
+        {
+            "",
+            "  ╔═══════════════════════════════════════════════╗",
+            "  ║         UKUU HR — SYNC BRIDGE v1.3.1          ║",
+            "  ╠═══════════════════════════════════════════════╣",
+            "  ║  Connects Hikvision devices to Ukuu HR cloud  ║",
+            "  ╚═══════════════════════════════════════════════╝",
+            ""
+        };
+        foreach (var line in lines)
+        {
+            try { Console.WriteLine(line); }
+            catch { /* no console */ }
+        }
     }
 }
 
@@ -373,4 +531,3 @@ class SyncSettings
         !string.IsNullOrEmpty(DeviceUsername) &&
         !string.IsNullOrEmpty(CloudUrl);
 }
-

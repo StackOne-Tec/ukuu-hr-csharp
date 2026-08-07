@@ -11,6 +11,7 @@ name: Build Desktop Apps
 #   1. Windows job  — publishes a self-contained single-file .exe (win-x64)
 #   2. macOS job    — publishes the arm64 binary, wraps in .app bundle,
 #                     ad-hoc codesigns (prevents "damaged" Gatekeeper error),
+#                     sets LSUIElement=true (background app, no Dock icon),
 #                     then packages into a .dmg (hdiutil requires macOS runner)
 #   3. Release job  — attaches both files to the GitHub Release.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ jobs:
               <key>CFBundlePackageType</key><string>APPL</string>
               <key>LSMinimumSystemVersion</key><string>11.0</string>
               <key>NSHighResolutionCapable</key><true/>
+              <key>LSUIElement</key><true/>
           </dict>
           </plist>
           PLISTEOF
@@ -114,11 +116,27 @@ jobs:
             Option B — Terminal: xattr -cr /Applications/UkuuHrSync.app
             Then open the app normally.
 
-          COMMAND-LINE OPTIONS:
-            UkuuHrSync --once                     single sync, then exit
-            UkuuHrSync --config=settings.json     use a saved config file
+          CONFIGURATION:
+            On first launch, the app creates a default settings.json next to
+            the app binary. Edit this file with your Hikvision device details:
+              - deviceIp: your device's IP address
+              - devicePort: port (default 80)
+              - deviceUsername / devicePassword: device credentials
+              - cloudUrl: Ukuu HR cloud URL (default https://ukuuhr.com)
+              - apiKey: API key for cloud authentication
+              - syncIntervalMinutes: how often to sync (default 5)
 
-          Settings are stored in settings.json next to the app.
+            Or run from Terminal for interactive setup:
+              /Applications/UkuuHrSync.app/Contents/MacOS/UkuuHrSync
+
+          COMMAND-LINE OPTIONS:
+            UkuuHrSync                           interactive setup + continuous sync
+            UkuuHrSync --once                    single sync, then exit
+            UkuuHrSync --headless                non-interactive (requires settings.json)
+            UkuuHrSync --config=settings.json    use a specific config file
+
+          LOGS:
+            The app writes logs to ukuu-sync.log next to the binary.
           READMEEOF
 
       - name: Ad-hoc codesign the .app bundle
@@ -192,7 +210,9 @@ jobs:
             1. Open the .dmg → drag **UkuuHrSync.app** to **Applications**
             2. First launch: **right-click** the app → **Open** → click **Open** again
                — or run `xattr -cr /Applications/UkuuHrSync.app` in Terminal
-            3. Subsequent launches work normally
+            3. On first run, a default `settings.json` is created — edit it with your Hikvision device details, then restart the app
+            4. Or run from Terminal for interactive setup: `/Applications/UkuuHrSync.app/Contents/MacOS/UkuuHrSync`
+            5. Subsequent launches work normally
           files: |
             ./release/UkuuHr-Windows-x64.exe
             ./release/UkuuHr-macOS-arm64.dmg
