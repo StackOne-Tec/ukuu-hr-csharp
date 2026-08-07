@@ -1,10 +1,77 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Ukuu HR — .dockerignore
+# ─────────────────────────────────────────────────────────────────────────────
+# Keep the Docker context small for faster builds.
+
+# Build outputs
 bin/
 obj/
+**/bin/
+**/obj/
+
+# Database files
 *.db
 *.db-*
+*.db-journal
+
+# Logs
 *.log
+
+# IDE / editor
 .vs/
+.vscode/
 .idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Git
 .git/
 .gitignore
+.gitattributes
+
+# Docker (avoid recursive context)
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# CI/CD
+.github/
+
+# Documentation
 README.md
+LICENSE
+CHANGELOG.md
+
+# Python scripts (not needed in Docker)
+hikvision_fetch.py
+
+# Cloud deployment configs (not needed in Docker image)
+render.yaml
+fly.toml
+render.json
+
+# Environment files (should be passed at runtime, not baked in)
+.env
+.env.*
+!.env.example
+
+# Test projects (not needed in production image)
+UkuuHr.Tests/
+
+# Tool results / skills (dev artifacts)
+tool-results/
+skills/
+
+# macOS artifacts
+.DS_Store
+*.dmg
+
+# Windows artifacts
+*.exe
+Thumbs.db
+
+# Nested clone artifact
+ukuu-hr-csharp/

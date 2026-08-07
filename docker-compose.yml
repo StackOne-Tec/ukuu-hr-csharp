@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Ukuu HR — Docker Compose
+# ─────────────────────────────────────────────────────────────────────────────
+# Run on Windows, macOS, or Linux with:  docker compose up
+#
+# Options:
+#   docker compose up                  — start in foreground
+#   docker compose up -d               — start in background (detached)
+#   docker compose logs -f             — follow logs
+#   docker compose down               — stop and remove containers
+#   docker compose up --build         — rebuild and start
+#
+# The web app will be available at http://localhost:8080
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  ukuu-hr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ukuu-hr
+    ports:
+      - "8080:8080"
+    environment:
+      # ── Application ──
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+
+      # ── PostgreSQL connection (REQUIRED for production) ──
+      # Set this in .env file or override on command line:
+      #   POSTGRES_CONNECTION_STRING=Host=...;Port=5432;Database=...;Username=...;Password=...;SSL Mode=Require;TrustServerCertificate=true
+      - POSTGRES_CONNECTION_STRING=${POSTGRES_CONNECTION_STRING:-}
+
+      # ── Alternative: DATABASE_URL (Render-style postgres:// URL) ──
+      - DATABASE_URL=${DATABASE_URL:-}
+
+      # ── Demo data seeding ──
+      # Set to "true" for first-run demo data; "false" for production
+      - SEED_DEMO_DATA=${SEED_DEMO_DATA:-false}
+
+      # ── Resend email API key ──
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+
+      # ── API key for external integrations ──
+      - UKUU_API_KEY=${UKUU_API_KEY:-}
+
+      # ── Encryption master key (AES-256-CBC) ──
+      - UKUU_ENCRYPTION_KEY=${UKUU_ENCRYPTION_KEY:-}
+
+      # ── Port override (for Render / cloud platforms) ──
+      - PORT=${PORT:-8080}
+    volumes:
+      # Persist SQLite database if using SQLite fallback
+      - ukuu-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  ukuu-data:
+    driver: local

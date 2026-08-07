@@ -1,5 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Ukuu HR — Multi-arch Docker Image (linux/amd64 + linux/arm64)
+# ─────────────────────────────────────────────────────────────────────────────
+# Builds and runs on:
+#   • Windows 10/11  (Docker Desktop with WSL2)
+#   • macOS Intel    (Docker Desktop, linux/amd64 via emulation or native)
+#   • macOS Apple Silicon (Docker Desktop, linux/arm64 native)
+#   • Any Linux x64 / ARM64 host
+#
+# Build:
+#   docker build -t ukuu-hr:latest .
+#
+# Multi-arch build (pushes to registry):
+#   docker buildx build --platform linux/amd64,linux/arm64 -t ukuu-hr:latest .
+#
+# Run:
+#   docker run -p 8080:8080 -e POSTGRES_CONNECTION_STRING="..." ukuu-hr:latest
+# ─────────────────────────────────────────────────────────────────────────────
+
 # ───────────── Build stage ─────────────
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
 WORKDIR /src
 
 # ── Restore web project ──
@@ -13,8 +33,12 @@ RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
 # ── Build desktop apps (cross-compile from Linux) ──
 # These are self-contained single-file executables — no .NET runtime needed on the target machine.
+# They are placed in wwwroot/downloads/ so users can download them from the web UI.
 WORKDIR /src
 COPY UkuuHr.Desktop/ ./UkuuHr.Desktop/
+
+# Ensure the downloads directory exists
+RUN mkdir -p /app/publish/wwwroot/downloads
 
 # Windows x64
 RUN dotnet publish ./UkuuHr.Desktop/UkuuHr.Desktop.csproj \
@@ -33,7 +57,7 @@ RUN dotnet publish ./UkuuHr.Desktop/UkuuHr.Desktop.csproj \
 # ───────────── Runtime stage ─────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
-# Install ICU + curl for health checks.
+# Install ICU for full Unicode/globalization support + curl for health checks.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libicu-dev \
     curl \
@@ -42,22 +66,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY --from=build /app/publish .
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 # ── Run as a non-root user with its own UID ──
-# Render's shared hosts cap inotify instances at 128 per USER. The .NET runtime
-# registers FileSystemWatchers (1 inotify instance each) for config reload inside
-# WebApplication.CreateBuilder; when the container runs as root it shares root's
-# budget with every other root container on the host, which exhausts the limit
-# and crashes the app. A dedicated UID gets its own budget.
+# Docker hosts cap inotify instances at 128 per USER. The .NET runtime
+# registers FileSystemWatchers for config reload; when the container runs as
+# root it shares root's budget with every other root container on the host,
+# which exhausts the limit and crashes the app. A dedicated UID gets its own budget.
 # /app is made writable so the SQLite dev fallback (ukuuhr.db) still works.
 RUN chown -R $APP_UID:$APP_UID /app
 USER $APP_UID
 
-# Render sets $PORT — bind to it
-ENV ASPNETCORE_URLS=http://+:${PORT:-8080}
+# ── Environment defaults ──
+ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "UkuuHr.Web.dll"]
+# Health check — curl /health endpoint every 30s
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./entrypoint.sh"]
