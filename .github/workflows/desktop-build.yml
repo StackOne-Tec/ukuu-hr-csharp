@@ -9,11 +9,10 @@ name: Build Desktop Apps
 #
 # On every v* tag push:
 #   1. Windows job  — publishes a self-contained single-file .exe (win-x64)
-#   2. macOS job    — publishes the arm64 binary and wraps it in a .dmg
-#                     (hdiutil requires a real macOS runner)
-#   3. Release job  — attaches UkuuHr-Windows-x64.exe + UkuuHr-macOS-arm64.dmg
-#                     to the GitHub Release. GitHub's "releases/latest" then
-#                     always resolves to this newest pair.
+#   2. macOS job    — publishes the arm64 binary, wraps in .app bundle,
+#                     ad-hoc codesigns (prevents "damaged" Gatekeeper error),
+#                     then packages into a .dmg (hdiutil requires macOS runner)
+#   3. Release job  — attaches both files to the GitHub Release.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -76,7 +75,9 @@ jobs:
           chmod +x "$APP/Contents/MacOS/UkuuHrSync"
           # Brand mark .icns — shows as the app icon in Finder / Dock
           cp ./UkuuHr.Desktop/Ukuu_brand_mark.icns "$APP/Contents/Resources/UkuuHrSync.icns"
-          cat > "$APP/Contents/Info.plist" <<'EOF'
+
+          # Write Info.plist (no leading whitespace — heredoc must be flush left)
+          cat > "$APP/Contents/Info.plist" <<PLISTEOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -84,8 +85,8 @@ jobs:
               <key>CFBundleName</key><string>Ukuu HR Sync</string>
               <key>CFBundleDisplayName</key><string>Ukuu HR Sync</string>
               <key>CFBundleIdentifier</key><string>com.ukuuhr.syncbridge</string>
-              <key>CFBundleVersion</key><string>1.3.0</string>
-              <key>CFBundleShortVersionString</key><string>1.3.0</string>
+              <key>CFBundleVersion</key><string>1.3.1</string>
+              <key>CFBundleShortVersionString</key><string>1.3.1</string>
               <key>CFBundleExecutable</key><string>UkuuHrSync</string>
               <key>CFBundleIconFile</key><string>UkuuHrSync</string>
               <key>CFBundlePackageType</key><string>APPL</string>
@@ -93,29 +94,57 @@ jobs:
               <key>NSHighResolutionCapable</key><true/>
           </dict>
           </plist>
-          EOF
-          cat > ./dmg/README.txt <<'EOF'
-          UKUU HR — SYNC BRIDGE v1.3.0
+          PLISTEOF
+
+          # Write Applications symlink target folder
+          mkdir -p ./dmg/Applications
+          ln -s /Applications ./dmg/Applications
+
+          # Write README
+          cat > ./dmg/README.txt <<READMEEOF
+          UKUU HR — SYNC BRIDGE v1.3.1
 
           Connects a Hikvision biometric terminal to the Ukuu HR cloud via ISAPI.
 
-          Usage:
-            Open UkuuHrSync.app — interactive first-time setup, then auto-sync
+          INSTALL:
+            Drag UkuuHrSync.app to the Applications folder.
 
-          Command-line options (from a Terminal):
+          FIRST LAUNCH (macOS may block unsigned apps):
+            Option A — Right-click UkuuHrSync.app → Open → click Open
+            Option B — Terminal: xattr -cr /Applications/UkuuHrSync.app
+            Then open the app normally.
+
+          COMMAND-LINE OPTIONS:
             UkuuHrSync --once                     single sync, then exit
             UkuuHrSync --config=settings.json     use a saved config file
 
-          Notes:
-            - Settings are stored in settings.json next to the app.
-            - Unsigned build: if macOS blocks it, right-click the app -> Open,
-              or run: xattr -dr com.apple.quarantine UkuuHrSync.app
-          EOF
+          Settings are stored in settings.json next to the app.
+          READMEEOF
+
+      - name: Ad-hoc codesign the .app bundle
+        run: |
+          # Ad-hoc sign (-s -) the app and all nested code (frameworks, dylibs).
+          # This creates a valid local signature that prevents the macOS
+          # "app is damaged and can't be opened" Gatekeeper error.
+          # Without ANY signature, macOS rejects the app as damaged.
+          # With ad-hoc signature, macOS shows the standard "unidentified developer"
+          # dialog which the user can bypass with right-click → Open.
+          codesign --force --deep -s - ./dmg/UkuuHrSync.app
+          # Verify the signature
+          codesign --verify --verbose ./dmg/UkuuHrSync.app 2>&1 || true
+          echo "Ad-hoc codesign complete"
 
       - name: Create .dmg
         run: |
           hdiutil create -volname "Ukuu HR Sync" -srcfolder ./dmg \
             -ov -format UDZO UkuuHr-macOS-arm64.dmg
+
+      - name: Ad-hoc codesign the .dmg
+        run: |
+          # Sign the DMG itself so macOS doesn't flag it as damaged
+          codesign --force -s - UkuuHr-macOS-arm64.dmg
+          codesign --verify --verbose UkuuHr-macOS-arm64.dmg 2>&1 || true
+          echo "DMG codesign complete"
 
       - name: Verify .dmg
         run: hdiutil verify UkuuHr-macOS-arm64.dmg
@@ -155,8 +184,15 @@ jobs:
           name: Ukuu HR Desktop ${{ github.ref_name }}
           body: |
             ## Downloads
-            - **UkuuHr-Windows-x64.exe** — Windows 10+ (64-bit). Self-contained single-file executable — no .NET runtime needed. Run `UkuuHr.exe` for first-time setup.
-            - **UkuuHr-macOS-arm64.dmg** — macOS 11+ (Apple Silicon). Disk image containing the `UkuuHrSync` binary. Unsigned build — right-click → Open on first launch.
+            - **UkuuHr-Windows-x64.exe** — Windows 10+ (64-bit). Self-contained single-file executable — no .NET runtime needed. SmartScreen may warn on first run: click "More info" → "Run anyway".
+
+            - **UkuuHr-macOS-arm64.dmg** — macOS 11+ (Apple Silicon). Ad-hoc signed disk image with `UkuuHrSync.app`.
+
+            ### macOS Install
+            1. Open the .dmg → drag **UkuuHrSync.app** to **Applications**
+            2. First launch: **right-click** the app → **Open** → click **Open** again
+               — or run `xattr -cr /Applications/UkuuHrSync.app` in Terminal
+            3. Subsequent launches work normally
           files: |
             ./release/UkuuHr-Windows-x64.exe
             ./release/UkuuHr-macOS-arm64.dmg
