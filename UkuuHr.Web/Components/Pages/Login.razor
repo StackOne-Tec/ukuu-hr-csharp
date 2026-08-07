@@ -7,143 +7,1426 @@
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
 
-<div class="bk-auth">
-    @* ─────────── LEFT: Visual panel ─────────── *@
-    <aside class="bk-auth-visual">
-        <a href="/landing" class="bk-auth-brand" style="text-decoration:none;color:inherit;">
-            <div class="bk-auth-brand-logo"><img src="/ukuu-brand-white.png" alt="Ukuu HR" /></div>
-            <div>
-                <div class="bk-auth-brand-name">UKUU HR</div>
-                <div class="bk-auth-brand-tag">HRMS Platform</div>
-            </div>
-        </a>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   UKUU HR — CINEMATIC LOGIN PAGE
+   Aurora mesh gradients · Glassmorphism · Particle constellation
+   Micro-interactions · Typographic excellence · Staggered entrances
+   ═══════════════════════════════════════════════════════════════════════ */
 
-        <div class="bk-auth-visual-mid">
-            <span class="bk-auth-visual-eyebrow">Remote HR platform · Africa</span>
-            <h1>Welcome back to your <span class="bk-word-outline">workforce</span> command center.</h1>
-            <p class="bk-auth-visual-lead">Sign in to manage employees, run country-compliant payroll, approve leave, and track attendance — all from one focused HR platform built for African businesses.</p>
+/* ─── FONTS (CDN fallback) ─── */
+@@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+/* ─── ROOT LAYOUT ─── */
+.bk-login-root {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ═══════════════════════════════════════════════════════
+   LEFT PANEL — AURORA VISUAL
+   ═══════════════════════════════════════════════════════ */
+.bk-login-visual {
+    position: relative;
+    width: 52%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 40px 48px;
+    overflow: hidden;
+    background: #0E0620;
+    z-index: 1;
+}
+
+/* ─── AURORA MESH GRADIENT (layered animated gradients) ─── */
+.bk-aurora-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.bk-aurora-layer {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.55;
+    will-change: transform;
+}
+
+.bk-aurora-1 {
+    width: 140%;
+    height: 100%;
+    top: -20%;
+    left: -30%;
+    background: radial-gradient(ellipse at 30% 50%, #7B2FBE 0%, #5B1F96 40%, transparent 70%);
+    animation: aurora-drift-1 18s ease-in-out infinite;
+}
+
+.bk-aurora-2 {
+    width: 100%;
+    height: 120%;
+    top: -10%;
+    right: -20%;
+    background: radial-gradient(ellipse at 70% 40%, #6c63ff 0%, #A78BFA 35%, transparent 65%);
+    animation: aurora-drift-2 22s ease-in-out infinite;
+}
+
+.bk-aurora-3 {
+    width: 80%;
+    height: 80%;
+    bottom: -15%;
+    left: 10%;
+    background: radial-gradient(ellipse at 50% 80%, #e85d75 0%, #7B2FBE 40%, transparent 70%);
+    animation: aurora-drift-3 25s ease-in-out infinite;
+    opacity: 0.3;
+}
+
+.bk-aurora-4 {
+    width: 60%;
+    height: 60%;
+    top: 20%;
+    right: 5%;
+    background: radial-gradient(ellipse at 60% 30%, #14a37f 0%, #5B1F96 50%, transparent 70%);
+    animation: aurora-drift-4 30s ease-in-out infinite;
+    opacity: 0.2;
+}
+
+/* ─── NOISE TEXTURE OVERLAY ─── */
+.bk-aurora-noise {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
+    pointer-events: none;
+}
+
+/* ─── CONSTELLATION SVG ─── */
+.bk-constellation {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.12;
+}
+
+.bk-constellation line {
+    stroke: #A78BFA;
+    stroke-width: 0.5;
+    stroke-dasharray: 4 8;
+    animation: constellation-draw 8s ease-in-out infinite;
+}
+
+.bk-constellation circle {
+    fill: #A78BFA;
+    animation: constellation-pulse 4s ease-in-out infinite;
+}
+
+.bk-constellation circle:nth-child(odd) {
+    animation-delay: -2s;
+}
+
+/* ─── FLOATING ORBS / PARTICLES ─── */
+.bk-particles {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.bk-orb {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(167, 139, 250, 0.6), rgba(123, 47, 190, 0.15));
+    box-shadow: 0 0 20px rgba(123, 47, 190, 0.3);
+    animation: orb-float linear infinite;
+    will-change: transform;
+}
+
+.bk-orb:nth-child(1) { width:6px; height:6px; top:12%; left:20%; animation-duration:28s; animation-delay:0s; }
+.bk-orb:nth-child(2) { width:4px; height:4px; top:28%; left:65%; animation-duration:32s; animation-delay:-4s; }
+.bk-orb:nth-child(3) { width:8px; height:8px; top:45%; left:35%; animation-duration:24s; animation-delay:-8s; }
+.bk-orb:nth-child(4) { width:3px; height:3px; top:62%; left:75%; animation-duration:36s; animation-delay:-2s; }
+.bk-orb:nth-child(5) { width:5px; height:5px; top:78%; left:15%; animation-duration:30s; animation-delay:-12s; }
+.bk-orb:nth-child(6) { width:4px; height:4px; top:35%; left:85%; animation-duration:26s; animation-delay:-6s; }
+.bk-orb:nth-child(7) { width:7px; height:7px; top:55%; left:50%; animation-duration:34s; animation-delay:-10s; opacity:0.7; }
+.bk-orb:nth-child(8) { width:3px; height:3px; top:88%; left:42%; animation-duration:22s; animation-delay:-14s; }
+.bk-orb:nth-child(9) { width:5px; height:5px; top:18%; left:48%; animation-duration:38s; animation-delay:-3s; }
+.bk-orb:nth-child(10) { width:4px; height:4px; top:72%; left:60%; animation-duration:27s; animation-delay:-9s; }
+
+/* ─── VISUAL CONTENT (above aurora) ─── */
+.bk-visual-content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    flex: 1;
+}
+
+/* ─── BRAND ─── */
+.bk-login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: #FFFFFF;
+    animation: entrance-down 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.1s;
+}
+
+.bk-login-brand-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.bk-login-brand-logo img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.bk-login-brand-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.bk-login-brand-tag {
+    font-size: 10.5px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: rgba(167, 139, 250, 0.8);
+    margin-top: 1px;
+}
+
+/* ─── SYSTEM STATUS ─── */
+.bk-status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    animation: entrance-down 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.3s;
+}
+
+.bk-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #14a37f;
+    box-shadow: 0 0 8px rgba(20, 163, 127, 0.6);
+    animation: status-pulse 2s ease-in-out infinite;
+}
+
+.bk-status-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ─── HERO TEXT ─── */
+.bk-visual-hero {
+    max-width: 480px;
+    animation: entrance-up 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.25s;
+}
+
+.bk-visual-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #A78BFA;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bk-visual-eyebrow::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: linear-gradient(90deg, #A78BFA, transparent);
+}
+
+.bk-visual-h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+    color: #FFFFFF;
+    margin: 0 0 18px 0;
+}
+
+.bk-visual-h1 .bk-word-glow {
+    background: linear-gradient(135deg, #A78BFA 0%, #e85d75 50%, #6c63ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.bk-visual-lead {
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    color: rgba(255, 255, 255, 0.55);
+    letter-spacing: -0.01em;
+    max-width: 420px;
+}
+
+/* ─── FEATURE CARDS ─── */
+.bk-features-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    animation: entrance-up 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.5s;
+}
+
+.bk-feature-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 20px 18px;
+    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bk-feature-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(167, 139, 250, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(123, 47, 190, 0.15);
+}
+
+.bk-feature-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    font-size: 18px;
+}
+
+.bk-feature-icon--purple {
+    background: rgba(123, 47, 190, 0.2);
+    color: #A78BFA;
+}
+
+.bk-feature-icon--green {
+    background: rgba(20, 163, 127, 0.15);
+    color: #14a37f;
+}
+
+.bk-feature-icon--pink {
+    background: rgba(232, 93, 117, 0.15);
+    color: #e85d75;
+}
+
+.bk-feature-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+}
+
+.bk-feature-desc {
+    font-family: 'Inter', sans-serif;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RIGHT PANEL — FORM
+   ═══════════════════════════════════════════════════════ */
+.bk-login-form-side {
+    flex: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 48px;
+    position: relative;
+    background: #FAFAFE;
+    background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(123, 47, 190, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(167, 139, 250, 0.03) 0%, transparent 50%);
+}
+
+/* ─── BACK LINK ─── */
+.bk-back-link {
+    position: absolute;
+    top: 32px;
+    left: 40px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--bk-ink-3, #7C6BAA);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    transition: color 0.2s ease;
+    animation: entrance-down 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.15s;
+}
+
+.bk-back-link:hover {
+    color: var(--bk-accent, #7B2FBE);
+}
+
+.bk-back-link .material-icons-round {
+    font-size: 16px;
+    transition: transform 0.2s ease;
+}
+
+.bk-back-link:hover .material-icons-round {
+    transform: translateX(-3px);
+}
+
+/* ─── GLASSMORPHISM CARD ─── */
+.bk-login-card {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(24px) saturate(1.2);
+    border: 1px solid rgba(123, 47, 190, 0.08);
+    border-radius: 20px;
+    padding: 40px 36px 36px;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.6),
+        0 4px 6px rgba(123, 47, 190, 0.03),
+        0 12px 24px rgba(123, 47, 190, 0.06),
+        0 32px 64px rgba(123, 47, 190, 0.04);
+    position: relative;
+    animation: card-entrance 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.2s;
+}
+
+/* ─── Subtle inner glow on card ─── */
+.bk-login-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(123, 47, 190, 0.2), transparent);
+    border-radius: 1px;
+}
+
+/* ─── MOBILE BRAND (hidden on desktop) ─── */
+.bk-mobile-brand {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    margin-bottom: 28px;
+    animation: entrance-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.1s;
+}
+
+.bk-mobile-brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #7B2FBE, #5B1F96);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.bk-mobile-brand-logo img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.bk-mobile-brand-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--bk-ink, #2D1B69);
+}
+
+.bk-mobile-brand-tag {
+    font-size: 10px;
+    color: var(--bk-ink-3, #7C6BAA);
+    letter-spacing: 0.03em;
+}
+
+/* ─── HEADER ─── */
+.bk-form-header {
+    margin-bottom: 28px;
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.3s;
+}
+
+.bk-form-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #7B2FBE;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.bk-form-h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--bk-ink, #2D1B69);
+    margin: 0 0 6px 0;
+    line-height: 1.2;
+}
+
+.bk-form-sub {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--bk-ink-3, #7C6BAA);
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+}
+
+/* ─── ERROR BANNER ─── */
+.bk-error-banner {
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.06), rgba(220, 38, 38, 0.1));
+    border: 1px solid rgba(220, 38, 38, 0.18);
+    border-radius: 12px;
+    color: #991b1b;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: shake 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bk-error-banner .material-icons-round {
+    font-size: 18px;
+    color: #DC2626;
+    flex-shrink: 0;
+}
+
+/* ─── FORM FIELDS ─── */
+.bk-field {
+    margin-bottom: 20px;
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bk-field:nth-child(1) { animation-delay: 0.35s; }
+.bk-field:nth-child(2) { animation-delay: 0.42s; }
+
+.bk-label {
+    display: block;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--bk-ink, #2D1B69);
+    letter-spacing: 0.01em;
+    margin-bottom: 7px;
+}
+
+.bk-field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 7px;
+}
+
+.bk-field-link {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #7B2FBE;
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    transition: color 0.2s ease;
+}
+
+.bk-field-link:hover {
+    color: #5B1F96;
+    text-decoration: underline;
+}
+
+/* ─── INPUT WRAPPER ─── */
+.bk-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.bk-input-icon {
+    position: absolute;
+    left: 14px;
+    font-size: 18px;
+    color: var(--bk-ink-3, #7C6BAA);
+    pointer-events: none;
+    transition: color 0.25s ease;
+    z-index: 2;
+}
+
+/* ─── INPUT ─── */
+.bk-input {
+    width: 100%;
+    height: 48px;
+    padding: 0 16px 0 44px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: var(--bk-ink, #2D1B69);
+    background: rgba(248, 246, 255, 0.6);
+    border: 1.5px solid rgba(123, 47, 190, 0.1);
+    border-radius: 12px;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bk-input::placeholder {
+    color: rgba(124, 107, 170, 0.5);
+    font-weight: 400;
+}
+
+.bk-input:hover {
+    border-color: rgba(123, 47, 190, 0.22);
+    background: rgba(248, 246, 255, 0.8);
+}
+
+/* ─── GLOW FOCUS ─── */
+.bk-input:focus {
+    border-color: rgba(123, 47, 190, 0.45);
+    background: #FFFFFF;
+    box-shadow:
+        0 0 0 3px rgba(123, 47, 190, 0.08),
+        0 0 0 6px rgba(123, 47, 190, 0.03),
+        0 2px 8px rgba(123, 47, 190, 0.06);
+}
+
+.bk-input:focus ~ .bk-input-icon,
+.bk-input-wrap:focus-within .bk-input-icon {
+    color: #7B2FBE;
+}
+
+/* ─── PASSWORD TOGGLE ─── */
+.bk-pwd-toggle {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bk-ink-3, #7C6BAA);
+    transition: all 0.2s ease;
+    z-index: 2;
+}
+
+.bk-pwd-toggle:hover {
+    background: rgba(123, 47, 190, 0.06);
+    color: #7B2FBE;
+}
+
+.bk-pwd-toggle .material-icons-round {
+    font-size: 18px;
+}
+
+/* ─── CHECKBOX ─── */
+.bk-check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    cursor: pointer;
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.48s;
+    user-select: none;
+}
+
+.bk-check-row input[type="checkbox"] {
+    display: none;
+}
+
+.bk-check-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid rgba(123, 47, 190, 0.25);
+    background: rgba(248, 246, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+}
+
+.bk-check-box svg {
+    width: 11px;
+    height: 11px;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bk-check-row input:checked + .bk-check-box {
+    background: #7B2FBE;
+    border-color: #7B2FBE;
+    box-shadow: 0 0 0 2px rgba(123, 47, 190, 0.15);
+}
+
+.bk-check-row input:checked + .bk-check-box svg {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.bk-check-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--bk-ink-2, #5B3A9E);
+    letter-spacing: -0.01em;
+}
+
+/* ─── SUBMIT BUTTON ─── */
+.bk-submit-btn {
+    width: 100%;
+    height: 50px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #7B2FBE 0%, #5B1F96 100%);
+    color: #FFFFFF;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.52s;
+    box-shadow:
+        0 2px 4px rgba(123, 47, 190, 0.15),
+        0 8px 16px rgba(123, 47, 190, 0.1);
+}
+
+.bk-submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        0 4px 8px rgba(123, 47, 190, 0.2),
+        0 12px 24px rgba(123, 47, 190, 0.15);
+}
+
+.bk-submit-btn:active {
+    transform: translateY(0px);
+    box-shadow:
+        0 1px 2px rgba(123, 47, 190, 0.15),
+        0 4px 8px rgba(123, 47, 190, 0.1);
+}
+
+/* ─── SHIMMER EFFECT ─── */
+.bk-submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.15) 40%,
+        rgba(255, 255, 255, 0.25) 50%,
+        rgba(255, 255, 255, 0.15) 60%,
+        transparent 100%
+    );
+    animation: shimmer 3s ease-in-out infinite;
+    animation-delay: 1.5s;
+}
+
+.bk-submit-btn .material-icons-round {
+    font-size: 18px;
+    transition: transform 0.2s ease;
+}
+
+.bk-submit-btn:hover .material-icons-round {
+    transform: translateX(3px);
+}
+
+/* ─── DIVIDER ─── */
+.bk-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 24px 0;
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.56s;
+}
+
+.bk-divider::before,
+.bk-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(123, 47, 190, 0.12), transparent);
+}
+
+.bk-divider span {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--bk-ink-3, #7C6BAA);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+/* ─── SOCIAL BUTTONS ─── */
+.bk-social-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.6s;
+}
+
+.bk-social-btn {
+    height: 44px;
+    border: 1.5px solid rgba(123, 47, 190, 0.1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--bk-ink, #2D1B69);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bk-social-btn:hover {
+    border-color: rgba(123, 47, 190, 0.22);
+    background: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(123, 47, 190, 0.06);
+    transform: translateY(-1px);
+}
+
+.bk-social-btn:active {
+    transform: translateY(0px);
+}
+
+/* Google icon */
+.bk-social-icon--google {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+}
+
+/* Microsoft icon */
+.bk-social-icon--ms {
+    width: 18px;
+    height: 18px;
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5px;
+}
+
+.bk-social-icon--ms span {
+    display: block;
+    width: 7px;
+    height: 7px;
+    border-radius: 1px;
+}
+
+.bk-social-icon--ms span:nth-child(1) { background: #F25022; }
+.bk-social-icon--ms span:nth-child(2) { background: #7FBA00; }
+.bk-social-icon--ms span:nth-child(3) { background: #00A4EF; }
+.bk-social-icon--ms span:nth-child(4) { background: #FFB900; }
+
+/* ─── DEMO CREDENTIALS ─── */
+.bk-demo-creds {
+    margin-top: 24px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.04), rgba(167, 139, 250, 0.06));
+    border: 1px solid rgba(123, 47, 190, 0.08);
+    border-radius: 10px;
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.64s;
+}
+
+.bk-demo-creds-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bk-ink-3, #7C6BAA);
+    margin-bottom: 6px;
+}
+
+.bk-demo-creds-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+
+.bk-demo-email {
+    color: #7B2FBE;
+    font-weight: 500;
+}
+
+.bk-demo-sep {
+    color: rgba(123, 47, 190, 0.2);
+}
+
+.bk-demo-pass {
+    color: var(--bk-ink-2, #5B3A9E);
+    font-weight: 400;
+}
+
+/* ─── FOOTER ─── */
+.bk-form-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--bk-ink-3, #7C6BAA);
+    letter-spacing: -0.01em;
+    animation: entrance-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.68s;
+}
+
+.bk-form-footer a {
+    color: #7B2FBE;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.bk-form-footer a:hover {
+    color: #5B1F96;
+    text-decoration: underline;
+}
+
+/* ═══════════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════════ */
+
+/* Aurora drift animations */
+@@keyframes aurora-drift-1 {
+    0%, 100% { transform: translate(0%, 0%) scale(1); }
+    33% { transform: translate(8%, -5%) scale(1.05); }
+    66% { transform: translate(-3%, 8%) scale(0.97); }
+}
+
+@@keyframes aurora-drift-2 {
+    0%, 100% { transform: translate(0%, 0%) scale(1); }
+    33% { transform: translate(-6%, 6%) scale(1.03); }
+    66% { transform: translate(5%, -4%) scale(0.98); }
+}
+
+@@keyframes aurora-drift-3 {
+    0%, 100% { transform: translate(0%, 0%) scale(1) rotate(0deg); }
+    50% { transform: translate(10%, -8%) scale(1.08) rotate(5deg); }
+}
+
+@@keyframes aurora-drift-4 {
+    0%, 100% { transform: translate(0%, 0%) scale(1); }
+    40% { transform: translate(-8%, 6%) scale(1.04); }
+    80% { transform: translate(4%, -3%) scale(0.96); }
+}
+
+/* Constellation animations */
+@@keyframes constellation-draw {
+    0%, 100% { stroke-dashoffset: 0; opacity: 0.6; }
+    50% { stroke-dashoffset: 12; opacity: 1; }
+}
+
+@@keyframes constellation-pulse {
+    0%, 100% { r: 1.5; opacity: 0.5; }
+    50% { r: 2.5; opacity: 1; }
+}
+
+/* Floating orbs */
+@@keyframes orb-float {
+    0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+    25% { transform: translate(30px, -20px) scale(1.2); opacity: 0.9; }
+    50% { transform: translate(-15px, 25px) scale(0.8); opacity: 0.5; }
+    75% { transform: translate(20px, 10px) scale(1.1); opacity: 0.8; }
+    100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+}
+
+/* Status pulse */
+@@keyframes status-pulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(20, 163, 127, 0.4); }
+    50% { box-shadow: 0 0 12px rgba(20, 163, 127, 0.8), 0 0 24px rgba(20, 163, 127, 0.3); }
+}
+
+/* Entrance animations */
+@@keyframes entrance-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@@keyframes entrance-down {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@@keyframes card-entrance {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Shimmer */
+@@keyframes shimmer {
+    0% { left: -100%; }
+    50%, 100% { left: 100%; }
+}
+
+/* Error shake */
+@@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════ */
+
+@@media (max-width: 1024px) {
+    .bk-login-visual {
+        width: 46%;
+        padding: 32px 36px;
+    }
+
+    .bk-visual-h1 {
+        font-size: 34px;
+    }
+
+    .bk-login-form-side {
+        padding: 32px;
+    }
+
+    .bk-login-card {
+        max-width: 380px;
+        padding: 32px 28px 28px;
+    }
+
+    .bk-features-row {
+        gap: 10px;
+    }
+
+    .bk-feature-card {
+        padding: 16px 14px;
+    }
+}
+
+@@media (max-width: 768px) {
+    .bk-login-root {
+        flex-direction: column;
+    }
+
+    .bk-login-visual {
+        display: none;
+    }
+
+    .bk-mobile-brand {
+        display: flex !important;
+    }
+
+    .bk-login-form-side {
+        padding: 24px 20px;
+        min-height: 100vh;
+        background: #FAFAFE;
+    }
+
+    .bk-login-card {
+        max-width: 100%;
+        padding: 28px 24px 24px;
+        border-radius: 16px;
+    }
+
+    .bk-back-link {
+        top: 16px;
+        left: 20px;
+    }
+}
+
+@@media (max-width: 480px) {
+    .bk-login-form-side {
+        padding: 16px;
+    }
+
+    .bk-login-card {
+        padding: 24px 20px 20px;
+        border-radius: 14px;
+    }
+
+    .bk-social-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bk-form-h1 {
+        font-size: 22px;
+    }
+}
+
+/* ─── Reduced motion ─── */
+@@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-delay: 0ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+</style>
+
+
+<div class="bk-login-root">
+
+    @* ═══════════════════════════════════════════════════════
+       LEFT PANEL — AURORA BOREALIS + CONTENT
+       ═══════════════════════════════════════════════════════ *@
+    <aside class="bk-login-visual">
+
+        @* ── Aurora mesh gradient layers ── *@
+        <div class="bk-aurora-canvas">
+            <div class="bk-aurora-layer bk-aurora-1"></div>
+            <div class="bk-aurora-layer bk-aurora-2"></div>
+            <div class="bk-aurora-layer bk-aurora-3"></div>
+            <div class="bk-aurora-layer bk-aurora-4"></div>
+            <div class="bk-aurora-noise"></div>
         </div>
 
-        <div class="bk-auth-visual-foot">
-            <div class="bk-auth-quote">
-                <p>"Ukuu HR brings employees, attendance, payroll, and leave together in one focused platform — purpose-built for African businesses, with country-aware statutory compliance."</p>
-                <div class="bk-auth-quote-foot">
-                    <div class="bk-auth-quote-avatar">U</div>
-                    <div>
-                        <strong>Ukuu HR</strong>
-                        <div>HRMS Platform</div>
+        @* ── Constellation SVG pattern ── *@
+        <svg class="bk-constellation" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            @* Nodes *@
+            <circle cx="80" cy="120" r="1.5" />
+            <circle cx="220" cy="80" r="2" />
+            <circle cx="400" cy="160" r="1.5" />
+            <circle cx="520" cy="60" r="2" />
+            <circle cx="150" cy="280" r="1.5" />
+            <circle cx="350" cy="320" r="2" />
+            <circle cx="500" cy="260" r="1.5" />
+            <circle cx="60" cy="420" r="2" />
+            <circle cx="280" cy="480" r="1.5" />
+            <circle cx="450" cy="440" r="2" />
+            <circle cx="180" cy="600" r="1.5" />
+            <circle cx="380" cy="620" r="2" />
+            <circle cx="540" cy="560" r="1.5" />
+            <circle cx="100" cy="700" r="2" />
+            <circle cx="320" cy="720" r="1.5" />
+            <circle cx="480" cy="740" r="2" />
+            @* Connections *@
+            <line x1="80" y1="120" x2="220" y2="80" />
+            <line x1="220" y1="80" x2="400" y2="160" />
+            <line x1="400" y1="160" x2="520" y2="60" />
+            <line x1="80" y1="120" x2="150" y2="280" />
+            <line x1="150" y1="280" x2="350" y2="320" />
+            <line x1="350" y1="320" x2="500" y2="260" />
+            <line x1="500" y1="260" x2="520" y2="60" />
+            <line x1="60" y1="420" x2="150" y2="280" />
+            <line x1="60" y1="420" x2="280" y2="480" />
+            <line x1="280" y1="480" x2="450" y2="440" />
+            <line x1="350" y1="320" x2="450" y2="440" />
+            <line x1="180" y1="600" x2="280" y2="480" />
+            <line x1="180" y1="600" x2="380" y2="620" />
+            <line x1="380" y1="620" x2="540" y2="560" />
+            <line x1="540" y1="560" x2="450" y2="440" />
+            <line x1="100" y1="700" x2="180" y2="600" />
+            <line x1="100" y1="700" x2="320" y2="720" />
+            <line x1="320" y1="720" x2="380" y2="620" />
+            <line x1="320" y1="720" x2="480" y2="740" />
+            <line x1="480" y1="740" x2="540" y2="560" />
+        </svg>
+
+        @* ── Floating orbs ── *@
+        <div class="bk-particles">
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+            <div class="bk-orb"></div>
+        </div>
+
+        @* ── Content layer ── *@
+        <div class="bk-visual-content">
+
+            @* Brand + Status row *@
+            <div style="display:flex;align-items:center;width:100%;">
+                <a href="/landing" class="bk-login-brand">
+                    <div class="bk-login-brand-logo">
+                        <img src="/ukuu-brand-white.png" alt="Ukuu" />
                     </div>
+                    <div>
+                        <div class="bk-login-brand-name">UKUU HR</div>
+                        <div class="bk-login-brand-tag">HRMS Platform</div>
+                    </div>
+                </a>
+                <div class="bk-status-row">
+                    <div class="bk-status-dot"></div>
+                    <span class="bk-status-text">All systems operational</span>
                 </div>
             </div>
 
-            <div class="bk-auth-visual-stats">
-                <div><strong>13</strong><span>FRS modules</span></div>
-                <div><strong>7</strong><span>Device vendors</span></div>
-                <div><strong>3</strong><span>Country payroll configs</span></div>
+            @* Hero text *@
+            <div class="bk-visual-hero">
+                <div class="bk-visual-eyebrow">Remote HR platform · Africa</div>
+                <h1 class="bk-visual-h1">Welcome back to your <span class="bk-word-glow">workforce</span> command center.</h1>
+                <p class="bk-visual-lead">Sign in to manage employees, run country-compliant payroll, approve leave, and track attendance — all from one focused HR platform built for African businesses.</p>
             </div>
+
+            @* Feature cards *@
+            <div class="bk-features-row">
+                <div class="bk-feature-card">
+                    <div class="bk-feature-icon bk-feature-icon--purple">
+                        <span class="material-icons-round" style="font-size:18px;">groups</span>
+                    </div>
+                    <div class="bk-feature-title">People &amp; Payroll</div>
+                    <div class="bk-feature-desc">Country-compliant payroll for Kenya, Uganda, and Nigeria.</div>
+                </div>
+                <div class="bk-feature-card">
+                    <div class="bk-feature-icon bk-feature-icon--green">
+                        <span class="material-icons-round" style="font-size:18px;">fingerprint</span>
+                    </div>
+                    <div class="bk-feature-title">Smart Attendance</div>
+                    <div class="bk-feature-desc">Biometric device sync with 7+ vendor integrations.</div>
+                </div>
+                <div class="bk-feature-card">
+                    <div class="bk-feature-icon bk-feature-icon--pink">
+                        <span class="material-icons-round" style="font-size:18px;">auto_graph</span>
+                    </div>
+                    <div class="bk-feature-title">Leave &amp; Shifts</div>
+                    <div class="bk-feature-desc">Auto-approve rules, coverage tracking, and overtime.</div>
+                </div>
+            </div>
+
         </div>
     </aside>
 
-    @* ─────────── RIGHT: Form panel ─────────── *@
-    <main class="bk-auth-form-side">
-        <a href="/landing" class="bk-auth-back">
-            <span class="material-icons-round" style="font-size:14px;">arrow_back</span>
+
+    @* ═══════════════════════════════════════════════════════
+       RIGHT PANEL — LOGIN FORM
+       ═══════════════════════════════════════════════════════ *@
+    <main class="bk-login-form-side">
+
+        <a href="/landing" class="bk-back-link">
+            <span class="material-icons-round">arrow_back</span>
             Back to home
         </a>
 
-        <div class="bk-auth-card bk-fade-in">
-            @* Mobile brand (hidden on desktop where visual side is shown) *@
-            <a href="/landing" class="bk-auth-mobile-brand">
-                <div class="bk-auth-brand-logo"><img src="/ukuu-brand-white.png" alt="Ukuu HR" /></div>
+        <div class="bk-login-card">
+
+            @* Mobile brand header (hidden on desktop) *@
+            <a href="/landing" class="bk-mobile-brand">
+                <div class="bk-mobile-brand-logo">
+                    <img src="/ukuu-brand-white.png" alt="Ukuu" />
+                </div>
                 <div>
-                    <div class="bk-auth-brand-name" style="color:var(--bk-ink);">UKUU HR</div>
-                    <div class="bk-auth-brand-tag">HRMS Platform</div>
+                    <div class="bk-mobile-brand-name">UKUU HR</div>
+                    <div class="bk-mobile-brand-tag">HRMS Platform</div>
                 </div>
             </a>
 
-            <div class="bk-auth-header">
-                <span class="bk-auth-eyebrow">Sign in</span>
-                <h1 class="bk-auth-h1">Welcome back</h1>
-                <p class="bk-auth-sub">Sign in to your Ukuu HR workspace to continue.</p>
+            @* Form header *@
+            <div class="bk-form-header">
+                <span class="bk-form-eyebrow">Sign in</span>
+                <h1 class="bk-form-h1">Welcome back</h1>
+                <p class="bk-form-sub">Sign in to your Ukuu HR workspace to continue.</p>
             </div>
 
-            <form method="post" action="/auth/login@(_returnUrlEncoded)" class="bk-form">
+            @* Login form with exact Blazor bindings *@
+            <form method="post" action="/auth/login@(_returnUrlEncoded)">
+
                 @if (_error != null)
                 {
-                    <div style="margin-bottom:16px;padding:10px 14px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;color:#991b1b;font-size:13px;display:flex;align-items:center;gap:8px;">
-                        <span class="material-icons-round" style="font-size:18px;">error_outline</span>
+                    <div class="bk-error-banner">
+                        <span class="material-icons-round">error_outline</span>
                         @_error
                     </div>
                 }
 
+                @* Email field *@
                 <div class="bk-field">
                     <label class="bk-label" for="bk-email">Email address</label>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon">mail_outline</span>
-                        <input id="bk-email" type="email" name="FormData.Email" value="@FormData?.Email" class="bk-input" placeholder="you@company.com" autocomplete="email" required />
+                        <input id="bk-email"
+                               type="email"
+                               name="FormData.Email"
+                               value="@FormData?.Email"
+                               class="bk-input"
+                               placeholder="you@company.com"
+                               autocomplete="email"
+                               required />
                     </div>
                 </div>
 
+                @* Password field *@
                 <div class="bk-field">
-                    <div class="bk-auth-row">
+                    <div class="bk-field-row">
                         <label class="bk-label" for="bk-password">Password</label>
-                        <a href="#" class="bk-auth-link">Forgot?</a>
+                        <a href="#" class="bk-field-link">Forgot?</a>
                     </div>
                     <div class="bk-input-wrap">
                         <span class="material-icons-round bk-input-icon">lock_outline</span>
-                        <input id="bk-password" type="password" name="FormData.Password" value="@FormData?.Password" class="bk-input" placeholder="••••••••" autocomplete="current-password" style="padding-right:48px;" required />
-                        <button type="button" class="bk-input-toggle" onclick="togglePasswordVisibility()" aria-label="Toggle password visibility">
-                            <span class="material-icons-round" id="bk-pwd-icon" style="font-size:18px;">visibility</span>
+                        <input id="bk-password"
+                               type="password"
+                               name="FormData.Password"
+                               value="@FormData?.Password"
+                               class="bk-input"
+                               placeholder="••••••••"
+                               autocomplete="current-password"
+                               style="padding-right:48px;"
+                               required />
+                        <button type="button"
+                                class="bk-pwd-toggle"
+                                onclick="togglePasswordVisibility()"
+                                aria-label="Toggle password visibility">
+                            <span class="material-icons-round" id="bk-pwd-icon">visibility</span>
                         </button>
                     </div>
                 </div>
 
+                @* Remember me checkbox with custom design *@
                 <label class="bk-check-row">
-                    <input type="checkbox" name="FormData.RememberMe" value="true" class="bk-check" checked="@(FormData?.RememberMe ?? true)" />
+                    <input type="checkbox"
+                           name="FormData.RememberMe"
+                           value="true"
+                           checked="@(FormData?.RememberMe ?? true)" />
+                    <span class="bk-check-box">
+                        <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
                     <span class="bk-check-label">Remember me for 30 days</span>
                 </label>
 
-                <button type="submit" class="bk-auth-submit">
+                @* Submit button with shimmer *@
+                <button type="submit" class="bk-submit-btn">
                     <span>Sign In to Dashboard</span>
-                    <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
+                    <span class="material-icons-round">arrow_forward</span>
                 </button>
+
             </form>
 
+            @* Social login divider *@
             <div class="bk-divider"><span>or continue with</span></div>
 
+            @* Social buttons *@
             <div class="bk-social-grid">
                 <button type="button" class="bk-social-btn">
-                    <span class="bk-social-icon bk-social-icon-google"></span>
+                    <svg class="bk-social-icon--google" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.84a4.14 4.14 0 0 1-1.8 2.715v2.25h2.91a8.69 8.69 0 0 0 2.69-6.606z" fill="#4285F4"/>
+                        <path d="M9 18c2.43 0 4.47-.806 5.96-2.18l-2.91-2.25c-.806.54-1.837.86-3.05.86-2.35 0-4.34-1.588-5.05-3.72H.96v2.32A8.998 8.998 0 0 0 9 18z" fill="#34A853"/>
+                        <path d="M3.95 10.71A5.42 5.42 0 0 1 3.67 9c0-.593.102-1.17.28-1.71V4.97H.96A8.998 8.998 0 0 0 0 9c0 1.45.35 2.82.96 4.03l2.99-2.32z" fill="#FBBC05"/>
+                        <path d="M9 3.58c1.32 0 2.51.455 3.44 1.345l2.58-2.585A8.94 8.94 0 0 0 9 0 8.998 8.998 0 0 0 .96 4.97l2.99 2.32C4.66 5.158 6.65 3.58 9 3.58z" fill="#EA4335"/>
+                    </svg>
                     Google
                 </button>
                 <button type="button" class="bk-social-btn">
-                    <span class="bk-social-icon bk-social-icon-ms">
+                    <span class="bk-social-icon--ms">
                         <span></span><span></span><span></span><span></span>
                     </span>
                     Microsoft
                 </button>
             </div>
 
+            @* Demo credentials *@
             <div class="bk-demo-creds">
                 <div class="bk-demo-creds-label">Default admin credentials</div>
                 <div class="bk-demo-creds-row">
-                    <span class="bk-demo-creds-email">admin@ukuuhr.demo</span>
-                    <span class="bk-demo-creds-sep">·</span>
-                    <span class="bk-demo-creds-pass">Admin@2025</span>
+                    <span class="bk-demo-email">admin@ukuuhr.demo</span>
+                    <span class="bk-demo-sep">·</span>
+                    <span class="bk-demo-pass">Admin@2025</span>
                 </div>
             </div>
 
-            <div class="bk-auth-footer">
+            @* Footer link *@
+            <div class="bk-form-footer">
                 Don't have an account? <a href="/signup">Create an account</a>
             </div>
+
         </div>
     </main>
+
 </div>
 
+
+@* ─── Password toggle script ─── *@
 <script>
     function togglePasswordVisibility() {
         const input = document.getElementById('bk-password');
         const icon = document.getElementById('bk-pwd-icon');
+        if (!input || !icon) return;
         if (input.type === 'password') {
             input.type = 'text';
             icon.textContent = 'visibility_off';
@@ -153,6 +1436,7 @@
         }
     }
 </script>
+
 
 @code {
     [SupplyParameterFromQuery(Name = "error")]
@@ -174,7 +1458,6 @@
         {
             _error = "Invalid email or password. Try admin@ukuuhr.demo / Admin@2025";
         }
-        // Preserve ReturnUrl in the form action so the POST /auth/login can redirect back
         if (!string.IsNullOrEmpty(ReturnUrl) && ReturnUrl.StartsWith("/"))
         {
             _returnUrlEncoded = $"?ReturnUrl={Uri.EscapeDataString(ReturnUrl)}";
