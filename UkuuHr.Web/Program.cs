@@ -384,6 +384,7 @@ app.UseStaticFiles(new StaticFileOptions
         var fileName = ctx.File.Name;
         if (fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
             fileName.EndsWith(".dmg", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
             fileName.Contains("macOS-arm64", StringComparison.OrdinalIgnoreCase))
         {
             var downloadName = Path.GetFileName(fileName);
@@ -456,7 +457,8 @@ app.MapGet("/api/downloads/{filename}", (string filename, HttpContext ctx) =>
     var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "UkuuHr-Windows-x64.exe",
-        "UkuuHr-macOS-arm64"
+        "UkuuHr-macOS-arm64",
+        "UkuuHr-macOS-arm64.dmg"
     };
 
     if (!allowed.Contains(filename))
@@ -464,12 +466,18 @@ app.MapGet("/api/downloads/{filename}", (string filename, HttpContext ctx) =>
 
     var filePath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "downloads", filename);
     if (!File.Exists(filePath))
-        return Results.NotFound(new { error = "File not found on server.", hint = "Desktop builds may not be included in this deployment." });
+    {
+        // Fallback: redirect to GitHub Releases if the file isn't on this server
+        var githubBase = "https://github.com/StackOne-Tec/ukuu-hr-csharp/releases/latest/download/";
+        return Results.Redirect(githubBase + filename);
+    }
 
     // Determine content type
     var contentType = filename.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
         ? "application/vnd.microsoft.portable-executable"
-        : "application/octet-stream";
+        : filename.EndsWith(".dmg", StringComparison.OrdinalIgnoreCase)
+            ? "application/x-apple-diskimage"
+            : "application/octet-stream";
 
     return Results.File(filePath, contentType, filename, enableRangeProcessing: true);
 }).AllowAnonymous();
