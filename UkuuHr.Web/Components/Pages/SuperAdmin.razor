@@ -572,18 +572,6 @@ select.sa-input {
             <div class="sa-coupon-grid">
                 @foreach (var c in _coupons)
                 {
-                    @{
-                        var statusClass = c.StatusDisplay switch
-                        {
-                            "Active" => "active",
-                            "Expired" => "expired",
-                            "Fully Used" => "fully-used",
-                            "Revoked" => "revoked",
-                            _ => ""
-                        };
-                        var isFullDiscount = c.DiscountPercent == 100;
-                        var usagePct = c.MaxUses > 0 ? Math.Min(100, (int)((double)c.UsedCount / c.MaxUses * 100)) : 0;
-                    }
                     <div class="sa-coupon-card" style="animation: saCardStagger 0.4s ease-out both;">
                         <div class="sa-coupon-banner">
                             <span class="material-icons-round">local_offer</span>
@@ -595,7 +583,7 @@ select.sa-input {
                                     <span class="material-icons-round" style="font-size:14px;opacity:0.7;">vpn_key</span>
                                     @c.Code
                                 </div>
-                                <div class="sa-coupon-discount-badge @(isFullDiscount ? "full" : "partial")">
+                                <div class="sa-coupon-discount-badge @(c.DiscountPercent == 100 ? "full" : "partial")">
                                     @c.DiscountPercent%
                                 </div>
                             </div>
@@ -631,7 +619,7 @@ select.sa-input {
                             {
                                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
                                     <div class="sa-usage-bar">
-                                        <div class="sa-usage-bar-fill" style="width:@usagePct%;"></div>
+                                        <div class="sa-usage-bar-fill" style="width:@(c.MaxUses > 0 ? Math.Min(100, (int)((double)c.UsedCount / c.MaxUses * 100)) : 0)%;"></div>
                                     </div>
                                     <span style="font-size:11px;color:var(--bk-ink-3);white-space:nowrap;">@c.UsedCount / @c.MaxUses</span>
                                 </div>
@@ -640,7 +628,7 @@ select.sa-input {
                             @* ── Meta: Status + Creator + Revoke ── *@
                             <div class="sa-coupon-meta">
                                 <div style="display:flex;align-items:center;gap:10px;">
-                                    <span class="sa-status @statusClass">@c.StatusDisplay</span>
+                                    <span class="sa-status @(c.StatusDisplay switch { "Active" => "active", "Expired" => "expired", "Fully Used" => "fully-used", "Revoked" => "revoked", _ => "" })">@c.StatusDisplay</span>
                                     <span class="sa-coupon-creator">
                                         <span class="material-icons-round" style="font-size:12px;">person</span>
                                         @c.CreatedByEmail
