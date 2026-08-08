@@ -345,6 +345,11 @@ class Program
             Timeout = TimeSpan.FromSeconds(30)
         };
 
+        // Hikvision ISAPI devices require Accept headers to know which response
+        // formats the client supports. Without these, some endpoints return HTTP 400.
+        _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/xml"));
+        _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
         var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         WriteLog($"\n  Device:   {scheme}://{settings.DeviceIp}:{settings.DevicePort}");
         WriteLog($"  Username: {settings.DeviceUsername}");
@@ -589,7 +594,10 @@ class Program
             {
                 // Fallback: try AuditLog XML endpoint
                 WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent returned HTTP {(int)eventResp.StatusCode}, trying AuditLog...");
-                var auditUrl = $"{baseUrl}/ISAPI/AccessControl/AuditLog/search?searchID=sync_{DateTime.UtcNow:yyyyMMddHHmmss}&startTime={Uri.EscapeDataString(fromTime)}&endTime={Uri.EscapeDataString(toTime)}&maxResults=1000";
+                // Use searchID=1 (matching the Web client's working implementation).
+                // Omit maxResults from the URL — it's not a valid query param for
+                // AuditLog/search and causes HTTP 404 on some Hikvision models.
+                var auditUrl = $"{baseUrl}/ISAPI/AccessControl/AuditLog/search?searchID=1&startTime={Uri.EscapeDataString(fromTime)}&endTime={Uri.EscapeDataString(toTime)}";
                 var auditResp = await _httpClient.GetAsync(auditUrl, ct);
                 if (auditResp.IsSuccessStatusCode)
                 {
