@@ -60,13 +60,19 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore UkuuHr.sln
+        run: |
+          dotnet restore UkuuHr.Web/UkuuHr.Web.csproj
+          dotnet restore UkuuHr.Desktop/UkuuHr.Desktop.csproj
+          dotnet restore UkuuHr.Tests/UkuuHr.Tests.csproj
 
       - name: Build
-        run: dotnet build UkuuHr.sln -c Release --no-restore
+        run: |
+          dotnet build UkuuHr.Web/UkuuHr.Web.csproj -c Release --no-restore
+          dotnet build UkuuHr.Desktop/UkuuHr.Desktop.csproj -c Release --no-restore
+          dotnet build UkuuHr.Tests/UkuuHr.Tests.csproj -c Release --no-restore
 
       - name: Test
-        run: dotnet test UkuuHr.sln -c Release --no-build --logger "trx;LogFileName=tests.trx" --logger "console;verbosity=normal"
+        run: dotnet test UkuuHr.Tests/UkuuHr.Tests.csproj -c Release --no-build --logger "trx;LogFileName=tests.trx" --logger "console;verbosity=normal"
 
       - name: Publish test results
         if: always()
@@ -92,7 +98,7 @@ jobs:
     name: Build & Push Docker Image to ghcr.io
     needs: build-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && needs.build-test.result != 'cancelled'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
