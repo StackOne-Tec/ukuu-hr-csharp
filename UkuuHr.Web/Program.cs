@@ -3069,7 +3069,7 @@ app.MapPost("/api/attendance/import-from-device", async (
     // ── 1. Parse + validate the request body ────────────────────────────────
     ImportFromDeviceRequest? body;
     try { body = await ctx.Request.ReadFromJsonAsync<ImportFromDeviceRequest>(); }
-    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); // P2/M-4 }
+    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); } // P2/M-4
     if (body == null) return Results.BadRequest(new { error = "Empty request body." });
 
     if (string.IsNullOrWhiteSpace(body.IpAddress))
@@ -3318,7 +3318,7 @@ app.MapPost("/api/attendance/save-imported", async (
 {
     SaveImportedRequest? body;
     try { body = await ctx.Request.ReadFromJsonAsync<SaveImportedRequest>(); }
-    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); // P2/M-4 }
+    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); } // P2/M-4
     if (body == null || body.Events == null) return Results.BadRequest(new { error = "No events in request body." });
 
     var org = await db.Organizations.FirstOrDefaultAsync();
