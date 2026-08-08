@@ -44,13 +44,21 @@ public class DeviceSyncResultWithEvents
 /// <summary>Shared base class with helper methods for REST connectors.</summary>
 public abstract class RestConnectorBase
 {
-    protected static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    protected static readonly HttpClient SharedClient = new(new HttpClientHandler
+    {
+        // Biometric devices use self-signed certificates; bypass validation for HTTPS.
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+        SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+    })
+    { Timeout = TimeSpan.FromSeconds(30) };
 
     protected RestConnectorBase(ILogger? logger = null) { }
 
     protected static HttpRequestMessage BuildRequest(AttendanceDevice device, string path, HttpMethod? method = null)
     {
-        var url = $"http://{device.IpAddress}:{device.Port ?? 80}{path}";
+        var scheme = device.UseHttps ? "https" : "http";
+        var port = device.Port ?? (device.UseHttps ? 443 : 80);
+        var url = $"{scheme}://{device.IpAddress}:{port}{path}";
         var req = new HttpRequestMessage(method ?? HttpMethod.Get, url);
         if (!string.IsNullOrEmpty(device.Username))
         {
