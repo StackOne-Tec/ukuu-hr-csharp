@@ -7,53 +7,407 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
-<div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Device Integration · @_devices.Count devices · @_vendorsSupported vendors supported</div>
-            <h1 class="bk-admin-h1">Attendance Devices</h1>
-            <p class="bk-admin-sub">
-                Connect third-party time & attendance devices (FR-001). Supports 7 vendors × 4 integration modes
-                (REST API, SDK, TCP/IP, CSV file). Sync automatically or on-demand.
-            </p>
-        </div>
-        <div class="bk-admin-actions">
-            <form method="post" action="/api/devices/sync-all" style="display:inline;">
-                <button type="submit" class="bk-btn bk-btn-secondary">
-                    <span class="material-icons-round" style="font-size:16px;">sync</span>
-                    Sync All
-                </button>
-            </form>
-            <a href="/devices/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
-                <span class="material-icons-round" style="font-size:16px;">add</span>
-                Add Device
-            </a>
-        </div>
-    </div>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR — Device Integration · World-Class Redesign
+   Premium design language · Hardware cards · Micro-interactions
+   ═══════════════════════════════════════════════════════════════ */
 
+@@keyframes dvFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes dvSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes dvCountUp {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@@keyframes dvShimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+@@keyframes dvPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(123,47,190,0.2); }
+    50%      { box-shadow: 0 0 0 6px rgba(123,47,190,0); }
+}
+@@keyframes dvStatusPulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.5; }
+}
+
+.dv-page { animation: dvFadeIn 0.4s ease-out both; }
+
+/* ─── Stats Row ─── */
+.dv-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 28px; animation: dvSlideUp 0.5s ease-out 0.1s both;
+}
+.dv-stat {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+    transition: all 0.25s ease; position: relative; overflow: hidden;
+}
+.dv-stat::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(123,47,190,0.03), transparent 60%);
+    pointer-events: none;
+}
+.dv-stat:hover {
+    border-color: rgba(123,47,190,0.25); transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(123,47,190,0.08);
+}
+.dv-stat-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; transition: transform 0.3s ease;
+}
+.dv-stat:hover .dv-stat-icon { transform: scale(1.08); }
+.dv-stat-icon.purple { background: rgba(123,47,190,0.1); color: #7B2FBE; }
+.dv-stat-icon.green  { background: rgba(20,163,127,0.1); color: #14a37f; }
+.dv-stat-icon.gold   { background: rgba(216,156,17,0.1); color: #d89c11; }
+.dv-stat-icon.red    { background: rgba(220,38,38,0.1); color: #DC2626; }
+.dv-stat-value {
+    font-size: 28px; font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.1; animation: dvCountUp 0.6s ease-out 0.3s both;
+}
+.dv-stat-label {
+    font-size: 12px; font-weight: 600; color: var(--bk-ink-3);
+    letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px;
+}
+
+/* ─── Section Header ─── */
+.dv-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 24px; gap: 20px; flex-wrap: wrap;
+    animation: dvSlideUp 0.5s ease-out 0.15s both;
+}
+.dv-header-left {}
+.dv-header-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--bk-accent); margin-bottom: 6px;
+}
+.dv-header-eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: #14a37f; box-shadow: 0 0 0 3px rgba(20,163,127,0.2);
+    animation: dvPulse 2s ease-in-out infinite;
+}
+.dv-header h1 {
+    font-size: clamp(24px, 3vw, 32px); font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 4px;
+}
+.dv-header-sub { font-size: 14px; color: var(--bk-ink-3); line-height: 1.5; }
+.dv-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ─── Action Buttons ─── */
+.dv-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all 0.2s ease; font-family: inherit;
+}
+.dv-btn-ghost {
+    background: transparent; color: var(--bk-ink-2);
+    border: 1px solid var(--bk-line);
+}
+.dv-btn-ghost:hover { background: var(--bk-muted); border-color: var(--bk-line-strong); }
+.dv-btn-primary {
+    background: linear-gradient(135deg, #7B2FBE, #6A24A8); color: #fff;
+    box-shadow: 0 4px 16px rgba(123,47,190,0.25);
+}
+.dv-btn-primary:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(123,47,190,0.35);
+    background: linear-gradient(135deg, #8B3FCE, #7A34B8);
+}
+.dv-btn-danger {
+    background: transparent; color: var(--bk-error);
+    border: 1px solid var(--bk-line); padding: 8px 12px;
+}
+.dv-btn-danger:hover { background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.3); }
+
+/* ─── Device Grid ─── */
+.dv-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px; animation: dvSlideUp 0.5s ease-out 0.3s both;
+}
+
+/* ─── Device Card ─── */
+.dv-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    overflow: hidden; transition: all 0.3s ease;
+    position: relative;
+}
+.dv-card:hover {
+    border-color: rgba(123,47,190,0.22); transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(123,47,190,0.1), 0 0 0 1px rgba(123,47,190,0.06);
+}
+
+/* Vendor color banner strip */
+.dv-card-banner {
+    height: 4px; width: 100%;
+}
+
+/* Card header area */
+.dv-card-head {
+    padding: 20px 24px 0; display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 12px;
+}
+
+/* Vendor logo icon */
+.dv-vendor-icon {
+    width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease;
+}
+.dv-card:hover .dv-vendor-icon { transform: scale(1.06); }
+
+.dv-card-info { flex: 1; min-width: 0; }
+.dv-card-name {
+    font-size: 16px; font-weight: 700; color: var(--bk-ink);
+    letter-spacing: -0.01em; line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dv-card-detail {
+    font-size: 12px; color: var(--bk-ink-3); margin-top: 3px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.dv-card-detail-sep {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: var(--bk-ink-3); opacity: 0.5; flex-shrink: 0;
+}
+
+/* ─── Status Badges ─── */
+.dv-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 700; padding: 4px 12px; border-radius: 100px;
+    letter-spacing: 0.05em; text-transform: uppercase; flex-shrink: 0;
+}
+.dv-status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+}
+.dv-status.online { background: rgba(20,163,127,0.1); color: #14a37f; }
+.dv-status.online::before { background: #14a37f; animation: dvStatusPulse 2s ease-in-out infinite; }
+.dv-status.error { background: rgba(220,38,38,0.1); color: #DC2626; }
+.dv-status.error::before { background: #DC2626; }
+.dv-status.disabled { background: rgba(107,114,128,0.1); color: #6B7280; }
+.dv-status.disabled::before { background: #6B7280; }
+.dv-status.pending { background: rgba(216,156,17,0.1); color: #d89c11; }
+.dv-status.pending::before { background: #d89c11; animation: dvStatusPulse 2s ease-in-out infinite; }
+
+/* ─── Card Meta Rows ─── */
+.dv-card-meta {
+    display: flex; flex-direction: column; gap: 0;
+    margin-top: 16px; padding: 0 24px;
+}
+.dv-meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; border-bottom: 1px solid var(--bk-line);
+}
+.dv-meta-row:last-child { border-bottom: none; }
+.dv-meta-label {
+    font-size: 11px; font-weight: 600; color: var(--bk-ink-3);
+    letter-spacing: 0.02em; text-transform: uppercase;
+}
+.dv-meta-value {
+    font-size: 12px; font-weight: 600; color: var(--bk-ink-2);
+    display: flex; align-items: center; gap: 6px;
+}
+.dv-meta-value.mono {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px; word-break: break-all;
+}
+.dv-meta-value.accent { color: var(--bk-accent); }
+.dv-meta-value.success { color: #14a37f; }
+.dv-meta-value.muted { color: var(--bk-ink-3); }
+.dv-https-icon { font-size: 13px; color: #14a37f; }
+
+/* ─── Error Box ─── */
+.dv-error-box {
+    margin: 12px 24px 0; padding: 10px 14px;
+    background: rgba(220,38,38,0.06); border: 1px solid rgba(220,38,38,0.12);
+    border-radius: 10px; font-size: 11px; color: #DC2626; line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 8px;
+}
+.dv-error-box .material-icons-round { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+/* ─── Card Actions ─── */
+.dv-card-actions {
+    display: flex; gap: 8px; padding: 16px 24px 20px;
+    margin-top: 8px; border-top: 1px solid var(--bk-line);
+}
+.dv-action-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 0; border-radius: 10px; font-size: 12px; font-weight: 600;
+    text-decoration: none; transition: all 0.2s ease; cursor: pointer;
+    border: none; font-family: inherit;
+}
+.dv-action-btn.sync {
+    background: rgba(123,47,190,0.08); color: #7B2FBE;
+}
+.dv-action-btn.sync:hover { background: rgba(123,47,190,0.16); }
+.dv-action-btn.push {
+    background: rgba(20,163,127,0.08); color: #14a37f;
+}
+.dv-action-btn.push:hover { background: rgba(20,163,127,0.16); }
+.dv-action-btn.edit {
+    background: var(--bk-muted); color: var(--bk-ink-2);
+}
+.dv-action-btn.edit:hover { background: rgba(123,47,190,0.12); color: var(--bk-accent); }
+.dv-action-btn.del {
+    background: transparent; color: var(--bk-ink-3);
+    border: 1px solid var(--bk-line); flex: 0 0 auto; padding: 9px 14px;
+}
+.dv-action-btn.del:hover { color: #DC2626; border-color: rgba(220,38,38,0.3); background: rgba(220,38,38,0.06); }
+
+/* ─── Empty State ─── */
+.dv-empty {
+    text-align: center; padding: 80px 24px;
+    animation: dvSlideUp 0.5s ease-out 0.3s both;
+}
+.dv-empty-icon {
+    width: 80px; height: 80px; border-radius: 24px;
+    background: var(--bk-muted); margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+}
+.dv-empty-icon .material-icons-round { font-size: 36px; color: var(--bk-ink-3); }
+.dv-empty h3 { font-size: 18px; font-weight: 700; color: var(--bk-ink); margin-bottom: 6px; }
+.dv-empty p { font-size: 14px; color: var(--bk-ink-3); max-width: 420px; margin: 0 auto 20px; line-height: 1.6; }
+
+/* ─── Org Missing State ─── */
+.dv-org-missing {
+    text-align: center; padding: 60px 24px;
+    animation: dvSlideUp 0.5s ease-out 0.2s both;
+}
+.dv-org-missing-icon {
+    width: 72px; height: 72px; border-radius: 22px;
+    background: rgba(216,156,17,0.1); margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+}
+.dv-org-missing-icon .material-icons-round { font-size: 32px; color: #d89c11; }
+.dv-org-missing h3 { font-size: 18px; font-weight: 700; color: var(--bk-ink); margin-bottom: 8px; }
+.dv-org-missing p { font-size: 14px; color: var(--bk-ink-3); max-width: 420px; margin: 0 auto 20px; line-height: 1.6; }
+.dv-org-missing-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* ─── Loading Skeleton ─── */
+.dv-skeleton {
+    background: linear-gradient(90deg, var(--bk-muted) 25%, rgba(232,223,245,0.8) 50%, var(--bk-muted) 75%);
+    background-size: 200% 100%; animation: dvShimmer 1.5s infinite;
+    border-radius: 8px;
+}
+.dv-skeleton-page {
+    animation: dvFadeIn 0.4s ease-out both;
+}
+.dv-skeleton-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 28px;
+}
+.dv-skeleton-stat {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+}
+.dv-skeleton-icon { width: 48px; height: 48px; border-radius: 14px; }
+.dv-skeleton-text { height: 14px; width: 80px; margin-top: 6px; }
+.dv-skeleton-num { height: 28px; width: 48px; }
+.dv-skeleton-header { height: 28px; width: 260px; margin-bottom: 24px; }
+.dv-skeleton-cards {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px;
+}
+.dv-skeleton-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    padding: 24px;
+}
+.dv-skeleton-card-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.dv-skeleton-avatar { width: 44px; height: 44px; border-radius: 14px; }
+.dv-skeleton-lines { flex: 1; }
+.dv-skeleton-line1 { height: 14px; width: 60%; margin-bottom: 8px; }
+.dv-skeleton-line2 { height: 10px; width: 80%; }
+.dv-skeleton-rows { display: flex; flex-direction: column; gap: 10px; }
+.dv-skeleton-row { height: 12px; width: 100%; }
+
+/* ─── Responsive ─── */
+@@media (max-width: 900px) {
+    .dv-stats { grid-template-columns: repeat(2, 1fr); }
+    .dv-grid { grid-template-columns: 1fr; }
+    .dv-header { flex-direction: column; }
+    .dv-header-actions { width: 100%; }
+    .dv-skeleton-stats { grid-template-columns: repeat(2, 1fr); }
+    .dv-skeleton-cards { grid-template-columns: 1fr; }
+}
+@@media (max-width: 600px) {
+    .dv-stats { grid-template-columns: 1fr; gap: 12px; }
+    .dv-stat { padding: 16px; }
+    .dv-stat-value { font-size: 22px; }
+    .dv-grid { grid-template-columns: 1fr; }
+    .dv-card-actions { flex-wrap: wrap; }
+    .dv-action-btn { flex: 1 1 calc(50% - 4px); }
+    .dv-action-btn.del { flex: 0 0 auto; }
+    .dv-skeleton-stats { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="dv-page">
+
+    @* ───── Loading Skeleton ───── *@
     @if (!_loaded)
     {
-        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
-            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">fingerprint</span>
-            <h3 style="margin-top:16px;">Loading devices…</h3>
+        <div class="dv-skeleton-page">
+            <div class="dv-skeleton-stats">
+                @for (int i = 0; i < 4; i++)
+                {
+                    <div class="dv-skeleton-stat">
+                        <div class="dv-skeleton-icon dv-skeleton"></div>
+                        <div>
+                            <div class="dv-skeleton-num dv-skeleton"></div>
+                            <div class="dv-skeleton-text dv-skeleton"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="dv-skeleton-header dv-skeleton"></div>
+            <div class="dv-skeleton-cards">
+                @for (int i = 0; i < 3; i++)
+                {
+                    <div class="dv-skeleton-card">
+                        <div class="dv-skeleton-card-head">
+                            <div class="dv-skeleton-avatar dv-skeleton"></div>
+                            <div class="dv-skeleton-lines">
+                                <div class="dv-skeleton-line1 dv-skeleton"></div>
+                                <div class="dv-skeleton-line2 dv-skeleton"></div>
+                            </div>
+                        </div>
+                        <div class="dv-skeleton-rows">
+                            <div class="dv-skeleton-row dv-skeleton"></div>
+                            <div class="dv-skeleton-row dv-skeleton"></div>
+                            <div class="dv-skeleton-row dv-skeleton"></div>
+                            <div class="dv-skeleton-row dv-skeleton"></div>
+                        </div>
+                    </div>
+                }
+            </div>
         </div>
     }
+
+    @* ───── Organization Missing State ───── *@
     else if (_orgMissing)
     {
-        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
-            <span class="material-icons-round" style="font-size:48px;color:var(--bk-warning);opacity:0.7;">error_outline</span>
-            <h3 style="margin-top:16px;">No Organization Found</h3>
-            <p style="color:var(--bk-ink-3);max-width:420px;margin:8px auto 0;font-size:14px;">
-                Attendance devices require an organization record. Your workspace has no
-                organization yet — create one to start connecting devices.
-            </p>
-            <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;">
-                <a href="/settings/organization" class="bk-btn bk-btn-secondary">
+        <div class="dv-org-missing">
+            <div class="dv-org-missing-icon">
+                <span class="material-icons-round">error_outline</span>
+            </div>
+            <h3>No Organization Found</h3>
+            <p>Attendance devices require an organization record. Your workspace has no organization yet &mdash; create one to start connecting devices.</p>
+            <div class="dv-org-missing-actions">
+                <a href="/settings/organization" class="dv-btn dv-btn-ghost">
                     <span class="material-icons-round" style="font-size:16px;">business</span>
                     Organization Settings
                 </a>
                 <form method="post" action="/api/organization/seed" style="display:inline;">
-                    <button type="submit" class="bk-btn bk-btn-primary">
+                    <button type="submit" class="dv-btn dv-btn-primary">
                         <span class="material-icons-round" style="font-size:16px;">add_business</span>
                         Create Default Organization
                     </button>
@@ -61,135 +415,177 @@
             </div>
         </div>
     }
+
+    @* ───── Main Content ───── *@
     else
     {
-    @* ───── KPI cards ───── *@
-    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon"><span class="material-icons-round">devices</span></div>
+        @* ─── Animated Stats Row ─── *@
+        <div class="dv-stats">
+            <div class="dv-stat">
+                <div class="dv-stat-icon purple"><span class="material-icons-round">devices</span></div>
+                <div>
+                    <div class="dv-stat-value">@_devices.Count</div>
+                    <div class="dv-stat-label">Total Devices</div>
+                </div>
             </div>
-            <div class="bk-admin-kpi-value">@_devices.Count</div>
-            <div class="bk-admin-kpi-label">Total Devices</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">cloud_done</span></div>
+            <div class="dv-stat">
+                <div class="dv-stat-icon green"><span class="material-icons-round">cloud_done</span></div>
+                <div>
+                    <div class="dv-stat-value">@_devices.Count(d => d.LastSuccessfulSyncAt.HasValue)</div>
+                    <div class="dv-stat-label">Online</div>
+                </div>
             </div>
-            <div class="bk-admin-kpi-value">@_devices.Count(d => d.LastSuccessfulSyncAt.HasValue)</div>
-            <div class="bk-admin-kpi-label">Online</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">sync</span></div>
+            <div class="dv-stat">
+                <div class="dv-stat-icon gold"><span class="material-icons-round">sync</span></div>
+                <div>
+                    <div class="dv-stat-value">@_devices.Sum(d => d.TotalEventsSynced)</div>
+                    <div class="dv-stat-label">Events Synced</div>
+                </div>
             </div>
-            <div class="bk-admin-kpi-value">@_devices.Sum(d => d.TotalEventsSynced)</div>
-            <div class="bk-admin-kpi-label">Total Events Synced</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon pink"><span class="material-icons-round">error_outline</span></div>
+            <div class="dv-stat">
+                <div class="dv-stat-icon red"><span class="material-icons-round">error_outline</span></div>
+                <div>
+                    <div class="dv-stat-value">@_devices.Sum(d => d.TotalSyncErrors)</div>
+                    <div class="dv-stat-label">Sync Errors</div>
+                </div>
             </div>
-            <div class="bk-admin-kpi-value">@_devices.Sum(d => d.TotalSyncErrors)</div>
-            <div class="bk-admin-kpi-label">Sync Errors</div>
         </div>
-    </div>
 
-    @* ───── Devices list ───── *@
-    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr));">
-        @foreach (var d in _devices)
-        {
-            <div class="bk-admin-card bk-admin-card-hover">
-                <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-                    <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
-                        <div style="width:36px;height:36px;border-radius:8px;background:@(d.VendorColor);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">
-                            @(d.Vendor.ToString()[..2].ToUpper())
-                        </div>
-                        <div style="min-width:0;flex:1;">
-                            <h3 style="font-size:14px;font-weight:700;color:var(--bk-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;">@d.Name</h3>
-                            <p style="font-size:11px;color:var(--bk-ink-3);margin:0;">@d.VendorDisplay · @d.ModeDisplay · @(d.Location ?? "No location")</p>
-                        </div>
-                    </div>
-                    <span class="bk-admin-pill @DeviceStatusClass(d)" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">
-                        @d.StatusDisplay
-                    </span>
-                </div>
-                <div class="bk-admin-card-content" style="padding-top:12px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bk-line);">
-                        <span style="font-size:11px;color:var(--bk-ink-3);">Connection</span>
-                        <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;font-family:var(--ukuu-font-mono);word-break:break-all;">
-                            @if (d.UseHttps && !string.IsNullOrEmpty(d.IpAddress))
-                            {
-                                <span class="material-icons-round" style="font-size:13px;color:var(--bk-success);" title="HTTPS enabled">lock</span>
-                            }
-                            @d.ConnectionUrl
-                        </span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
-                        <span style="font-size:11px;color:var(--bk-ink-3);">Last sync</span>
-                        <span style="font-size:12px;font-weight:600;">@d.LastSyncDisplay</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
-                        <span style="font-size:11px;color:var(--bk-ink-3);">Events synced</span>
-                        <span style="font-size:12px;font-weight:600;color:var(--bk-accent);">@d.TotalEventsSynced</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bk-line);">
-                        <span style="font-size:11px;color:var(--bk-ink-3);">Auto-sync</span>
-                        <span style="font-size:12px;font-weight:600;color:@(d.AutoSyncEnabled ? "var(--bk-success)" : "var(--bk-ink-3)");">@(d.AutoSyncEnabled ? $"Every {d.SyncIntervalMinutes} min" : "Off")</span>
-                    </div>
-                    @if (!string.IsNullOrEmpty(d.LastErrorMessage))
-                    {
-                        <div style="padding:8px 12px;margin-top:8px;background:rgba(220,38,38,0.06);border-radius:6px;font-size:11px;color:var(--bk-error);line-height:1.4;">
-                            <span class="material-icons-round" style="font-size:12px;vertical-align:middle;">error</span>
-                            @d.LastErrorMessage
-                        </div>
-                    }
-                    <div style="display:flex;gap:6px;margin-top:12px;">
-                        <form method="post" action="/api/devices/sync/@d.Id" style="flex:1;">
-                            <button type="submit" class="bk-btn bk-btn-primary" style="width:100%;font-size:11px;padding:6px 10px;">
-                                <span class="material-icons-round" style="font-size:13px;">sync</span>
-                                Sync
-                            </button>
-                        </form>
-                        @if (d.Vendor == DeviceVendor.Hikvision)
-                        {
-                            <form method="post" action="/api/devices/sync-persons/@d.Id" style="flex:1;">
-                                <button type="submit" class="bk-btn bk-btn-secondary" style="width:100%;font-size:11px;padding:6px 10px;" title="Push portal employees to this Hikvision device">
-                                    <span class="material-icons-round" style="font-size:13px;">badge</span>
-                                    Push Employees
-                                </button>
-                            </form>
-                        }
-                        <a href="/devices/@d.Id/edit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;text-decoration:none;">
-                            <span class="material-icons-round" style="font-size:13px;">edit</span>
-                        </a>
-                        <form method="post" action="/api/devices/delete/@d.Id" style="display:inline;"
-                              onsubmit="return confirm('Delete device @d.Name?');">
-                            <button type="submit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;color:var(--bk-error);">
-                                <span class="material-icons-round" style="font-size:13px;">delete</span>
-                            </button>
-                        </form>
-                    </div>
-                </div>
+        @* ─── Section Header ─── *@
+        <div class="dv-header">
+            <div class="dv-header-left">
+                <div class="dv-header-eyebrow">Hardware</div>
+                <h1>Device Integration</h1>
+                <p class="dv-header-sub">@_devices.Count devices &middot; @_vendorsSupported vendors supported &middot; 4 integration modes (REST API, SDK, TCP/IP, CSV)</p>
             </div>
-        }
+            <div class="dv-header-actions">
+                <form method="post" action="/api/devices/sync-all" style="display:inline;">
+                    <button type="submit" class="dv-btn dv-btn-ghost">
+                        <span class="material-icons-round" style="font-size:16px;">sync</span>
+                        Sync All
+                    </button>
+                </form>
+                <a href="/devices/add" class="dv-btn dv-btn-primary" style="text-decoration:none;">
+                    <span class="material-icons-round" style="font-size:16px;">add</span>
+                    Add Device
+                </a>
+            </div>
+        </div>
+
+        @* ─── Device Cards Grid ─── *@
         @if (_devices.Count == 0)
         {
-            <div class="bk-admin-card" style="grid-column:1/-1;text-align:center;padding:48px 24px;">
-                <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">devices</span>
-                <h3 style="margin-top:16px;">No devices configured yet</h3>
-                <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Add your first attendance device to start syncing clock events.</p>
-                <a href="/devices/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
+            <div class="dv-empty">
+                <div class="dv-empty-icon">
+                    <span class="material-icons-round">devices_other</span>
+                </div>
+                <h3>No devices configured yet</h3>
+                <p>Add your first attendance device to start syncing clock events from biometric terminals, RFID readers, and more.</p>
+                <a href="/devices/add" class="dv-btn dv-btn-primary" style="text-decoration:none;">
                     <span class="material-icons-round" style="font-size:16px;">add</span>
                     Add First Device
                 </a>
             </div>
         }
-    </div>
+        else
+        {
+            <div class="dv-grid">
+                @foreach (var d in _devices)
+                {
+                    <div class="dv-card">
+                        @* Vendor color banner strip *@
+                        <div class="dv-card-banner" style="background: @d.VendorColor;"></div>
+
+                        @* Card header *@
+                        <div class="dv-card-head">
+                            <div style="display:flex;gap:14px;align-items:center;flex:1;min-width:0;">
+                                <div class="dv-vendor-icon" style="background: linear-gradient(135deg, @d.VendorColor, @(d.VendorColor)cc);">
+                                    @(d.Vendor.ToString()[..2].ToUpper())
+                                </div>
+                                <div class="dv-card-info">
+                                    <div class="dv-card-name">@d.Name</div>
+                                    <div class="dv-card-detail">
+                                        <span>@d.VendorDisplay</span>
+                                        <span class="dv-card-detail-sep"></span>
+                                        <span>@d.ModeDisplay</span>
+                                        <span class="dv-card-detail-sep"></span>
+                                        <span>@(d.Location ?? "No location")</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="dv-status @DeviceStatusClass(d)">@d.StatusDisplay</span>
+                        </div>
+
+                        @* Meta rows *@
+                        <div class="dv-card-meta">
+                            <div class="dv-meta-row">
+                                <span class="dv-meta-label">Connection</span>
+                                <span class="dv-meta-value mono">
+                                    @if (d.UseHttps && !string.IsNullOrEmpty(d.IpAddress))
+                                    {
+                                        <span class="material-icons-round dv-https-icon" title="HTTPS enabled">lock</span>
+                                    }
+                                    @d.ConnectionUrl
+                                </span>
+                            </div>
+                            <div class="dv-meta-row">
+                                <span class="dv-meta-label">Last Sync</span>
+                                <span class="dv-meta-value">@d.LastSyncDisplay</span>
+                            </div>
+                            <div class="dv-meta-row">
+                                <span class="dv-meta-label">Events Synced</span>
+                                <span class="dv-meta-value accent">@d.TotalEventsSynced</span>
+                            </div>
+                            <div class="dv-meta-row">
+                                <span class="dv-meta-label">Auto-Sync</span>
+                                <span class="dv-meta-value @(d.AutoSyncEnabled ? "success" : "muted")">
+                                    @(d.AutoSyncEnabled ? $"Every {d.SyncIntervalMinutes} min" : "Off")
+                                </span>
+                            </div>
+                        </div>
+
+                        @* Error message *@
+                        @if (!string.IsNullOrEmpty(d.LastErrorMessage))
+                        {
+                            <div class="dv-error-box">
+                                <span class="material-icons-round">error</span>
+                                <span>@d.LastErrorMessage</span>
+                            </div>
+                        }
+
+                        @* Action buttons *@
+                        <div class="dv-card-actions">
+                            <form method="post" action="/api/devices/sync/@d.Id" style="flex:1;display:flex;">
+                                <button type="submit" class="dv-action-btn sync">
+                                    <span class="material-icons-round" style="font-size:14px;">sync</span>
+                                    Sync
+                                </button>
+                            </form>
+                            @if (d.Vendor == DeviceVendor.Hikvision)
+                            {
+                                <form method="post" action="/api/devices/sync-persons/@d.Id" style="flex:1;display:flex;">
+                                    <button type="submit" class="dv-action-btn push" title="Push portal employees to this Hikvision device">
+                                        <span class="material-icons-round" style="font-size:14px;">badge</span>
+                                        Push
+                                    </button>
+                                </form>
+                            }
+                            <a href="/devices/@d.Id/edit" class="dv-action-btn edit" style="text-decoration:none;">
+                                <span class="material-icons-round" style="font-size:14px;">edit</span>
+                            </a>
+                            <form method="post" action="/api/devices/delete/@d.Id" style="display:inline;"
+                                  onsubmit="return confirm('Delete device @d.Name?');">
+                                <button type="submit" class="dv-action-btn del">
+                                    <span class="material-icons-round" style="font-size:14px;">delete</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
     }
 </div>
-
-
 
 @code {
     private List<AttendanceDevice> _devices = new();
@@ -197,8 +593,6 @@
     private bool _loaded;
     private bool _orgMissing;
     private const int _vendorsSupported = 7;
-
-    // Dialog state.
 
     protected override async Task OnInitializedAsync()
     {
@@ -254,11 +648,9 @@
 
     private static string DeviceStatusClass(AttendanceDevice d) => d.StatusDisplay switch
     {
-        "Online" => "approved",
-        "Error" => "rejected",
-        "Disabled" => "inactive",
+        "Online" => "online",
+        "Error" => "error",
+        "Disabled" => "disabled",
         _ => "pending"
     };
-
-    // ───── Helper classes ─────
 }

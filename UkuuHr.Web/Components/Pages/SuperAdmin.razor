@@ -5,218 +5,704 @@
 @inject UkuuHrDbContext Db
 @inject NavigationManager Nav
 
-<div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Super Admin · @_activeCoupons active coupons</div>
-            <h1 class="bk-admin-h1">Super Admin Dashboard</h1>
-            <p class="bk-admin-sub">
-                Issue and manage subscription coupons for organizations. Coupons can be redeemed
-                by any organization admin to activate their subscription.
-            </p>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR — Super Admin · World-Class Redesign
+   Premium design language · Animated stats · Coupon cards · Micro-interactions
+   ═══════════════════════════════════════════════════════════════ */
+
+@@keyframes saFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes saSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes saCountUp {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@@keyframes saShimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+@@keyframes saPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(216,156,17,0.3); }
+    50%      { box-shadow: 0 0 0 8px rgba(216,156,17,0); }
+}
+@@keyframes saModalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@@keyframes saCardStagger {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes saGlowPulse {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+}
+
+.sa-page { animation: saFadeIn 0.4s ease-out both; }
+
+/* ─── Stats Row ─── */
+.sa-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 28px; animation: saSlideUp 0.5s ease-out 0.1s both;
+}
+.sa-stat {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+    transition: all 0.25s ease; position: relative; overflow: hidden;
+}
+.sa-stat::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(216,156,17,0.03), transparent 60%);
+    pointer-events: none;
+}
+.sa-stat:hover {
+    border-color: rgba(216,156,17,0.25); transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(216,156,17,0.08);
+}
+.sa-stat-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; transition: transform 0.3s ease;
+}
+.sa-stat:hover .sa-stat-icon { transform: scale(1.08); }
+.sa-stat-icon.gold   { background: rgba(216,156,17,0.1); color: #d89c11; }
+.sa-stat-icon.green  { background: rgba(20,163,127,0.1); color: #14a37f; }
+.sa-stat-icon.blue   { background: rgba(37,99,235,0.1); color: #2563EB; }
+.sa-stat-icon.red    { background: rgba(220,38,38,0.1); color: #dc2626; }
+.sa-stat-value {
+    font-size: 28px; font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.1; animation: saCountUp 0.6s ease-out 0.3s both;
+}
+.sa-stat-label {
+    font-size: 12px; font-weight: 600; color: var(--bk-ink-3);
+    letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px;
+}
+.sa-stat-sub {
+    font-size: 11px; color: var(--bk-ink-3); margin-top: 4px;
+}
+
+/* ─── Section Header ─── */
+.sa-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 24px; gap: 20px; flex-wrap: wrap;
+    animation: saSlideUp 0.5s ease-out 0.15s both;
+}
+.sa-header-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #d89c11; margin-bottom: 6px;
+}
+.sa-header-eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: #d89c11; box-shadow: 0 0 0 3px rgba(216,156,17,0.2);
+    animation: saPulse 2s ease-in-out infinite;
+}
+.sa-header h1 {
+    font-size: clamp(24px, 3vw, 32px); font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 4px;
+}
+.sa-header-sub { font-size: 14px; color: var(--bk-ink-3); line-height: 1.5; }
+.sa-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ─── Action Buttons ─── */
+.sa-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all 0.2s ease; font-family: inherit;
+}
+.sa-btn-ghost {
+    background: transparent; color: var(--bk-ink-2);
+    border: 1px solid var(--bk-line);
+}
+.sa-btn-ghost:hover { background: var(--bk-muted); border-color: var(--bk-line-strong); }
+.sa-btn-primary {
+    background: linear-gradient(135deg, #d89c11, #b8810a); color: #fff;
+    box-shadow: 0 4px 16px rgba(216,156,17,0.25);
+}
+.sa-btn-primary:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(216,156,17,0.35);
+    background: linear-gradient(135deg, #e5ad1e, #c89212);
+}
+.sa-btn-danger {
+    background: transparent; color: #dc2626;
+    border: 1px solid rgba(220,38,38,0.3); font-size: 12px; padding: 6px 14px;
+}
+.sa-btn-danger:hover {
+    background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.5);
+}
+
+/* ─── Create Form Card ─── */
+.sa-form-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    overflow: hidden; margin-bottom: 28px;
+    animation: saModalIn 0.35s ease-out both;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+.sa-form-card-header {
+    padding: 24px 28px 0; display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+}
+.sa-form-card-header h3 {
+    font-size: 18px; font-weight: 700; color: var(--bk-ink);
+    margin: 0; display: flex; align-items: center; gap: 10px;
+}
+.sa-form-card-body { padding: 20px 28px 28px; }
+.sa-form-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+}
+.sa-field { display: flex; flex-direction: column; gap: 6px; }
+.sa-field.span-full { grid-column: 1 / -1; }
+.sa-label {
+    font-size: 12px; font-weight: 600; color: var(--bk-ink-2);
+    letter-spacing: 0.03em; text-transform: uppercase;
+}
+.sa-input-wrap { position: relative; }
+.sa-input-wrap .material-icons-round {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 18px; color: var(--bk-ink-3); pointer-events: none;
+}
+.sa-input {
+    width: 100%; height: 42px; border: 1px solid var(--bk-line); border-radius: 10px;
+    background: var(--bk-muted); padding: 0 14px; font-family: inherit;
+    font-size: 13px; color: var(--bk-ink); outline: none;
+    transition: all 0.2s ease; box-sizing: border-box;
+}
+.sa-input:focus {
+    border-color: #d89c11; background: #fff;
+    box-shadow: 0 0 0 3px rgba(216,156,17,0.1);
+}
+.sa-input.has-icon { padding-left: 38px; }
+.sa-input-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    letter-spacing: 0.03em;
+}
+select.sa-input {
+    appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23d89c11'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 36px;
+}
+.sa-field-hint {
+    font-size: 11px; color: var(--bk-ink-3); margin-top: 2px;
+}
+.sa-form-actions {
+    display: flex; justify-content: flex-end; gap: 10px;
+    margin-top: 24px; padding-top: 20px;
+    border-top: 1px solid var(--bk-line);
+}
+
+/* ─── Coupon Cards Grid ─── */
+.sa-coupons-section {
+    animation: saSlideUp 0.5s ease-out 0.25s both;
+    margin-bottom: 28px;
+}
+.sa-section-title {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+}
+.sa-section-title h3 {
+    font-size: 18px; font-weight: 700; color: var(--bk-ink); margin: 0;
+}
+.sa-section-title-sub {
+    font-size: 12px; color: var(--bk-ink-3);
+}
+.sa-coupon-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+}
+.sa-coupon-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    overflow: hidden; transition: all 0.3s ease; position: relative;
+}
+.sa-coupon-card:hover {
+    border-color: rgba(216,156,17,0.22); transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(216,156,17,0.08), 0 0 0 1px rgba(216,156,17,0.06);
+}
+.sa-coupon-banner {
+    height: 72px; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, rgba(216,156,17,0.08), rgba(37,99,235,0.04), rgba(20,163,127,0.06));
+}
+.sa-coupon-banner::after {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(216,156,17,0.1), transparent 70%);
+}
+.sa-coupon-banner .material-icons-round {
+    position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+    font-size: 36px; color: rgba(216,156,17,0.15);
+}
+.sa-coupon-body { padding: 0 24px 24px; }
+.sa-coupon-code-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: -14px; margin-bottom: 16px; position: relative; z-index: 2;
+}
+.sa-coupon-code {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #e5ad1e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 8px 16px; border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.sa-coupon-discount-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 56px; height: 36px; padding: 0 10px;
+    border-radius: 10px; font-size: 16px; font-weight: 800;
+    color: #fff; letter-spacing: -0.02em;
+}
+.sa-coupon-discount-badge.full {
+    background: linear-gradient(135deg, #14a37f, #0d8061);
+    box-shadow: 0 4px 12px rgba(20,163,127,0.25);
+}
+.sa-coupon-discount-badge.partial {
+    background: linear-gradient(135deg, #d89c11, #b8810a);
+    box-shadow: 0 4px 12px rgba(216,156,17,0.25);
+}
+.sa-coupon-desc {
+    font-size: 13px; color: var(--bk-ink-2); line-height: 1.5;
+    margin-bottom: 16px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.sa-coupon-tags {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.sa-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+}
+.sa-tag-plan {
+    background: rgba(37,99,235,0.1); color: #2563EB;
+}
+.sa-tag-usage {
+    background: rgba(123,47,190,0.1); color: #7B2FBE;
+}
+.sa-tag-expiry {
+    background: rgba(108,99,255,0.08); color: #6c63ff;
+}
+/* ─── Status Badges ─── */
+.sa-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.sa-status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+}
+.sa-status.active {
+    background: rgba(20,163,127,0.1); color: #14a37f;
+}
+.sa-status.active::before { background: #14a37f; animation: saGlowPulse 2s ease-in-out infinite; }
+.sa-status.expired {
+    background: rgba(220,38,38,0.1); color: #dc2626;
+}
+.sa-status.expired::before { background: #dc2626; }
+.sa-status.fully-used {
+    background: rgba(216,156,17,0.1); color: #d89c11;
+}
+.sa-status.fully-used::before { background: #d89c11; }
+.sa-status.revoked {
+    background: rgba(107,114,128,0.1); color: #6b7280;
+}
+.sa-status.revoked::before { background: #6b7280; }
+
+.sa-coupon-meta {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 16px; border-top: 1px solid var(--bk-line);
+    margin-top: 4px;
+}
+.sa-coupon-creator {
+    font-size: 11px; color: var(--bk-ink-3);
+    display: flex; align-items: center; gap: 4px;
+}
+.sa-coupon-actions { display: flex; gap: 8px; }
+
+/* ─── Usage Progress ─── */
+.sa-usage-bar {
+    height: 4px; background: var(--bk-muted); border-radius: 999px;
+    overflow: hidden; margin-top: 6px; flex: 1; min-width: 80px;
+}
+.sa-usage-bar-fill {
+    height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, #7B2FBE, #d89c11);
+    transition: width 0.5s ease;
+}
+
+/* ─── Redemption Section ─── */
+.sa-redemptions-section {
+    animation: saSlideUp 0.5s ease-out 0.35s both;
+    margin-bottom: 28px;
+}
+.sa-redemption-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+.sa-redemption-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 14px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+    transition: all 0.25s ease; position: relative; overflow: hidden;
+}
+.sa-redemption-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(20,163,127,0.03), transparent 60%);
+    pointer-events: none;
+}
+.sa-redemption-card:hover {
+    border-color: rgba(20,163,127,0.2); transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(20,163,127,0.06);
+}
+.sa-redemption-icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    background: rgba(20,163,127,0.1); color: #14a37f;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+}
+.sa-redemption-info { min-width: 0; flex: 1; }
+.sa-redemption-code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px; font-weight: 700; color: var(--bk-ink);
+    letter-spacing: 0.02em;
+}
+.sa-redemption-org {
+    font-size: 13px; font-weight: 600; color: var(--bk-ink-2); margin-top: 2px;
+}
+.sa-redemption-details {
+    font-size: 11px; color: var(--bk-ink-3); margin-top: 4px;
+    display: flex; align-items: center; gap: 8px;
+}
+
+/* ─── Empty State ─── */
+.sa-empty {
+    text-align: center; padding: 64px 24px; color: var(--bk-ink-3);
+    animation: saFadeIn 0.5s ease-out both;
+}
+.sa-empty-icon {
+    font-size: 56px; opacity: 0.3; margin-bottom: 16px;
+    display: block; color: var(--bk-ink-3);
+}
+.sa-empty-title {
+    font-size: 16px; font-weight: 700; color: var(--bk-ink-2);
+    margin-bottom: 4px;
+}
+.sa-empty-sub { font-size: 13px; color: var(--bk-ink-3); }
+
+/* ─── Responsive ─── */
+@@media (max-width: 1024px) {
+    .sa-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@@media (max-width: 640px) {
+    .sa-stats { grid-template-columns: 1fr; }
+    .sa-coupon-grid { grid-template-columns: 1fr; }
+    .sa-redemption-grid { grid-template-columns: 1fr; }
+    .sa-form-grid { grid-template-columns: 1fr; }
+    .sa-header { flex-direction: column; }
+    .sa-header-actions { width: 100%; }
+    .sa-form-card-header { padding: 20px 20px 0; }
+    .sa-form-card-body { padding: 16px 20px 20px; }
+    .sa-coupon-body { padding: 0 18px 18px; }
+}
+</style>
+
+<div class="sa-page">
+
+    @* ═══════════════ Section Header ═══════════════ *@
+    <div class="sa-header">
+        <div>
+            <div class="sa-header-eyebrow">Administration</div>
+            <h1>Super Admin</h1>
+            <div class="sa-header-sub">Issue and manage subscription coupons for organizations. <strong>@_activeCoupons</strong> active coupons.</div>
         </div>
-        <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-primary" onclick="document.getElementById('create-coupon-form').style.display='block'; return false;">
-                <span class="material-icons-round" style="font-size:16px;">add</span>
+        <div class="sa-header-actions">
+            <button class="sa-btn sa-btn-primary" onclick="document.getElementById('sa-create-form').style.display='block'; return false;">
+                <span class="material-icons-round" style="font-size:18px;">add</span>
                 Issue New Coupon
             </button>
         </div>
     </div>
 
-    @* ───── KPI cards ───── *@
-    <div class="bk-admin-kpi-grid">
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">discount</span></div>
+    @* ═══════════════ KPI Stats Row ═══════════════ *@
+    <div class="sa-stats">
+        <div class="sa-stat">
+            <div class="sa-stat-icon gold">
+                <span class="material-icons-round">discount</span>
             </div>
-            <div class="bk-admin-kpi-value">@_activeCoupons</div>
-            <div class="bk-admin-kpi-label">Active Coupons</div>
+            <div>
+                <div class="sa-stat-value">@_activeCoupons</div>
+                <div class="sa-stat-label">Active Coupons</div>
+                <div class="sa-stat-sub">Currently redeemable</div>
+            </div>
         </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">redeem</span></div>
+        <div class="sa-stat">
+            <div class="sa-stat-icon green">
+                <span class="material-icons-round">redeem</span>
             </div>
-            <div class="bk-admin-kpi-value">@_totalRedemptions</div>
-            <div class="bk-admin-kpi-label">Total Redemptions</div>
+            <div>
+                <div class="sa-stat-value">@_totalRedemptions</div>
+                <div class="sa-stat-label">Total Redemptions</div>
+                <div class="sa-stat-sub">Coupons used</div>
+            </div>
         </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">business</span></div>
+        <div class="sa-stat">
+            <div class="sa-stat-icon blue">
+                <span class="material-icons-round">business</span>
             </div>
-            <div class="bk-admin-kpi-value">@_redeemedOrgs</div>
-            <div class="bk-admin-kpi-label">Organizations Using Coupons</div>
+            <div>
+                <div class="sa-stat-value">@_redeemedOrgs</div>
+                <div class="sa-stat-label">Organizations</div>
+                <div class="sa-stat-sub">Using coupons</div>
+            </div>
         </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">schedule</span></div>
+        <div class="sa-stat">
+            <div class="sa-stat-icon red">
+                <span class="material-icons-round">schedule</span>
             </div>
-            <div class="bk-admin-kpi-value">@_expiringSoon</div>
-            <div class="bk-admin-kpi-label">Expiring in 30 Days</div>
+            <div>
+                <div class="sa-stat-value">@_expiringSoon</div>
+                <div class="sa-stat-label">Expiring Soon</div>
+                <div class="sa-stat-sub">Within 30 days</div>
+            </div>
         </div>
     </div>
 
-    @* ───── Create Coupon Form (hidden by default) ───── *@
-    <div id="create-coupon-form" style="display:none;" class="bk-admin-card">
-        <div class="bk-admin-card-header">
-            <h3>Issue New Coupon</h3>
-            <p>Create a coupon code that organizations can redeem for subscription access.</p>
+    @* ═══════════════ Create Coupon Form (hidden by default) ═══════════════ *@
+    <div id="sa-create-form" style="display:none;" class="sa-form-card">
+        <div class="sa-form-card-header">
+            <h3>
+                <span class="material-icons-round" style="font-size:20px;color:#d89c11;">vpn_key</span>
+                Issue New Coupon
+            </h3>
+            <button class="sa-btn sa-btn-ghost" style="padding:6px 12px;" onclick="this.closest('.sa-form-card').style.display='none';">
+                <span class="material-icons-round" style="font-size:16px;">close</span>
+            </button>
         </div>
-        <form method="post" action="/api/super-admin/coupons/create" class="bk-admin-card-content">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
-                <div class="bk-field">
-                    <label class="bk-label">Coupon Code *</label>
-                    <div class="bk-input-wrap">
-                        <span class="material-icons-round bk-input-icon" style="font-size:18px;">vpn_key</span>
-                        <input type="text" class="bk-input" style="padding-left:36px;" name="Code" placeholder="e.g. UKUU-SUPER-2026" required maxlength="50" />
+        <div class="sa-form-card-body">
+            <p style="font-size:13px;color:var(--bk-ink-3);margin:0 0 20px;">Create a coupon code that organizations can redeem for subscription access.</p>
+            <form method="post" action="/api/super-admin/coupons/create">
+                <div class="sa-form-grid">
+                    <div class="sa-field">
+                        <label class="sa-label">Coupon Code *</label>
+                        <div class="sa-input-wrap">
+                            <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bk-ink-3);pointer-events:none;">vpn_key</span>
+                            <input type="text" class="sa-input sa-input-mono has-icon" name="Code" placeholder="e.g. UKUU-SUPER-2026" required maxlength="50" />
+                        </div>
+                    </div>
+                    <div class="sa-field">
+                        <label class="sa-label">Discount %</label>
+                        <div class="sa-input-wrap">
+                            <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bk-ink-3);pointer-events:none;">percent</span>
+                            <input type="number" class="sa-input has-icon" name="DiscountPercent" value="100" min="0" max="100" />
+                        </div>
+                    </div>
+                    <div class="sa-field">
+                        <label class="sa-label">Applicable Plan</label>
+                        <select class="sa-input" name="ApplicablePlan">
+                            <option value="Annual">Annual</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Both">Both</option>
+                        </select>
+                    </div>
+                    <div class="sa-field">
+                        <label class="sa-label">Max Uses</label>
+                        <div class="sa-input-wrap">
+                            <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bk-ink-3);pointer-events:none;">repeat</span>
+                            <input type="number" class="sa-input has-icon" name="MaxUses" value="1" min="0" />
+                        </div>
+                        <div class="sa-field-hint">0 = unlimited</div>
+                    </div>
+                    <div class="sa-field">
+                        <label class="sa-label">Expires At *</label>
+                        <div class="sa-input-wrap">
+                            <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bk-ink-3);pointer-events:none;">event</span>
+                            @{
+                                var _defaultExpiryStr = DateTime.Today.AddYears(1).ToString("yyyy-MM-dd");
+                            }
+                            <input type="date" class="sa-input has-icon" name="ExpiresAtStr" value="@_defaultExpiryStr" required />
+                        </div>
+                    </div>
+                    <div class="sa-field span-full">
+                        <label class="sa-label">Description</label>
+                        <div class="sa-input-wrap">
+                            <span class="material-icons-round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bk-ink-3);pointer-events:none;">notes</span>
+                            <input type="text" class="sa-input has-icon" name="Description" placeholder="What this coupon is for..." maxlength="500" />
+                        </div>
                     </div>
                 </div>
-                <div class="bk-field">
-                    <label class="bk-label">Discount %</label>
-                    <input type="number" class="bk-input" name="DiscountPercent" value="100" min="0" max="100" />
+                <div class="sa-form-actions">
+                    <button type="button" class="sa-btn sa-btn-ghost" onclick="this.closest('.sa-form-card').style.display='none';">
+                        Cancel
+                    </button>
+                    <button type="submit" class="sa-btn sa-btn-primary">
+                        <span class="material-icons-round" style="font-size:16px;">add_circle</span>
+                        Issue Coupon
+                    </button>
                 </div>
-                <div class="bk-field">
-                    <label class="bk-label">Applicable Plan</label>
-                    <select class="bk-input" name="ApplicablePlan">
-                        <option value="Annual">Annual</option>
-                        <option value="Monthly">Monthly</option>
-                        <option value="Both">Both</option>
-                    </select>
-                </div>
-                <div class="bk-field">
-                    <label class="bk-label">Max Uses</label>
-                    <input type="number" class="bk-input" name="MaxUses" value="1" min="0" />
-                    <small style="color:var(--bk-ink-3);font-size:11px;">0 = unlimited</small>
-                </div>
-                <div class="bk-field">
-                    <label class="bk-label">Expires At *</label>
+            </form>
+        </div>
+    </div>
+
+    @* ═══════════════ Coupons as Premium Cards ═══════════════ *@
+    <div class="sa-coupons-section">
+        <div class="sa-section-title">
+            <div>
+                <h3>All Coupons</h3>
+                <div class="sa-section-title-sub">@_coupons.Count total · sorted by newest first</div>
+            </div>
+        </div>
+
+        @if (_coupons.Count == 0)
+        {
+            <div class="sa-empty">
+                <span class="material-icons-round sa-empty-icon">card_giftcard</span>
+                <div class="sa-empty-title">No coupons issued yet</div>
+                <div class="sa-empty-sub">Click "Issue New Coupon" above to get started.</div>
+            </div>
+        }
+        else
+        {
+            <div class="sa-coupon-grid">
+                @foreach (var c in _coupons)
+                {
                     @{
-                        var _defaultExpiryStr = DateTime.Today.AddYears(1).ToString("yyyy-MM-dd");
+                        var statusClass = c.StatusDisplay switch
+                        {
+                            "Active" => "active",
+                            "Expired" => "expired",
+                            "Fully Used" => "fully-used",
+                            "Revoked" => "revoked",
+                            _ => ""
+                        };
+                        var isFullDiscount = c.DiscountPercent == 100;
+                        var usagePct = c.MaxUses > 0 ? Math.Min(100, (int)((double)c.UsedCount / c.MaxUses * 100)) : 0;
                     }
-                    <input type="date" class="bk-input" name="ExpiresAtStr" value="@_defaultExpiryStr" required />
-                </div>
-                <div class="bk-field" style="grid-column:1/-1;">
-                    <label class="bk-label">Description</label>
-                    <input type="text" class="bk-input" name="Description" placeholder="What this coupon is for..." maxlength="500" />
-                </div>
-            </div>
-            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--bk-line);">
-                <button type="button" class="bk-btn bk-btn-secondary" onclick="this.closest('#create-coupon-form').style.display='none';">
-                    Cancel
-                </button>
-                <button type="submit" class="bk-btn bk-btn-primary">
-                    <span class="material-icons-round" style="font-size:16px;">add_circle</span>
-                    Issue Coupon
-                </button>
-            </div>
-        </form>
-    </div>
+                    <div class="sa-coupon-card" style="animation: saCardStagger 0.4s ease-out both;">
+                        <div class="sa-coupon-banner">
+                            <span class="material-icons-round">local_offer</span>
+                        </div>
+                        <div class="sa-coupon-body">
+                            @* ── Code row + Discount badge ── *@
+                            <div class="sa-coupon-code-row">
+                                <div class="sa-coupon-code">
+                                    <span class="material-icons-round" style="font-size:14px;opacity:0.7;">vpn_key</span>
+                                    @c.Code
+                                </div>
+                                <div class="sa-coupon-discount-badge @(isFullDiscount ? "full" : "partial")">
+                                    @c.DiscountPercent%
+                                </div>
+                            </div>
 
-    @* ───── Coupons Table ───── *@
-    <div class="bk-admin-card" style="overflow:hidden;">
-        <div class="bk-admin-card-header">
-            <h3>All Coupons</h3>
-            <p>@_coupons.Count total · sorted by newest first</p>
-        </div>
-        <div style="overflow-x:auto;">
-            <table class="bk-admin-table">
-                <thead>
-                    <tr>
-                        <th>Code</th>
-                        <th>Description</th>
-                        <th>Discount</th>
-                        <th>Plan</th>
-                        <th>Usage</th>
-                        <th>Expires</th>
-                        <th>Status</th>
-                        <th>Created By</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var c in _coupons)
-                    {
-                        <tr>
-                            <td style="font-family:var(--ukuu-font-mono);font-weight:700;font-size:13px;">@c.Code</td>
-                            <td style="font-size:13px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(c.Description ?? "—")</td>
-                            <td style="font-weight:700;color:var(--bk-accent-3);font-size:14px;">@c.DiscountPercent%</td>
-                            <td><span class="bk-admin-pill approved" style="font-size:10px;">@c.ApplicablePlan</span></td>
-                            <td style="font-size:12px;color:var(--bk-ink-2);">@c.RedemptionLabel</td>
-                            <td style="font-size:12px;font-family:var(--ukuu-font-mono);color:var(--bk-ink-2);">@c.ExpiryDisplay</td>
-                            <td>
-                                @{
-                                    var pillClass = c.StatusDisplay switch
+                            @* ── Description ── *@
+                            @if (!string.IsNullOrEmpty(c.Description))
+                            {
+                                <div class="sa-coupon-desc">@c.Description</div>
+                            }
+                            else
+                            {
+                                <div class="sa-coupon-desc" style="color:var(--bk-ink-3);font-style:italic;">No description</div>
+                            }
+
+                            @* ── Tags row ── *@
+                            <div class="sa-coupon-tags">
+                                <span class="sa-tag sa-tag-plan">
+                                    <span class="material-icons-round" style="font-size:12px;">calendar_today</span>
+                                    @c.ApplicablePlan
+                                </span>
+                                <span class="sa-tag sa-tag-usage">
+                                    <span class="material-icons-round" style="font-size:12px;">people</span>
+                                    @c.RedemptionLabel
+                                </span>
+                                <span class="sa-tag sa-tag-expiry">
+                                    <span class="material-icons-round" style="font-size:12px;">schedule</span>
+                                    @c.ExpiryDisplay
+                                </span>
+                            </div>
+
+                            @* ── Usage progress bar ── *@
+                            @if (c.MaxUses > 0)
+                            {
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                                    <div class="sa-usage-bar">
+                                        <div class="sa-usage-bar-fill" style="width:@usagePct%;"></div>
+                                    </div>
+                                    <span style="font-size:11px;color:var(--bk-ink-3);white-space:nowrap;">@c.UsedCount / @c.MaxUses</span>
+                                </div>
+                            }
+
+                            @* ── Meta: Status + Creator + Revoke ── *@
+                            <div class="sa-coupon-meta">
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span class="sa-status @statusClass">@c.StatusDisplay</span>
+                                    <span class="sa-coupon-creator">
+                                        <span class="material-icons-round" style="font-size:12px;">person</span>
+                                        @c.CreatedByEmail
+                                    </span>
+                                </div>
+                                <div class="sa-coupon-actions">
+                                    @if (c.IsActive && c.IsValid)
                                     {
-                                        "Active" => "active",
-                                        "Expired" => "rejected",
-                                        "Fully Used" => "pending",
-                                        "Revoked" => "rejected",
-                                        _ => ""
-                                    };
-                                }
-                                <span class="bk-admin-pill @pillClass" style="font-size:10px;">@c.StatusDisplay</span>
-                            </td>
-                            <td style="font-size:12px;color:var(--bk-ink-3);">@c.CreatedByEmail</td>
-                            <td>
-                                @if (c.IsActive && c.IsValid)
-                                {
-                                    <form method="post" action="/api/super-admin/coupons/revoke" style="display:inline;">
-                                        <input type="hidden" name="CouponId" value="@c.Id" />
-                                        <button type="submit" class="bk-btn bk-btn-secondary" style="padding:4px 8px;font-size:11px;color:var(--bk-error);" onclick="return confirm('Revoke coupon ' + '@c.Code' + '? It cannot be undone.');">
-                                            <span class="material-icons-round" style="font-size:14px;">block</span>
-                                            Revoke
-                                        </button>
-                                    </form>
-                                }
-                            </td>
-                        </tr>
-                    }
-                    @if (_coupons.Count == 0)
-                    {
-                        <tr>
-                            <td colspan="9" style="text-align:center;padding:64px 24px;color:var(--bk-ink-3);">
-                                <span class="material-icons-round" style="font-size:48px;display:block;margin-bottom:12px;opacity:0.4;">card_giftcard</span>
-                                No coupons issued yet. Click "Issue New Coupon" above to get started.
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                                        <form method="post" action="/api/super-admin/coupons/revoke" style="display:inline;">
+                                            <input type="hidden" name="CouponId" value="@c.Id" />
+                                            <button type="submit" class="sa-btn sa-btn-danger" onclick="return confirm('Revoke coupon @c.Code? It cannot be undone.');">
+                                                <span class="material-icons-round" style="font-size:14px;">block</span>
+                                                Revoke
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
     </div>
 
-    @* ───── Redemption History ───── *@
+    @* ═══════════════ Redemption History ═══════════════ *@
     @if (_redemptions.Count > 0)
     {
-        <div class="bk-admin-card" style="margin-top:20px;overflow:hidden;">
-            <div class="bk-admin-card-header">
-                <h3>Redemption History</h3>
-                <p>@_redemptions.Count total redemptions</p>
+        <div class="sa-redemptions-section">
+            <div class="sa-section-title">
+                <div>
+                    <h3>Redemption History</h3>
+                    <div class="sa-section-title-sub">@_redemptions.Count total redemptions</div>
+                </div>
             </div>
-            <div style="overflow-x:auto;">
-                <table class="bk-admin-table">
-                    <thead>
-                        <tr>
-                            <th>Coupon Code</th>
-                            <th>Organization</th>
-                            <th>Redeemed By</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var r in _redemptions)
-                        {
-                            <tr>
-                                <td style="font-family:var(--ukuu-font-mono);font-weight:600;">@r.CouponCode?.Code</td>
-                                <td>@r.Organization?.Name</td>
-                                <td style="font-size:12px;color:var(--bk-ink-2);">@r.RedeemedByEmail</td>
-                                <td style="font-size:12px;font-family:var(--ukuu-font-mono);color:var(--bk-ink-2);">@r.RedeemedAt.ToString("dd MMM yyyy · HH:mm")</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+            <div class="sa-redemption-grid">
+                @foreach (var r in _redemptions)
+                {
+                    <div class="sa-redemption-card">
+                        <div class="sa-redemption-icon">
+                            <span class="material-icons-round">redeem</span>
+                        </div>
+                        <div class="sa-redemption-info">
+                            <div class="sa-redemption-code">@r.CouponCode?.Code</div>
+                            <div class="sa-redemption-org">@r.Organization?.Name</div>
+                            <div class="sa-redemption-details">
+                                <span>
+                                    <span class="material-icons-round" style="font-size:12px;">person</span>
+                                    @r.RedeemedByEmail
+                                </span>
+                                <span>
+                                    <span class="material-icons-round" style="font-size:12px;">schedule</span>
+                                    @r.RedeemedAt.ToString("dd MMM yyyy · HH:mm")
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     }
+
 </div>
 
 @code {
