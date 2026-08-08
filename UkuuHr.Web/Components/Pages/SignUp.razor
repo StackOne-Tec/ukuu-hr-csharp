@@ -7,6 +7,7 @@
 @inject UkuuHrDbContext Db
 @inject AuditService AuditSvc
 @inject ISnackbar Snackbar
+@inject UkuuHr.Services.AutoLoginTokenService AutoLoginTokenSvc
 
 <div class="bk-auth">
     @* ─────────── LEFT: Visual panel ─────────── *@
@@ -90,6 +91,7 @@
             }
 
             <form method="post" action="/auth/signup" class="bk-form">
+                <AntiforgeryToken />
 
                 @* Name row *@
                 <div class="bk-field-group" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
@@ -575,13 +577,11 @@
             // 5. Redirect to a traditional HTTP endpoint that signs the user in.
             // We can't call Auth.SignInAsync() directly from a Blazor Server event
             // handler because HttpContext is null during WebSocket events.
-            // Instead, we redirect (forceLoad=true) to /auth/auto-login which is a
-            // server-side POST endpoint that has a real HttpContext and can issue
-            // the auth cookie.
+            // P0/C-1: Use one-time token instead of credentials in URL.
+            // The token is stored server-side and exchanged for the session on POST.
+            var token = AutoLoginTokenSvc.CreateToken(_form.Email.Trim(), _form.Password);
             var returnUrl = Uri.EscapeDataString("/dashboard");
-            var email = Uri.EscapeDataString(_form.Email.Trim());
-            var password = Uri.EscapeDataString(_form.Password);
-            Nav.NavigateTo($"/auth/auto-login?email={email}&password={password}&returnUrl={returnUrl}", forceLoad: true);
+            Nav.NavigateTo($"/auth/auto-login?token={Uri.EscapeDataString(token)}&returnUrl={returnUrl}", forceLoad: true);
         }
         catch (Exception ex)
         {

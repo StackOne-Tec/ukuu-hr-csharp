@@ -112,6 +112,7 @@
                     }
 
                     <form method="post" action="/api/attendance/clock" style="display:flex;gap:8px;">
+                    <AntiforgeryToken />
                         <input type="hidden" name="employeeId" value="@emp.Id" />
                         @if (!isCheckedIn)
                         {

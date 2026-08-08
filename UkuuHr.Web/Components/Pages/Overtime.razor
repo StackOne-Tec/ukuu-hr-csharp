@@ -355,6 +355,7 @@
                 </button>
             </div>
             <form method="post" action="/api/overtime/auto-calculate" style="display:inline;">
+            <AntiforgeryToken />
                 <button type="submit" class="ot-btn ot-btn-gold">
                     <span class="material-icons-round" style="font-size:16px;">calculate</span>
                     Auto-Calculate
@@ -452,12 +453,14 @@
                             @if (_tab == "pending")
                             {
                                 <form method="post" action="/api/overtime/@ot.Id/approve" style="flex:1;display:flex;">
+                                <AntiforgeryToken />
                                     <button type="submit" class="ot-card-action approve" style="width:100%;justify-content:center;">
                                         <span class="material-icons-round" style="font-size:15px;">check</span>
                                         Approve
                                     </button>
                                 </form>
                                 <form method="post" action="/api/overtime/@ot.Id/reject" style="flex:1;display:flex;">
+                                <AntiforgeryToken />
                                     <button type="submit" class="ot-card-action reject" style="width:100%;justify-content:center;">
                                         <span class="material-icons-round" style="font-size:15px;">close</span>
                                         Reject
@@ -518,11 +521,13 @@
                                     @if (_tab == "pending")
                                     {
                                         <form method="post" action="/api/overtime/@ot.Id/approve" style="display:inline;">
+                                        <AntiforgeryToken />
                                             <button type="submit" class="ot-table-action" style="color:#14a37f;border-color:rgba(20,163,127,0.3);" title="Approve">
                                                 <span class="material-icons-round" style="font-size:16px;">check</span>
                                             </button>
                                         </form>
                                         <form method="post" action="/api/overtime/@ot.Id/reject" style="display:inline;">
+                                        <AntiforgeryToken />
                                             <button type="submit" class="ot-table-action" style="color:#DC2626;border-color:rgba(220,38,38,0.3);" title="Reject">
                                                 <span class="material-icons-round" style="font-size:16px;">close</span>
                                             </button>

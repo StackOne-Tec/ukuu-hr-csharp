@@ -1305,6 +1305,7 @@
 
             @* Login form with exact Blazor bindings *@
             <form method="post" action="/auth/login@(_returnUrlEncoded)">
+                <AntiforgeryToken />
 
                 @if (_error != null)
                 {
@@ -1400,15 +1401,7 @@
                 </button>
             </div>
 
-            @* Demo credentials *@
-            <div class="bk-demo-creds">
-                <div class="bk-demo-creds-label">Default admin credentials</div>
-                <div class="bk-demo-creds-row">
-                    <span class="bk-demo-email">admin@ukuuhr.demo</span>
-                    <span class="bk-demo-sep">·</span>
-                    <span class="bk-demo-pass">Admin@2025</span>
-                </div>
-            </div>
+            @* P0/C-3: Demo credentials block removed — no credential hints on login page *@
 
             @* Footer link *@
             <div class="bk-form-footer">
@@ -1456,7 +1449,7 @@
         FormData ??= new LoginModel();
         if (ErrorParam == "1")
         {
-            _error = "Invalid email or password. Try admin@ukuuhr.demo / Admin@2025";
+            _error = "Invalid email or password.";
         }
         if (!string.IsNullOrEmpty(ReturnUrl) && ReturnUrl.StartsWith("/"))
         {
@@ -1468,10 +1461,10 @@
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
         [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Enter a valid email")]
-        public string Email { get; set; } = "admin@ukuuhr.demo";
+        public string Email { get; set; } = "";
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
-        public string Password { get; set; } = "Admin@2025";
+        public string Password { get; set; } = "";
 
         public bool RememberMe { get; set; } = true;
     }

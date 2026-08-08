@@ -30,6 +30,15 @@ services:
         value: "false"
       # ── Resend email API key ──
       # Used for transactional emails (payslip delivery, leave approvals, etc.)
+      # P0/C-4: API key removed from VCS. Set via Render dashboard as a secret.
       # Get your key at https://resend.com/api-keys
       - key: RESEND_API_KEY
-        value: "re_KFnWFKRB_KTw4irSgKsaJyENfQ2LM1MHA"
+        sync: false
+      # ── Admin password for first-run ──
+      # Sets the password for admin@ukuuhr.demo. Must be set in production.
+      - key: UKUU_ADMIN_PASSWORD
+        sync: false
+      # ── Encryption master key (AES-256-CBC) ──
+      # REQUIRED in Production. Generate with: openssl rand -hex 32
+      - key: UKUU_ENCRYPTION_KEY
+        sync: false

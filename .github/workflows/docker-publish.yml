@@ -46,7 +46,7 @@ jobs:
   # Job 1: Build & test the .NET solution
   # ───────────────────────────────────────────────────────────────────────────
   build-test:
-    name: Build & Test (.NET 9)
+    name: Build & Test (.NET 10)
     runs-on: ubuntu-latest
     outputs:
       short-sha: ${{ steps.meta.outputs.short-sha }}
@@ -54,10 +54,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 9
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Restore
         run: dotnet restore UkuuHr.sln
@@ -111,7 +111,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           labels: |
             org.opencontainers.image.title=Ukuu HR
-            org.opencontainers.image.description=Modern HRMS for Africa — Blazor Server + .NET 9
+            org.opencontainers.image.description=Modern HRMS for Africa — Blazor Server + .NET 10
             org.opencontainers.image.source=https://github.com/StackOne-Tec/ukuu-hr-csharp
             org.opencontainers.image.licenses=MIT
 
@@ -169,4 +169,4 @@ jobs:
           echo "    -e UKUU_API_KEY=\$(openssl rand -hex 32) \\"
           echo "    ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           echo ""
-          echo "Then visit http://localhost:8080 and log in with admin@ukuuhr.demo / Admin@2025"
+          echo "    -e UKUU_ADMIN_PASSWORD=<your-secure-password> \\"
