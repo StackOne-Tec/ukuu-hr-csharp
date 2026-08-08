@@ -386,6 +386,59 @@ html { scroll-behavior: smooth; }
     border: 1px solid rgba(0,120,215,0.25); color: rgba(100,180,255,0.9);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   DOCKER DEPLOY SECTION — Premium Terminal + Deployment Guide
+   ═══════════════════════════════════════════════════════════════ */
+.lp-deploy { padding: 104px clamp(16px, 4vw, 64px); background: linear-gradient(180deg, #1A0D42 0%, #0E0620 50%, #1A0D42 100%); position: relative; overflow: hidden; }
+.lp-deploy::before { content: ''; position: absolute; width: 800px; height: 800px; top: -200px; left: -300px; background: radial-gradient(circle, rgba(0,120,215,0.12), transparent 70%); border-radius: 50%; filter: blur(100px); pointer-events: none; }
+.lp-deploy::after { content: ''; position: absolute; width: 600px; height: 600px; bottom: -200px; right: -200px; background: radial-gradient(circle, rgba(123,47,190,0.15), transparent 70%); border-radius: 50%; filter: blur(80px); pointer-events: none; }
+.lp-deploy-inner { max-width: var(--lp-max); width: 100%; margin: 0 auto; position: relative; z-index: 1; }
+.lp-deploy-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(0,180,255,0.85); margin-bottom: 8px; text-align: center; }
+.lp-deploy-title { font-size: clamp(26px, 4vw, 44px); font-weight: 800; color: #fff; letter-spacing: -0.035em; margin-bottom: 12px; text-align: center; }
+.lp-deploy-sub { font-size: 16px; color: rgba(255,255,255,0.5); margin-bottom: 48px; text-align: center; max-width: 680px; margin-left: auto; margin-right: auto; }
+
+/* Terminal mockup */
+.lp-terminal { background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; overflow: hidden; max-width: 760px; margin: 0 auto 48px; box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04); }
+.lp-terminal-bar { display: flex; align-items: center; gap: 8px; padding: 14px 20px; background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.06); }
+.lp-terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+.lp-terminal-dot:nth-child(1) { background: #ff5f57; }
+.lp-terminal-dot:nth-child(2) { background: #febc2e; }
+.lp-terminal-dot:nth-child(3) { background: #28c840; }
+.lp-terminal-title { font-size: 12px; color: rgba(255,255,255,0.4); margin-left: 8px; font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+.lp-terminal-body { padding: 20px 24px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.8; color: rgba(255,255,255,0.75); overflow-x: auto; }
+.lp-terminal-body .lp-cmd-comment { color: rgba(255,255,255,0.25); }
+.lp-terminal-body .lp-cmd-prompt { color: var(--lp-green); font-weight: 600; }
+.lp-terminal-body .lp-cmd-flag { color: var(--lp-lavender); }
+.lp-terminal-body .lp-cmd-string { color: #f0c674; }
+.lp-terminal-body .lp-cmd-output { color: rgba(255,255,255,0.35); font-style: italic; }
+
+/* Deploy feature grid */
+.lp-deploy-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1100px; margin: 0 auto 48px; }
+.lp-deploy-feat { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 28px 24px; text-align: left; transition: all 0.3s ease; position: relative; overflow: hidden; }
+.lp-deploy-feat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, rgba(0,120,215,0.5), rgba(123,47,190,0.5)); opacity: 0; transition: opacity 0.3s ease; }
+.lp-deploy-feat:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); transform: translateY(-3px); }
+.lp-deploy-feat:hover::before { opacity: 1; }
+.lp-deploy-feat-icon { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, rgba(0,120,215,0.15), rgba(123,47,190,0.1)); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.lp-deploy-feat-icon span { font-size: 22px; color: rgba(100,180,255,0.9); }
+.lp-deploy-feat h4 { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.lp-deploy-feat p { font-size: 13px; line-height: 1.55; color: rgba(255,255,255,0.45); margin: 0; }
+
+/* Arch badges row */
+.lp-deploy-badges { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
+.lp-deploy-badge { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid; }
+.lp-deploy-badge--docker { background: linear-gradient(135deg, rgba(0,120,215,0.18), rgba(0,120,215,0.08)); border-color: rgba(0,120,215,0.3); color: rgba(100,180,255,0.9); }
+.lp-deploy-badge--arch { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.6); }
+.lp-deploy-badge--dotnet { background: linear-gradient(135deg, rgba(123,47,190,0.18), rgba(123,47,190,0.08)); border-color: rgba(123,47,190,0.3); color: rgba(167,139,250,0.9); }
+
+/* Env vars mini-table */
+.lp-deploy-env { max-width: 760px; margin: 0 auto; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; overflow: hidden; }
+.lp-deploy-env-header { display: grid; grid-template-columns: 2fr 3fr; padding: 14px 20px; background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.35); }
+.lp-deploy-env-row { display: grid; grid-template-columns: 2fr 3fr; padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 12px; transition: background 0.15s ease; }
+.lp-deploy-env-row:last-child { border-bottom: none; }
+.lp-deploy-env-row:hover { background: rgba(255,255,255,0.03); }
+.lp-deploy-env-key { font-family: 'JetBrains Mono', 'Fira Code', monospace; color: rgba(100,180,255,0.8); }
+.lp-deploy-env-val { color: rgba(255,255,255,0.4); padding-left: 12px; }
+
 /* ─── CTA ─── */
 .lp-cta { padding: 104px clamp(16px, 4vw, 64px); background: linear-gradient(135deg, var(--lp-purple) 0%, var(--lp-purple-deep) 50%, #1A0D42 100%); position: relative; overflow: hidden; text-align: center; }
 .lp-cta::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 100%, rgba(167,139,250,0.18), transparent 60%); pointer-events: none; }
@@ -430,6 +483,7 @@ html { scroll-behavior: smooth; }
     .lp-workflow-steps { flex-direction: column; align-items: center; gap: 32px; }
     .lp-workflow-step::after { display: none; }
     .lp-nav { display: none; }
+    .lp-deploy-features { grid-template-columns: 1fr; max-width: 400px; }
 }
 @@media (max-width: 600px) {
     .lp-bento-grid { grid-template-columns: 1fr; }
@@ -505,6 +559,7 @@ html { scroll-behavior: smooth; }
         <a href="#metrics">Metrics</a>
         <a href="#workflow">Workflow</a>
         <a href="#download">Download</a>
+        <a href="#deploy">Deploy</a>
     </nav>
     <div class="lp-header-right">
         <span class="lp-status-text">
@@ -803,6 +858,124 @@ html { scroll-behavior: smooth; }
             <div>
                 <h4>Prefer a browser-based install?</h4>
                 <p>Ukuu HR is also a PWA. Open <a href="/dashboard">the web app</a> in Chrome or Edge, then click the install icon in the address bar &mdash; works on both Windows and macOS.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* 7b. DOCKER DEPLOY SECTION *@
+<section class="lp-deploy" id="deploy">
+    <div class="lp-deploy-inner">
+        <p class="lp-deploy-eyebrow">Containerized Deployment</p>
+        <h2 class="lp-deploy-title">Ship with Docker. Scale with confidence.</h2>
+        <p class="lp-deploy-sub">One command to build and run. Multi-arch images for amd64 and arm64. Production-ready with health checks, auto-restart, and persistent volumes.</p>
+
+        @* ── Terminal mockup ── *@
+        <div class="lp-terminal">
+            <div class="lp-terminal-bar">
+                <div class="lp-terminal-dot"></div>
+                <div class="lp-terminal-dot"></div>
+                <div class="lp-terminal-dot"></div>
+                <span class="lp-terminal-title">terminal &mdash; ukuu-hr deployment</span>
+            </div>
+            <div class="lp-terminal-body">
+                <span class="lp-cmd-comment"># Clone the repository</span><br/>
+                <span class="lp-cmd-prompt">$</span> git clone https://github.com/StackOne-Tec/ukuu-hr-csharp.git<br/>
+                <span class="lp-cmd-prompt">$</span> cd ukuu-hr-csharp<br/><br/>
+                <span class="lp-cmd-comment"># Build &amp; run with Docker Compose (foreground)</span><br/>
+                <span class="lp-cmd-prompt">$</span> docker compose up<br/>
+                <span class="lp-cmd-output">  ✔ Container ukuu-hr  Started</span><br/>
+                <span class="lp-cmd-output">  ✔ Health check passed  http://localhost:8080/health</span><br/><br/>
+                <span class="lp-cmd-comment"># Or run detached with production Postgres</span><br/>
+                <span class="lp-cmd-prompt">$</span> docker compose up <span class="lp-cmd-flag">-d</span><br/>
+                <span class="lp-cmd-prompt">$</span> docker compose logs <span class="lp-cmd-flag">-f</span> ukuu-hr<br/>
+                <span class="lp-cmd-output">  info: UkuuHr.Web[0] Now listening on http://+:8080</span>
+            </div>
+        </div>
+
+        @* ── Arch badges ── *@
+        <div class="lp-deploy-badges">
+            <span class="lp-deploy-badge lp-deploy-badge--docker">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M23.5 12c-.3-.4-1.1-.7-2-.4-.2-1.1-1.1-2-2.2-2.3.1-.3.2-.7.1-1.1-.2-.8-.9-1.3-1.7-1.3-.6 0-1.2.3-1.5.8-.7-.6-1.6-1-2.5-1-1.3 0-2.5.7-3.1 1.7-.3-.1-.6-.2-.9-.2-1.4 0-2.5 1.1-2.5 2.5 0 .3.1.6.2.9-1.1.4-1.9 1.5-1.9 2.8 0 1.7 1.3 3 3 3h11c1.7 0 3-1.3 3-3 0-1-.5-1.9-1.3-2.4z" fill="currentColor"/></svg>
+                Docker Compose
+            </span>
+            <span class="lp-deploy-badge lp-deploy-badge--arch">
+                <span class="material-icons-round" style="font-size:13px;">memory</span>
+                linux/amd64
+            </span>
+            <span class="lp-deploy-badge lp-deploy-badge--arch">
+                <span class="material-icons-round" style="font-size:13px;">developer_board</span>
+                linux/arm64
+            </span>
+            <span class="lp-deploy-badge lp-deploy-badge--dotnet">
+                <span class="material-icons-round" style="font-size:13px;">code</span>
+                .NET 10
+            </span>
+        </div>
+
+        @* ── Feature cards ── *@
+        <div class="lp-deploy-features">
+            <div class="lp-deploy-feat">
+                <div class="lp-deploy-feat-icon"><span class="material-icons-round">health_and_safety</span></div>
+                <h4>Health Checks</h4>
+                <p>Built-in <code>/health</code> endpoint with 30-second intervals. Docker auto-restarts unhealthy containers &mdash; zero downtime.</p>
+            </div>
+            <div class="lp-deploy-feat">
+                <div class="lp-deploy-feat-icon"><span class="material-icons-round">restart_alt</span></div>
+                <h4>Auto-Restart</h4>
+                <p><code>unless-stopped</code> policy ensures recovery from crashes. Container persists across host reboots automatically.</p>
+            </div>
+            <div class="lp-deploy-feat">
+                <div class="lp-deploy-feat-icon"><span class="material-icons-round">folder_open</span></div>
+                <h4>Persistent Volumes</h4>
+                <p>Database and app data stored in named Docker volumes. Survive container rebuilds &mdash; no data loss on <code>docker compose up --build</code>.</p>
+            </div>
+            <div class="lp-deploy-feat">
+                <div class="lp-deploy-feat-icon"><span class="material-icons-round">dns</span></div>
+                <h4>PostgreSQL Ready</h4>
+                <p>Set <code>POSTGRES_CONNECTION_STRING</code> for production Postgres. Falls back to SQLite for quick local runs &mdash; no extra setup.</p>
+            </div>
+            <div class="lp-deploy-feat">
+                <div class="lp-deploy-feat-icon"><span class="material-icons-round">lock</span></div>
+                <h4>Secure by Default</h4>
+                <p>Cookie auth, AES-256 encryption, HTTPS support. Set <code>UKUU_ENCRYPTION_KEY</code> and <code>RESEND_API_KEY</code> for production.</p>
+            </div>
+            <div class="lp-deploy-feat">
+                <div class="lp-deploy-feat-icon"><span class="material-icons-round">deployed_code</span></div>
+                <h4>Cloud Compatible</h4>
+                <p>Deploy to Render, Fly.io, Railway, or any Docker-capable host. <code>PORT</code> env var for cloud port binding. Zero vendor lock-in.</p>
+            </div>
+        </div>
+
+        @* ── Environment variables reference ── *@
+        <div class="lp-deploy-env">
+            <div class="lp-deploy-env-header">
+                <span>Variable</span>
+                <span>Description</span>
+            </div>
+            <div class="lp-deploy-env-row">
+                <span class="lp-deploy-env-key">POSTGRES_CONNECTION_STRING</span>
+                <span class="lp-deploy-env-val">PostgreSQL ADO.NET connection string (production)</span>
+            </div>
+            <div class="lp-deploy-env-row">
+                <span class="lp-deploy-env-key">DATABASE_URL</span>
+                <span class="lp-deploy-env-val">Alternative &mdash; Render-style <code>postgres://</code> URL</span>
+            </div>
+            <div class="lp-deploy-env-row">
+                <span class="lp-deploy-env-key">SEED_DEMO_DATA</span>
+                <span class="lp-deploy-env-val"><code>true</code> for first-run demo; <code>false</code> for production</span>
+            </div>
+            <div class="lp-deploy-env-row">
+                <span class="lp-deploy-env-key">UKUU_ENCRYPTION_KEY</span>
+                <span class="lp-deploy-env-val">AES-256-CBC master key for secrets encryption</span>
+            </div>
+            <div class="lp-deploy-env-row">
+                <span class="lp-deploy-env-key">RESEND_API_KEY</span>
+                <span class="lp-deploy-env-val">Resend.com API key for transactional email</span>
+            </div>
+            <div class="lp-deploy-env-row">
+                <span class="lp-deploy-env-key">PORT</span>
+                <span class="lp-deploy-env-val">HTTP port override (default <code>8080</code>)</span>
             </div>
         </div>
     </div>
