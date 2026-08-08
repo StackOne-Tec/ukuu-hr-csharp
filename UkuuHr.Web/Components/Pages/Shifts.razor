@@ -420,6 +420,7 @@ else if (_orgMissing)
         <h3>No Organization Found</h3>
         <p>You need to create an organization before you can manage shifts.</p>
         <form method="post" action="/api/organization/seed" style="display:inline;">
+        <AntiforgeryToken />
             <button type="submit" class="sf-btn sf-btn-primary">
                 <span class="material-icons-round" style="font-size:16px;">add_business</span>
                 Create Default Organization
@@ -611,6 +612,7 @@ else
                                 Edit
                             </a>
                             <form method="post" action="/api/shifts/delete/@s.Id" style="flex:1;" onsubmit="return confirm('Delete shift @s.Name?');">
+                            <AntiforgeryToken />
                                 <button type="submit" class="sf-card-action delete" style="width:100%;">
                                     <span class="material-icons-round" style="font-size:16px;">delete_outline</span>
                                     Delete

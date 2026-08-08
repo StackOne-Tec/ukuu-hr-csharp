@@ -488,6 +488,7 @@ select.sa-input {
         <div class="sa-form-card-body">
             <p style="font-size:13px;color:var(--bk-ink-3);margin:0 0 20px;">Create a coupon code that organizations can redeem for subscription access.</p>
             <form method="post" action="/api/super-admin/coupons/create">
+            <AntiforgeryToken />
                 <div class="sa-form-grid">
                     <div class="sa-field">
                         <label class="sa-label">Coupon Code *</label>
@@ -638,6 +639,7 @@ select.sa-input {
                                     @if (c.IsActive && c.IsValid)
                                     {
                                         <form method="post" action="/api/super-admin/coupons/revoke" style="display:inline;">
+                                        <AntiforgeryToken />
                                             <input type="hidden" name="CouponId" value="@c.Id" />
                                             <button type="submit" class="sa-btn sa-btn-danger" onclick="return confirm('Revoke coupon @c.Code? It cannot be undone.');">
                                                 <span class="material-icons-round" style="font-size:14px;">block</span>

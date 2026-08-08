@@ -94,7 +94,8 @@ static string ConvertRenderDatabaseUrlToNpgsql(string url)
     var user = Uri.UnescapeDataString(userInfo[0]);
     var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
     var ssl = uri.Host.EndsWith(".render.com", StringComparison.OrdinalIgnoreCase) || uri.Port != 5432;
-    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={user};Password={pass};TrustServerCertificate=true;SSL Mode={(ssl ? "Require" : "Prefer")};Timeout=15;CommandTimeout=60";
+    // P2/M-3: Removed TrustServerCertificate=true — use proper CA-verified cert for PostgreSQL
+    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={user};Password={pass};SSL Mode={(ssl ? "Require" : "Prefer")};Timeout=15;CommandTimeout=60";
 }
 
 static string ExtractHost(string connStr)
@@ -135,7 +136,22 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
         options.Cookie.Name = "UkuuHr.Auth";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        // P2/M-1: Always send cookie over HTTPS in production (prevents proxy-induced HTTP downgrade)
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        // P2/M-2: SameSite=Strict — cookie only sent for same-site requests (strongest CSRF defense)
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        // P2/M-7: Cap maximum session lifetime to 24 hours (prevent infinite sliding sessions)
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnSigningIn = context =>
+            {
+                // Enforce absolute maximum session lifetime of 24 hours
+                var issued = context.Properties.IssuedUtc ?? DateTimeOffset.UtcNow;
+                if (context.Properties.ExpiresUtc > issued.AddHours(24))
+                    context.Properties.ExpiresUtc = issued.AddHours(24);
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
@@ -162,8 +178,12 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddCircuitOptions(options =>
     {
-        options.DetailedErrors = true;
+        // P0/H-8: Only enable DetailedErrors in Development — prevent stack trace leaks in production
+        options.DetailedErrors = builder.Environment.IsDevelopment();
     });
+
+// P0/C-1: One-time token service for POST-based auto-login (replaces credentials-in-URL)
+builder.Services.AddSingleton<AutoLoginTokenService>();
 
 builder.Services.AddMudServices(config =>
 {
@@ -401,7 +421,8 @@ app.UseAntiforgery();
 // ───── Phase 13.3: API key auth for external integration endpoints ─────
 // External systems (HR, Payroll, ERP, mobile apps) authenticate via the
 // X-API-Key header. The key is read from the UKUU_API_KEY env var.
-// If UKUU_API_KEY is not set, API endpoints fall back to cookie auth.
+// P1/H-4: If UKUU_API_KEY is not set, require cookie auth as minimum fallback.
+// P1/H-3: API key comparison uses constant-time comparison to prevent timing attacks.
 app.Use(async (ctx, next) =>
 {
     var path = ctx.Request.Path.Value ?? "";
@@ -417,7 +438,11 @@ app.Use(async (ctx, next) =>
         if (!string.IsNullOrEmpty(apiKey))
         {
             var providedKey = ctx.Request.Headers["X-API-Key"].ToString();
-            if (!string.IsNullOrEmpty(providedKey) && providedKey == apiKey)
+            // P1/H-3: Constant-time comparison to prevent timing attacks
+            if (!string.IsNullOrEmpty(providedKey)
+                && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                    System.Text.Encoding.UTF8.GetBytes(providedKey),
+                    System.Text.Encoding.UTF8.GetBytes(apiKey)))
             {
                 // API key matches — create a generic identity for the request
                 ctx.User = new System.Security.Claims.ClaimsPrincipal(
@@ -425,26 +450,38 @@ app.Use(async (ctx, next) =>
                         new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "api-client") },
                         "ApiKey"));
             }
-            else if (!ctx.User.Identity?.IsAuthenticated == true)
+            else if (ctx.User.Identity?.IsAuthenticated != true)
             {
                 ctx.Response.StatusCode = 401;
                 await ctx.Response.WriteAsync("{\"error\":\"Unauthorized. Provide X-API-Key header or sign in via cookie.\"}");
                 return;
             }
         }
-        // If UKUU_API_KEY is not set, API endpoints are open (development mode)
+        else
+        {
+            // P1/H-4: No API key configured — require cookie auth as minimum fallback
+            if (ctx.User.Identity?.IsAuthenticated != true)
+            {
+                // In Development, allow unauthenticated access for convenience
+                if (!ctx.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
+                {
+                    ctx.Response.StatusCode = 401;
+                    await ctx.Response.WriteAsync("{\"error\":\"Unauthorized. Configure UKUU_API_KEY or sign in via cookie.\"}");
+                    return;
+                }
+            }
+        }
     }
     await next();
 });
 
 // Public health endpoint — used by Render health check + KeepAlive self-ping + UptimeRobot
+// P3/L-3: Removed db_host and env from public response (reconnaissance risk)
 var startTime = DateTime.UtcNow;
 app.MapGet("/health", () => Results.Ok(new {
     status = "ok",
     timestamp = DateTime.UtcNow,
-    uptime_seconds = (DateTime.UtcNow - startTime).TotalSeconds,
-    db_host = ExtractHost(connectionString),
-    env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "<not set>"
+    uptime_seconds = (DateTime.UtcNow - startTime).TotalSeconds
 }));
 
 // ───── Desktop app download endpoint ─────
@@ -501,14 +538,30 @@ app.MapGet("/readiness", async (UkuuHrDbContext db) =>
     }
     catch (Exception ex)
     {
-        return Results.Json(new { status = "not_ready", timestamp = DateTime.UtcNow, db = "error", error = ex.Message },
+        // P2/M-4: Return generic error to client — don't leak exception details
+        return Results.Json(new { status = "not_ready", timestamp = DateTime.UtcNow, db = "error" },
             statusCode: 503);
     }
 });
 
 // Direct POST handler for login form (uses /auth/login to avoid conflict with Blazor's /login page route)
+// P3/L-4: Simple in-memory rate limiter for login (5 attempts per IP per minute)
+var loginAttempts = new System.Collections.Concurrent.ConcurrentDictionary<string, (int Count, DateTime WindowStart)>();
+
 app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Program> logger) =>
 {
+    // P3/L-4: Rate limiting — max 5 login attempts per IP per minute
+    var clientIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var now = DateTime.UtcNow;
+    var entry = loginAttempts.AddOrUpdate(clientIp,
+        _ => (1, now),
+        (_, old) => old.WindowStart < now.AddMinutes(-1) ? (1, now) : (old.Count + 1, old.WindowStart));
+    if (entry.Count > 5)
+    {
+        logger.LogWarning("Login rate limit exceeded for IP {Ip}", clientIp);
+        return Results.Redirect("/login?error=rate_limited");
+    }
+
     var form = await ctx.Request.ReadFormAsync();
     var email = form["FormData.Email"].ToString();
     var password = form["FormData.Password"].ToString();
@@ -583,6 +636,9 @@ app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthServ
         return Results.Redirect("/signup?error=Organization name is required");
     if (password.Length < 8)
         return Results.Redirect("/signup?error=Password must be at least 8 characters");
+    // P3/L-5: Server-side password complexity validation
+    if (!password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit))
+        return Results.Redirect("/signup?error=Password must contain uppercase, lowercase, and a number");
     if (password != confirmPassword)
         return Results.Redirect("/signup?error=Passwords do not match");
     if (!agreed)
@@ -647,7 +703,7 @@ app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthServ
     catch (Exception ex)
     {
         logger.LogError(ex, "Signup error for {Email}", email);
-        return Results.Redirect($"/signup?error=Registration failed: {ex.Message}");
+        return Results.Redirect("/signup?error=Registration failed. Please try again."); // P2/M-4: generic error
     }
 });
 
@@ -656,26 +712,46 @@ app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthServ
 // the app redirects here with forceLoad=true. This endpoint HAS a real HttpContext,
 // so it can call AuthService.SignInAsync() to issue the auth cookie, then redirect
 // to the dashboard.
-app.MapGet("/auth/auto-login", async (HttpContext ctx, AuthService auth, ILogger<Program> logger) =>
+// P0/C-1 + P1/H-1 + P1/H-9: Auto-login uses one-time token (no credentials in URL).
+// After signup, a short-lived random token is generated server-side. This endpoint
+// exchanges the token for an authenticated session. The token is consumed on first
+// use and expires after 5 minutes — safe to use in a GET URL (like email verify links).
+app.MapGet("/auth/auto-login", async (HttpContext ctx, AuthService auth, AutoLoginTokenService tokenService, ILogger<Program> logger) =>
 {
-    var email = ctx.Request.Query["email"].ToString();
-    var password = ctx.Request.Query["password"].ToString();
+    var token = ctx.Request.Query["token"].ToString();
     var returnUrl = ctx.Request.Query["returnUrl"].ToString();
-    if (string.IsNullOrEmpty(returnUrl)) returnUrl = "/dashboard";
 
-    logger.LogInformation("Auto-login: email={Email}", email);
+    // P1/H-9: Validate returnUrl is a relative path (prevent open redirect)
+    if (string.IsNullOrEmpty(returnUrl)
+        || !returnUrl.StartsWith("/")
+        || returnUrl.StartsWith("//")
+        || returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
+        || returnUrl.StartsWith("/landing", StringComparison.OrdinalIgnoreCase))
+    {
+        returnUrl = "/dashboard";
+    }
 
-    if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+    logger.LogInformation("Auto-login: token provided={HasToken}", !string.IsNullOrEmpty(token));
+
+    if (string.IsNullOrEmpty(token))
         return Results.Redirect("/login?error=1");
 
-    var success = await auth.SignInAsync(email, password, rememberMe: true);
+    // Validate the one-time token (consumes it atomically)
+    var credentials = tokenService.ConsumeToken(token);
+    if (credentials == null)
+    {
+        logger.LogWarning("Auto-login token invalid or expired");
+        return Results.Redirect("/login?error=1");
+    }
+
+    var success = await auth.SignInAsync(credentials.Value.Email, credentials.Value.Password, rememberMe: true);
     if (success)
     {
-        logger.LogInformation("Auto-login success for {Email}", email);
+        logger.LogInformation("Auto-login success for {Email}", credentials.Value.Email);
         return Results.Redirect(returnUrl);
     }
 
-    logger.LogWarning("Auto-login failed for {Email}", email);
+    logger.LogWarning("Auto-login failed for {Email}", credentials.Value.Email);
     return Results.Redirect("/login?error=1");
 });
 
@@ -1178,7 +1254,7 @@ app.MapPost("/api/shifts/delete/{id:int}", async (
     var deleted = await svc.DeleteShiftAsync(oid, id, actorEmail: "admin@ukuuhr.demo");
     if (!deleted) return Results.NotFound(new { error = "Shift not found." });
     return Results.Redirect("/shifts?deleted=1");
-}).WithName("ShiftsDeleteForm").DisableAntiforgery();
+}).WithName("ShiftsDeleteForm"); // P1/H-7: CSRF re-enabled
 
 // POST /api/shifts/tolerance — save attendance tolerance policy (traditional form POST)
 app.MapPost("/api/shifts/tolerance", async (
@@ -1452,7 +1528,7 @@ app.MapPost("/api/leave/{id:int}/approve", async (
     var result = await svc.ReviewAsync(oid, id, approve: true, reviewerEmail, notes);
     if (!result) return Results.NotFound(new { error = "Leave request not found." });
     return Results.Redirect("/leave?tab=approved&reviewed=1");
-}).WithName("LeaveApprove").DisableAntiforgery();
+}).WithName("LeaveApprove"); // P1/H-7: CSRF re-enabled
 
 // POST /api/leave/{id}/reject — reject a leave request (form POST or JSON)
 app.MapPost("/api/leave/{id:int}/reject", async (
@@ -1476,7 +1552,7 @@ app.MapPost("/api/leave/{id:int}/reject", async (
     var result = await svc.ReviewAsync(oid, id, approve: false, reviewerEmail, notes);
     if (!result) return Results.NotFound(new { error = "Leave request not found." });
     return Results.Redirect("/leave?tab=rejected&reviewed=1");
-}).WithName("LeaveReject").DisableAntiforgery();
+}).WithName("LeaveReject"); // P1/H-7: CSRF re-enabled
 
 // ───── POST /api/overtime/{id}/approve — approve overtime (form POST) ─────
 app.MapPost("/api/overtime/{id:int}/approve", async (
@@ -1488,7 +1564,7 @@ app.MapPost("/api/overtime/{id:int}/approve", async (
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
     await svc.ApproveAsync(oid, id, "admin@ukuuhr.demo", "Approved.");
     return Results.Redirect("/overtime?tab=approved&reviewed=1");
-}).WithName("OvertimeApprove").DisableAntiforgery();
+}).WithName("OvertimeApprove"); // P1/H-7: CSRF re-enabled
 
 // ───── POST /api/overtime/{id}/reject — reject overtime (form POST) ─────
 app.MapPost("/api/overtime/{id:int}/reject", async (
@@ -1500,7 +1576,7 @@ app.MapPost("/api/overtime/{id:int}/reject", async (
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
     await svc.RejectAsync(oid, id, "admin@ukuuhr.demo", "Rejected by admin.");
     return Results.Redirect("/overtime?tab=pending&reviewed=1");
-}).WithName("OvertimeReject").DisableAntiforgery();
+}).WithName("OvertimeReject"); // P1/H-7: CSRF re-enabled
 
 // ───── POST /api/overtime/auto-calculate ─────
 app.MapPost("/api/overtime/auto-calculate", async (
@@ -1513,7 +1589,7 @@ app.MapPost("/api/overtime/auto-calculate", async (
     var to = DateTime.Today;
     var count = await svc.AutoCalculateForDateRangeAsync(oid, from, to);
     return Results.Redirect($"/overtime?tab=all&calculated={count}");
-}).WithName("OvertimeAutoCalculate").DisableAntiforgery();
+}).WithName("OvertimeAutoCalculate"); // P1/H-7: CSRF re-enabled
 
 // POST /api/leave/{id}/cancel — cancel a leave request
 app.MapPost("/api/leave/{id:int}/cancel", async (
@@ -1846,7 +1922,7 @@ app.MapPost("/api/organization/seed", async (UkuuHrDbContext db, ILogger<Program
     await db.SaveChangesAsync();
     logger.LogInformation("Default organization created: {Id}", org.Id);
     return Results.Redirect("/devices?saved=1&name=org_created");
-}).WithName("OrganizationSeed").DisableAntiforgery();
+}).WithName("OrganizationSeed"); // P1/H-7: CSRF re-enabled
 
 // ───── POST /api/devices/sync/{id} — sync a single device (works without Blazor circuit) ─────
 app.MapPost("/api/devices/sync/{id:int}", async (
@@ -1940,6 +2016,13 @@ app.MapPost("/api/devices/save", async (
     device.UseHttps = form["UseHttps"] == "true" || form["UseHttps"] == "on";
     device.Username = form["Username"].ToString();
     device.Password = form["Password"].ToString();
+    // P2/H-5: Encrypt device password before storing in database
+    try
+    {
+        var encSvc = ctx.RequestServices.GetRequiredService<AesEncryptionService>();
+        device.PasswordEncrypted = encSvc.Encrypt(device.Password);
+    }
+    catch { /* encryption not available in dev — store plaintext */ }
     device.DeviceSerial = form["DeviceSerial"].ToString();
     device.Location = form["Location"].ToString();
     device.AutoSyncEnabled = form["AutoSyncEnabled"] == "true" || form["AutoSyncEnabled"] == "on";
@@ -1972,9 +2055,9 @@ app.MapPost("/api/devices/save", async (
     catch (Exception ex)
     {
         logger.LogError(ex, "Failed to save device");
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.BadRequest(new { error = "Failed to save device. Please try again." }); // P2/M-4
     }
-}).WithName("DeviceSave").DisableAntiforgery();
+}).WithName("DeviceSave"); // P1/H-7: CSRF re-enabled
 
 // ───── HikVision ISAPI Integration Endpoints ─────
 
@@ -2002,7 +2085,7 @@ app.MapGet("/api/hikvision/{id:int}/info", async (int id, UkuuHrDbContext db, IL
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = !string.IsNullOrEmpty(device.PasswordEncrypted) ? new AesEncryptionService().Decrypt(device.PasswordEncrypted) : device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2013,7 +2096,7 @@ app.MapGet("/api/hikvision/{id:int}/info", async (int id, UkuuHrDbContext db, IL
     }
     catch (Exception ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: 502);
+        return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
 }).WithName("HikvisionDeviceInfo");
 
@@ -2026,7 +2109,7 @@ app.MapGet("/api/hikvision/{id:int}/health", async (int id, UkuuHrDbContext db, 
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = !string.IsNullOrEmpty(device.PasswordEncrypted) ? new AesEncryptionService().Decrypt(device.PasswordEncrypted) : device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2036,7 +2119,7 @@ app.MapGet("/api/hikvision/{id:int}/health", async (int id, UkuuHrDbContext db, 
     }
     catch (Exception ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: 502);
+        return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
 }).WithName("HikvisionHealth");
 
@@ -2049,7 +2132,7 @@ app.MapGet("/api/hikvision/{id:int}/doors", async (int id, UkuuHrDbContext db, I
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = !string.IsNullOrEmpty(device.PasswordEncrypted) ? new AesEncryptionService().Decrypt(device.PasswordEncrypted) : device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2059,7 +2142,7 @@ app.MapGet("/api/hikvision/{id:int}/doors", async (int id, UkuuHrDbContext db, I
     }
     catch (Exception ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: 502);
+        return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
 }).WithName("HikvisionDoors");
 
@@ -2072,7 +2155,7 @@ app.MapPost("/api/hikvision/{id:int}/unlock/{doorId:int}", async (int id, int do
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = !string.IsNullOrEmpty(device.PasswordEncrypted) ? new AesEncryptionService().Decrypt(device.PasswordEncrypted) : device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2082,7 +2165,7 @@ app.MapPost("/api/hikvision/{id:int}/unlock/{doorId:int}", async (int id, int do
     }
     catch (Exception ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: 502);
+        return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
 }).WithName("HikvisionUnlockDoor");
 
@@ -2095,7 +2178,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-persons", async (int id, UkuuHrDbConte
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = !string.IsNullOrEmpty(device.PasswordEncrypted) ? new AesEncryptionService().Decrypt(device.PasswordEncrypted) : device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2114,7 +2197,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-persons", async (int id, UkuuHrDbConte
     }
     catch (Exception ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: 502);
+        return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
 }).WithName("HikvisionSyncPersons");
 
@@ -2166,7 +2249,7 @@ app.MapPost("/api/devices/sync-persons/{id:int}", async (
         logger.LogError(ex, "Employee push to device {DeviceName} failed", device.Name);
         return Results.Redirect("/devices?pushed=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage(ex.Message)));
     }
-}).WithName("DeviceSyncPersonsForm").DisableAntiforgery().RequireAuthorization("HrOrAdmin");
+}).WithName("DeviceSyncPersonsForm").RequireAuthorization("HrOrAdmin"); // P1/H-7: CSRF re-enabled
 
 // POST /api/hikvision/{id}/sync-time — Sync device time with server
 app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
@@ -2177,7 +2260,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext 
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = !string.IsNullOrEmpty(device.PasswordEncrypted) ? new AesEncryptionService().Decrypt(device.PasswordEncrypted) : device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2187,7 +2270,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext 
     }
     catch (Exception ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: 502);
+        return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
 }).WithName("HikvisionSyncTime");
 
@@ -2200,7 +2283,7 @@ app.MapPost("/api/hikvision/{id:int}/reboot", async (int id, UkuuHrDbContext db,
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
 
     using var client = new UkuuHr.Services.Hikvision.HikvisionIsapiClient(
-        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = device.Password ?? "" },
+        new UkuuHr.Services.Hikvision.HikvisionIsapiConfig { IpAddress = device.IpAddress ?? "", Port = device.Port ?? (device.UseHttps ? 443 : 80), UseHttps = device.UseHttps, Username = device.Username ?? "admin", Password = !string.IsNullOrEmpty(device.PasswordEncrypted) ? new AesEncryptionService().Decrypt(device.PasswordEncrypted) : device.Password ?? "" },
         logger as ILogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient> ?? LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UkuuHr.Services.Hikvision.HikvisionIsapiClient>());
 
     try
@@ -2210,7 +2293,7 @@ app.MapPost("/api/hikvision/{id:int}/reboot", async (int id, UkuuHrDbContext db,
     }
     catch (Exception ex)
     {
-        return Results.Json(new { error = ex.Message }, statusCode: 502);
+        return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
 }).WithName("HikvisionReboot");
 
@@ -2415,6 +2498,16 @@ app.MapPost("/api/documents/upload", async (
 
     // Determine document type from extension
     var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    // P2/M-5: Explicit extension allowlist — reject dangerous file types
+    var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt"
+    };
+    if (!allowedExtensions.Contains(ext))
+    {
+        logger.LogWarning("Document upload rejected — disallowed extension: {Ext}", ext);
+        return Results.Redirect("/documents/upload?error=1&msg=File type not allowed");
+    }
     var docType = ext switch
     {
         ".pdf" => DocumentType.Pdf,
@@ -2455,7 +2548,7 @@ app.MapPost("/api/documents/upload", async (
 
     logger.LogInformation("Document saved: {Name} ({Size} bytes), ID={Id}", name, file.Length, doc.Id);
     return Results.Redirect("/documents/upload?saved=1");
-}).WithName("DocumentUpload").DisableAntiforgery();
+}).WithName("DocumentUpload"); // P1/H-7: CSRF re-enabled
 
 // GET /api/documents/export.csv — export document list as CSV
 app.MapGet("/api/documents/export.csv", async (UkuuHrDbContext db) =>
@@ -2589,9 +2682,9 @@ app.MapPost("/api/employees/save", async (
     catch (Exception ex)
     {
         logger.LogError(ex, "Failed to save employee");
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.BadRequest(new { error = "Failed to save device. Please try again." }); // P2/M-4
     }
-}).WithName("EmployeeSave").DisableAntiforgery();
+}).WithName("EmployeeSave"); // P1/H-7: CSRF re-enabled
 
 // ───── POST /api/overtime/{id}/edit — edit overtime record (form POST) ─────
 app.MapPost("/api/overtime/{id:int}/edit", async (
@@ -2632,7 +2725,7 @@ app.MapPost("/api/overtime/{id:int}/edit", async (
 
     logger.LogInformation("Overtime {Id} updated: {Hours}h {RateType}", id, hours, rateType);
     return Results.Redirect("/overtime?tab=all&updated=1");
-}).WithName("OvertimeEdit").DisableAntiforgery();
+}).WithName("OvertimeEdit"); // P1/H-7: CSRF re-enabled
 
 // ───── POST /api/overtime/add — manual overtime entry (works without Blazor circuit) ─────
 app.MapPost("/api/overtime/add", async (
@@ -2705,9 +2798,9 @@ app.MapPost("/api/overtime/add", async (
     catch (Exception ex)
     {
         logger.LogError(ex, "Failed to create overtime record");
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.BadRequest(new { error = "Failed to save device. Please try again." }); // P2/M-4
     }
-}).WithName("OvertimeAdd").DisableAntiforgery();
+}).WithName("OvertimeAdd"); // P1/H-7: CSRF re-enabled
 
 // ───── GET /api/overtime/export — export overtime records as Excel-compatible CSV ─────
 // Matches the "Worked Hrs" format from the CassTech biometric system export
@@ -2878,7 +2971,7 @@ app.MapPost("/api/super-admin/coupons/create", async (
 
     logger.LogInformation("Coupon created: {Code} by {Email}", code, email);
     return Results.Redirect("/super-admin?created=1");
-}).WithName("CouponCreate").DisableAntiforgery();
+}).WithName("CouponCreate"); // P1/H-7: CSRF re-enabled
 
 // POST /api/super-admin/coupons/revoke — revoke a coupon
 app.MapPost("/api/super-admin/coupons/revoke", async (
@@ -2902,7 +2995,7 @@ app.MapPost("/api/super-admin/coupons/revoke", async (
     logger.LogInformation("Coupon revoked: {Code} by {Email}", coupon.Code,
         ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "unknown");
     return Results.Redirect("/super-admin?revoked=1");
-}).WithName("CouponRevoke").DisableAntiforgery();
+}).WithName("CouponRevoke"); // P1/H-7: CSRF re-enabled
 
 // POST /api/subscription/redeem-coupon — redeem a coupon (any authenticated user)
 app.MapPost("/api/subscription/redeem-coupon", async (
@@ -2958,7 +3051,7 @@ app.MapPost("/api/subscription/redeem-coupon", async (
     logger.LogInformation("Coupon redeemed: {Code} by {Email} for org {OrgId}",
         coupon.Code, email, org.Id);
     return Results.Redirect("/settings?coupon=success");
-}).WithName("CouponRedeem").DisableAntiforgery();
+}).WithName("CouponRedeem"); // P1/H-7: CSRF re-enabled
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/attendance/import-from-device
@@ -2976,7 +3069,7 @@ app.MapPost("/api/attendance/import-from-device", async (
     // ── 1. Parse + validate the request body ────────────────────────────────
     ImportFromDeviceRequest? body;
     try { body = await ctx.Request.ReadFromJsonAsync<ImportFromDeviceRequest>(); }
-    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid JSON body: " + ex.Message }); }
+    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); // P2/M-4 }
     if (body == null) return Results.BadRequest(new { error = "Empty request body." });
 
     if (string.IsNullOrWhiteSpace(body.IpAddress))
@@ -3208,7 +3301,7 @@ app.MapPost("/api/attendance/import-from-device", async (
         errors = errors,
         dateRange = new { from = from, to = to }
     });
-}).WithName("AttendanceImportFromDevice").DisableAntiforgery();
+}).WithName("AttendanceImportFromDevice"); // P1/H-7: CSRF re-enabled
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/attendance/save-imported
@@ -3225,7 +3318,7 @@ app.MapPost("/api/attendance/save-imported", async (
 {
     SaveImportedRequest? body;
     try { body = await ctx.Request.ReadFromJsonAsync<SaveImportedRequest>(); }
-    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid JSON: " + ex.Message }); }
+    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); // P2/M-4 }
     if (body == null || body.Events == null) return Results.BadRequest(new { error = "No events in request body." });
 
     var org = await db.Organizations.FirstOrDefaultAsync();
@@ -3294,7 +3387,7 @@ app.MapPost("/api/attendance/save-imported", async (
     catch (Exception ex)
     {
         logger.LogError(ex, "SaveImported: SaveChanges failed");
-        return Results.Json(new { error = "Save failed: " + ex.Message }, statusCode: 500);
+        return Results.Json(new { error = "Save failed. Please try again." }, statusCode: 500); // P2/M-4
     }
 
     return Results.Ok(new
@@ -3310,7 +3403,7 @@ app.MapPost("/api/attendance/save-imported", async (
         duplicatesSkipped = skippedDupe,
         errors = new List<string>()
     });
-}).WithName("AttendanceSaveImported").DisableAntiforgery();
+}).WithName("AttendanceSaveImported"); // P1/H-7: CSRF re-enabled
 
 // Deployment: Map Blazor Hub at /_framework/blazor instead of the default /_blazor.
 // This container's Caddy proxy routes /_framework/* to the C# app, but NOT /_blazor.

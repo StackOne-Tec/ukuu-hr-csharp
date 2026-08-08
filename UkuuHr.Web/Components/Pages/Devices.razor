@@ -407,6 +407,7 @@
                     Organization Settings
                 </a>
                 <form method="post" action="/api/organization/seed" style="display:inline;">
+                <AntiforgeryToken />
                     <button type="submit" class="dv-btn dv-btn-primary">
                         <span class="material-icons-round" style="font-size:16px;">add_business</span>
                         Create Default Organization
@@ -460,6 +461,7 @@
             </div>
             <div class="dv-header-actions">
                 <form method="post" action="/api/devices/sync-all" style="display:inline;">
+                <AntiforgeryToken />
                     <button type="submit" class="dv-btn dv-btn-ghost">
                         <span class="material-icons-round" style="font-size:16px;">sync</span>
                         Sync All
@@ -556,6 +558,7 @@
                         @* Action buttons *@
                         <div class="dv-card-actions">
                             <form method="post" action="/api/devices/sync/@d.Id" style="flex:1;display:flex;">
+                            <AntiforgeryToken />
                                 <button type="submit" class="dv-action-btn sync">
                                     <span class="material-icons-round" style="font-size:14px;">sync</span>
                                     Sync
@@ -564,6 +567,7 @@
                             @if (d.Vendor == DeviceVendor.Hikvision)
                             {
                                 <form method="post" action="/api/devices/sync-persons/@d.Id" style="flex:1;display:flex;">
+                                <AntiforgeryToken />
                                     <button type="submit" class="dv-action-btn push" title="Push portal employees to this Hikvision device">
                                         <span class="material-icons-round" style="font-size:14px;">badge</span>
                                         Push
@@ -574,6 +578,7 @@
                                 <span class="material-icons-round" style="font-size:14px;">edit</span>
                             </a>
                             <form method="post" action="/api/devices/delete/@d.Id" style="display:inline;"
+                            <AntiforgeryToken />
                                   onsubmit="return confirm('Delete device @d.Name?');">
                                 <button type="submit" class="dv-action-btn del">
                                     <span class="material-icons-round" style="font-size:14px;">delete</span>

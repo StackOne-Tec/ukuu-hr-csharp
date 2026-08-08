@@ -52,6 +52,7 @@
                 </div>
                 <div class="bk-admin-card-content">
                     <form method="post" action="/api/overtime/add" id="overtime-form">
+                    <AntiforgeryToken />
                         <input type="hidden" name="OrganizationId" value="@_orgId" />
 
                         @* Employee *@

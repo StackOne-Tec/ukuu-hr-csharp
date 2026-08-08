@@ -14,8 +14,10 @@ namespace UkuuHr.Services;
 /// </summary>
 public class AuthService
 {
+    // P0/C-2: Hardcoded admin credentials removed. First-run admin is seeded
+    // via DbSeeder with a BCrypt-hashed password from UKUU_ADMIN_PASSWORD env var.
+    // If that env var is not set, a random password is generated and logged once.
     public const string AdminEmail = "admin@ukuuhr.demo";
-    public const string AdminPassword = "Admin@2025";
     public const string AdminDisplayName = "Administrator";
 
     private readonly IHttpContextAccessor _http;
@@ -65,8 +67,16 @@ public class AuthService
             }
             else
             {
-                // Legacy/demo: accept the admin password for owner accounts
-                isPasswordValid = password == AdminPassword;
+                // P2/H-2: Legacy accounts without BCrypt hash — force migration on first login.
+                // Generate a BCrypt hash from the provided password if it matches the admin env var.
+                var adminPwd = Environment.GetEnvironmentVariable("UKUU_ADMIN_PASSWORD");
+                isPasswordValid = !string.IsNullOrEmpty(adminPwd) && password == adminPwd;
+                if (isPasswordValid)
+                {
+                    // Migrate to BCrypt immediately
+                    account.AuthUid = HashPassword(password);
+                    try { await _db.SaveChangesAsync(); } catch { /* best effort */ }
+                }
             }
 
             if (!isPasswordValid || account.Status == AccountStatus.Suspended || account.Status == AccountStatus.Disabled)
@@ -95,22 +105,9 @@ public class AuthService
             return true;
         }
 
-        // 3) Fallback: hardcoded demo credentials (always works — for first-run / DB issues)
-        if (string.Equals(normalizedEmail, AdminEmail, StringComparison.OrdinalIgnoreCase) && password == AdminPassword)
-        {
-            await IssueCookieAsync(
-                userId: "admin-001",
-                displayName: AdminDisplayName,
-                email: AdminEmail,
-                role: UserRole.SuperAdmin.StorageKey(),
-                rememberMe: rememberMe);
-
-            // Phase 13.4: Audit fallback admin login
-            if (orgId > 0)
-                await _audit.LogAsync(orgId, AuditAction.LoginSuccess, normalizedEmail,
-                    details: "Fallback admin login (hardcoded credentials)");
-            return true;
-        }
+        // P0/C-2: Hardcoded admin fallback REMOVED. All authentication goes through
+        // the database. If the DB is unreachable, the login fails (no backdoor).
+        // First-run admin account is created by DbSeeder with a BCrypt hash.
 
         // Phase 13.4: Audit failed login (no matching account)
         if (orgId > 0)
