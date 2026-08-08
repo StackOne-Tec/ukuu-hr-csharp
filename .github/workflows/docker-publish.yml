@@ -59,6 +59,15 @@ jobs:
         with:
           dotnet-version: '10.0.1xx'
 
+      - name: Debug SDK info
+        run: |
+          echo "=== dotnet --info ==="
+          dotnet --info
+          echo "=== dotnet --list-sdks ==="
+          dotnet --list-sdks
+          echo "=== which dotnet ==="
+          which dotnet
+
       - name: Restore
         run: |
           dotnet restore UkuuHr.Web/UkuuHr.Web.csproj
