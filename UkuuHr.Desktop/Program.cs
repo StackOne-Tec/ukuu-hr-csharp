@@ -316,18 +316,6 @@ class Program
 
         PrintBanner();
 
-        // ── Initialize the shared HttpClient ─────────────────────────────────
-        _httpClient = new HttpClient(new HttpClientHandler
-        {
-            // Biometric devices (Hikvision, ZKTeco, etc.) use self-signed certificates.
-            // Bypass validation so HTTPS connections work without installing root CAs.
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-            SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
-        })
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
-
         // ── Load or create settings ──────────────────────────────────────────
         var settings = LoadOrCreateSettings(configPath, headlessMode);
         if (settings == null)
@@ -337,6 +325,25 @@ class Program
             WriteLog("Or create settings.json manually. See README for format.");
             return 1;
         }
+
+        // ── Initialize the shared HttpClient with digest auth support ──────────
+        // Hikvision devices default to digest authentication (RFC 7616).
+        // Setting PreAuthenticate=true + Credentials enables .NET's built-in
+        // digest auth handler: on 401 with WWW-Authenticate: Digest challenge,
+        // the handler automatically re-sends the request with the correct header.
+        _httpClient = new HttpClient(new HttpClientHandler
+        {
+            // Biometric devices (Hikvision, ZKTeco, etc.) use self-signed certificates.
+            // Bypass validation so HTTPS connections work without installing root CAs.
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+            SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13,
+            // Enable digest authentication — Hikvision default auth mode
+            PreAuthenticate = true,
+            Credentials = new System.Net.NetworkCredential(settings.DeviceUsername, settings.DevicePassword)
+        })
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
 
         var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         WriteLog($"\n  Device:   {scheme}://{settings.DeviceIp}:{settings.DevicePort}");
@@ -478,11 +485,11 @@ class Program
 
         var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         var baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
-        var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.DeviceUsername}:{settings.DevicePassword}"));
 
         WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connecting to device at {baseUrl}...");
 
         // ── Step 1: Get device info (validates connection) ───────────────────
+        // Digest auth is handled automatically by HttpClientHandler (PreAuthenticate + Credentials).
         // Uses a shorter timeout (10s) for the probe to avoid long waits on
         // misconfigured HTTPS→HTTP connections. Falls back to HTTP if HTTPS
         // times out on a standard HTTP port (80/8080).
@@ -494,12 +501,6 @@ class Program
             probeCts.CancelAfter(TimeSpan.FromSeconds(10));
 
             var infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", probeCts.Token);
-            if (!infoResp.IsSuccessStatusCode)
-            {
-                // Try with auth header
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
-                infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", probeCts.Token);
-            }
             if (infoResp.IsSuccessStatusCode)
             {
                 var xml = await infoResp.Content.ReadAsStringAsync(ct);
@@ -528,11 +529,6 @@ class Program
                     using var retryCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     retryCts.CancelAfter(TimeSpan.FromSeconds(10));
                     var retryResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", retryCts.Token);
-                    if (!retryResp.IsSuccessStatusCode)
-                    {
-                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
-                        retryResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", retryCts.Token);
-                    }
                     if (retryResp.IsSuccessStatusCode)
                     {
                         var xml = await retryResp.Content.ReadAsStringAsync(ct);
@@ -583,7 +579,7 @@ class Program
         List<ImportedPunch> events = new();
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
+            // Auth handled automatically by HttpClientHandler (digest auth)
             var content = new StringContent(searchBody, Encoding.UTF8, "application/json");
             var eventResp = await _httpClient.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content, ct);
 
