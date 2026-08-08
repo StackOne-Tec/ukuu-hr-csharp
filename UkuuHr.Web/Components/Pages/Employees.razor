@@ -4,62 +4,475 @@
 @inject EmployeeService EmployeeSvc
 @inject UkuuHrDbContext Db
 
-<div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Workforce · @_employees.Count total employees</div>
-            <h1 class="bk-admin-h1">Employee Directory</h1>
-            <p class="bk-admin-sub">Manage your workforce — @_employees.Count active employees across @_departments.Count departments.</p>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR — Employee Directory · World-Class Redesign
+   Premium design language · Grid + Table dual view · Micro-interactions
+   ═══════════════════════════════════════════════════════════════ */
+
+@@keyframes empFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes empSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes empCountUp {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@@keyframes empShimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+@@keyframes empPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(123,47,190,0.2); }
+    50%      { box-shadow: 0 0 0 6px rgba(123,47,190,0); }
+}
+
+.emp-page { animation: empFadeIn 0.4s ease-out both; }
+
+/* ─── Stats Row ─── */
+.emp-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 28px; animation: empSlideUp 0.5s ease-out 0.1s both;
+}
+.emp-stat {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+    transition: all 0.25s ease; position: relative; overflow: hidden;
+}
+.emp-stat::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(123,47,190,0.03), transparent 60%);
+    pointer-events: none;
+}
+.emp-stat:hover {
+    border-color: rgba(123,47,190,0.25); transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(123,47,190,0.08);
+}
+.emp-stat-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; transition: transform 0.3s ease;
+}
+.emp-stat:hover .emp-stat-icon { transform: scale(1.08); }
+.emp-stat-icon.purple { background: rgba(123,47,190,0.1); color: #7B2FBE; }
+.emp-stat-icon.green  { background: rgba(20,163,127,0.1); color: #14a37f; }
+.emp-stat-icon.gold   { background: rgba(216,156,17,0.1); color: #d89c11; }
+.emp-stat-icon.blue   { background: rgba(37,99,235,0.1); color: #2563EB; }
+.emp-stat-value {
+    font-size: 28px; font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.1; animation: empCountUp 0.6s ease-out 0.3s both;
+}
+.emp-stat-label { font-size: 12px; font-weight: 600; color: var(--bk-ink-3); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+
+/* ─── Section Header ─── */
+.emp-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 24px; gap: 20px; flex-wrap: wrap;
+    animation: empSlideUp 0.5s ease-out 0.15s both;
+}
+.emp-header-left {}
+.emp-header-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--bk-accent); margin-bottom: 6px;
+}
+.emp-header-eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--bk-accent-3); box-shadow: 0 0 0 3px rgba(20,163,127,0.2);
+    animation: empPulse 2s ease-in-out infinite;
+}
+.emp-header h1 {
+    font-size: clamp(24px, 3vw, 32px); font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 4px;
+}
+.emp-header-sub { font-size: 14px; color: var(--bk-ink-3); line-height: 1.5; }
+.emp-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ─── Action Buttons ─── */
+.emp-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all 0.2s ease; font-family: inherit;
+}
+.emp-btn-ghost {
+    background: transparent; color: var(--bk-ink-2);
+    border: 1px solid var(--bk-line);
+}
+.emp-btn-ghost:hover { background: var(--bk-muted); border-color: var(--bk-line-strong); }
+.emp-btn-primary {
+    background: linear-gradient(135deg, #7B2FBE, #6A24A8); color: #fff;
+    box-shadow: 0 4px 16px rgba(123,47,190,0.25);
+}
+.emp-btn-primary:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(123,47,190,0.35);
+    background: linear-gradient(135deg, #8B3FCE, #7A34B8);
+}
+
+/* ─── View Toggle ─── */
+.emp-view-toggle {
+    display: flex; background: var(--bk-muted); border-radius: 10px;
+    padding: 3px; gap: 2px; border: 1px solid var(--bk-line);
+}
+.emp-view-btn {
+    width: 36px; height: 32px; border-radius: 8px; border: none;
+    background: transparent; color: var(--bk-ink-3); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s ease; font-size: 18px;
+}
+.emp-view-btn.active { background: #fff; color: var(--bk-accent); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+/* ─── Filter Bar ─── */
+.emp-filter-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+    background: var(--bk-bg); border: 1px solid var(--bk-line);
+    border-radius: 16px; padding: 14px 20px; margin-bottom: 24px;
+    animation: empSlideUp 0.5s ease-out 0.2s both;
+}
+.emp-search-wrap {
+    flex: 1; min-width: 240px; position: relative;
+}
+.emp-search-wrap .material-icons-round {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--bk-ink-3); font-size: 20px; pointer-events: none;
+}
+.emp-search {
+    width: 100%; height: 42px; border: 1px solid var(--bk-line); border-radius: 12px;
+    background: var(--bk-muted); padding: 0 16px 0 42px; font-family: inherit;
+    font-size: 13px; color: var(--bk-ink); outline: none;
+    transition: all 0.2s ease;
+}
+.emp-search:focus { border-color: var(--bk-accent); background: #fff; box-shadow: 0 0 0 3px rgba(123,47,190,0.1); }
+.emp-filter-select {
+    height: 42px; border: 1px solid var(--bk-line); border-radius: 12px;
+    background: var(--bk-muted); padding: 0 36px 0 14px; font-family: inherit;
+    font-size: 13px; color: var(--bk-ink); outline: none; min-width: 160px;
+    appearance: none; cursor: pointer; transition: all 0.2s ease;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%237C6BAA'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+}
+.emp-filter-select:focus { border-color: var(--bk-accent); background-color: #fff; box-shadow: 0 0 0 3px rgba(123,47,190,0.1); }
+
+/* ─── Employee Grid (Card View) ─── */
+.emp-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px; animation: empSlideUp 0.5s ease-out 0.3s both;
+}
+.emp-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    padding: 0; overflow: hidden; transition: all 0.3s ease;
+    position: relative; cursor: default;
+}
+.emp-card:hover {
+    border-color: rgba(123,47,190,0.22); transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(123,47,190,0.1), 0 0 0 1px rgba(123,47,190,0.06);
+}
+.emp-card-banner {
+    height: 56px; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, rgba(123,47,190,0.08), rgba(232,93,117,0.06), rgba(108,99,255,0.08));
+}
+.emp-card-body { padding: 0 24px 24px; position: relative; }
+.emp-card-avatar {
+    width: 56px; height: 56px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 800; color: #fff;
+    margin-top: -28px; position: relative; z-index: 2;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    transition: transform 0.3s ease;
+}
+.emp-card:hover .emp-card-avatar { transform: scale(1.06); }
+.emp-card-avatar.c0 { background: linear-gradient(135deg, #7B2FBE, #9B4FD8); }
+.emp-card-avatar.c1 { background: linear-gradient(135deg, #14a37f, #2BC4A1); }
+.emp-card-avatar.c2 { background: linear-gradient(135deg, #2563EB, #4F83F0); }
+.emp-card-avatar.c3 { background: linear-gradient(135deg, #e85d75, #F07D95); }
+.emp-card-name {
+    font-size: 16px; font-weight: 700; color: var(--bk-ink);
+    margin-top: 12px; line-height: 1.3; letter-spacing: -0.01em;
+}
+.emp-card-code {
+    font-size: 12px; color: var(--bk-ink-3); margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em;
+}
+.emp-card-meta {
+    display: flex; flex-direction: column; gap: 8px; margin-top: 16px;
+    padding-top: 16px; border-top: 1px solid var(--bk-line);
+}
+.emp-card-row {
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
+}
+.emp-card-row .material-icons-round { font-size: 16px; color: var(--bk-ink-3); }
+.emp-card-row span { color: var(--bk-ink-2); }
+.emp-card-tags { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+.emp-tag {
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px;
+    letter-spacing: 0.02em;
+}
+.emp-tag-dept { background: rgba(123,47,190,0.08); color: #7B2FBE; }
+.emp-tag-type { background: rgba(37,99,235,0.08); color: #2563EB; }
+
+/* ─── Status Badges ─── */
+.emp-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 100px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+}
+.emp-status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+}
+.emp-status.active { background: rgba(20,163,127,0.1); color: #14a37f; }
+.emp-status.active::before { background: #14a37f; }
+.emp-status.probation { background: rgba(123,47,190,0.1); color: #7B2FBE; }
+.emp-status.probation::before { background: #7B2FBE; }
+.emp-status.inactive { background: rgba(180,83,9,0.1); color: #B45309; }
+.emp-status.inactive::before { background: #B45309; }
+.emp-status.terminated { background: rgba(220,38,38,0.1); color: #DC2626; }
+.emp-status.terminated::before { background: #DC2626; }
+
+/* ─── Card Actions ─── */
+.emp-card-actions {
+    display: flex; gap: 8px; margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--bk-line);
+}
+.emp-card-action {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 0; border-radius: 10px; font-size: 12px; font-weight: 600;
+    text-decoration: none; transition: all 0.2s ease; cursor: pointer;
+}
+.emp-card-action.view { background: var(--bk-muted); color: var(--bk-ink-2); }
+.emp-card-action.view:hover { background: rgba(123,47,190,0.12); color: var(--bk-accent); }
+.emp-card-action.edit { background: rgba(123,47,190,0.08); color: #7B2FBE; }
+.emp-card-action.edit:hover { background: rgba(123,47,190,0.16); }
+
+/* ─── Table View ─── */
+.emp-table-wrap {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    overflow: hidden; animation: empSlideUp 0.5s ease-out 0.3s both;
+}
+.emp-table { width: 100%; border-collapse: collapse; }
+.emp-table thead th {
+    padding: 14px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--bk-ink-3); text-align: left;
+    background: var(--bk-muted); border-bottom: 1px solid var(--bk-line);
+}
+.emp-table thead th:last-child { text-align: right; }
+.emp-table tbody tr {
+    transition: all 0.15s ease; border-bottom: 1px solid rgba(123,47,190,0.06);
+}
+.emp-table tbody tr:last-child { border-bottom: none; }
+.emp-table tbody tr:hover { background: rgba(123,47,190,0.03); }
+.emp-table td { padding: 16px 20px; font-size: 13px; vertical-align: middle; }
+.emp-table td:last-child { text-align: right; }
+.emp-table-emp { display: flex; align-items: center; gap: 14px; }
+.emp-table-avatar {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.emp-table-avatar.c0 { background: linear-gradient(135deg, #7B2FBE, #9B4FD8); }
+.emp-table-avatar.c1 { background: linear-gradient(135deg, #14a37f, #2BC4A1); }
+.emp-table-avatar.c2 { background: linear-gradient(135deg, #2563EB, #4F83F0); }
+.emp-table-avatar.c3 { background: linear-gradient(135deg, #e85d75, #F07D95); }
+.emp-table-name { font-weight: 600; color: var(--bk-ink); font-size: 13px; }
+.emp-table-email { font-size: 11px; color: var(--bk-ink-3); margin-top: 1px; }
+.emp-table-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.emp-table-action {
+    width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--bk-line);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--bk-ink-3); text-decoration: none; transition: all 0.2s ease;
+}
+.emp-table-action:hover { border-color: var(--bk-accent); color: var(--bk-accent); background: rgba(123,47,190,0.06); }
+
+/* ─── Empty State ─── */
+.emp-empty {
+    text-align: center; padding: 80px 24px;
+    animation: empSlideUp 0.5s ease-out 0.3s both;
+}
+.emp-empty-icon {
+    width: 80px; height: 80px; border-radius: 24px;
+    background: var(--bk-muted); margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+}
+.emp-empty-icon .material-icons-round { font-size: 36px; color: var(--bk-ink-3); }
+.emp-empty h3 { font-size: 18px; font-weight: 700; color: var(--bk-ink); margin-bottom: 6px; }
+.emp-empty p { font-size: 14px; color: var(--bk-ink-3); max-width: 400px; margin: 0 auto; }
+
+/* ─── Loading Skeleton ─── */
+.emp-skeleton {
+    background: linear-gradient(90deg, var(--bk-muted) 25%, rgba(232,223,245,0.8) 50%, var(--bk-muted) 75%);
+    background-size: 200% 100%; animation: empShimmer 1.5s infinite;
+    border-radius: 8px;
+}
+
+/* ─── Responsive ─── */
+@@media (max-width: 900px) {
+    .emp-stats { grid-template-columns: repeat(2, 1fr); }
+    .emp-grid { grid-template-columns: 1fr; }
+    .emp-header { flex-direction: column; }
+    .emp-header-actions { width: 100%; }
+}
+@@media (max-width: 600px) {
+    .emp-stats { grid-template-columns: 1fr; gap: 12px; }
+    .emp-stat { padding: 16px; }
+    .emp-stat-value { font-size: 22px; }
+    .emp-filter-bar { flex-direction: column; padding: 12px; }
+    .emp-search-wrap { min-width: 100%; }
+    .emp-filter-select { width: 100%; }
+    .emp-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="emp-page">
+    @* ── Stats Row ─ *@
+    <div class="emp-stats">
+        <div class="emp-stat">
+            <div class="emp-stat-icon purple"><span class="material-icons-round">groups</span></div>
+            <div>
+                <div class="emp-stat-value">@_employees.Count</div>
+                <div class="emp-stat-label">Total Employees</div>
+            </div>
         </div>
-        <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary">
+        <div class="emp-stat">
+            <div class="emp-stat-icon green"><span class="material-icons-round">verified</span></div>
+            <div>
+                <div class="emp-stat-value">@(_employees.Count(e => e.Status == EmploymentStatus.Active))</div>
+                <div class="emp-stat-label">Active</div>
+            </div>
+        </div>
+        <div class="emp-stat">
+            <div class="emp-stat-icon gold"><span class="material-icons-round">apartment</span></div>
+            <div>
+                <div class="emp-stat-value">@_departments.Count</div>
+                <div class="emp-stat-label">Departments</div>
+            </div>
+        </div>
+        <div class="emp-stat">
+            <div class="emp-stat-icon blue"><span class="material-icons-round">schedule</span></div>
+            <div>
+                <div class="emp-stat-value">@(_employees.Count(e => e.Status == EmploymentStatus.Probation))</div>
+                <div class="emp-stat-label">On Probation</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Section Header ─ *@
+    <div class="emp-header">
+        <div class="emp-header-left">
+            <div class="emp-header-eyebrow">Workforce</div>
+            <h1>Employee Directory</h1>
+            <p class="emp-header-sub">Manage your workforce &mdash; @_employees.Count active employees across @_departments.Count departments.</p>
+        </div>
+        <div class="emp-header-actions">
+            <div class="emp-view-toggle">
+                <button class="emp-view-btn active" id="emp-view-grid" onclick="empToggleView('grid')" title="Grid view">
+                    <span class="material-icons-round">grid_view</span>
+                </button>
+                <button class="emp-view-btn" id="emp-view-table" onclick="empToggleView('table')" title="Table view">
+                    <span class="material-icons-round">view_list</span>
+                </button>
+            </div>
+            <button class="emp-btn emp-btn-ghost" onclick="document.getElementById('emp-csv-input')?.click()">
                 <span class="material-icons-round" style="font-size:16px;">upload</span>
                 Import CSV
             </button>
-            <button class="bk-btn bk-btn-secondary">
-                <span class="material-icons-round" style="font-size:16px;">download</span>
-                Export
-            </button>
-            <a href="/employees/add" class="bk-btn bk-btn-primary">
+            <input type="file" id="emp-csv-input" accept=".csv" style="display:none;" />
+            <a href="/employees/add" class="emp-btn emp-btn-primary">
                 <span class="material-icons-round" style="font-size:16px;">person_add</span>
                 Add Employee
             </a>
         </div>
     </div>
 
-    <!-- Filter bar -->
-    <div class="bk-admin-card" style="margin-bottom:24px;">
-        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:16px 24px;">
-            <div style="flex:1;min-width:260px;position:relative;">
-                <span class="material-icons-round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--bk-ink-3);font-size:20px;">search</span>
-                <input type="text" id="ukuu-emp-search" placeholder="Search by name, email, code or job title..." oninput="ukuuFilterEmployees()" style="width:100%;height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px 0 40px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;" />
-            </div>
-            <select id="ukuu-emp-dept" onchange="ukuuFilterEmployees()" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:160px;">
-                <option value="All">All Departments</option>
-                @foreach (var d in _departments)
-                {
-                    <option value="@d">@d</option>
-                }
-            </select>
-            <select id="ukuu-emp-status" onchange="ukuuFilterEmployees()" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;min-width:140px;">
-                <option value="All">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Probation">Probation</option>
-                <option value="Inactive">Inactive</option>
-            </select>
+    @* ── Filter Bar ─ *@
+    <div class="emp-filter-bar">
+        <div class="emp-search-wrap">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="ukuu-emp-search" class="emp-search"
+                   placeholder="Search by name, email, code or job title..."
+                   oninput="ukuuFilterEmployees()" />
         </div>
+        <select id="ukuu-emp-dept" class="emp-filter-select" onchange="ukuuFilterEmployees()">
+            <option value="All">All Departments</option>
+            @foreach (var d in _departments)
+            {
+                <option value="@d">@d</option>
+            }
+        </select>
+        <select id="ukuu-emp-status" class="emp-filter-select" onchange="ukuuFilterEmployees()">
+            <option value="All">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Probation">Probation</option>
+            <option value="Inactive">Inactive</option>
+        </select>
     </div>
 
+    @* ── Content ─ *@
     @if (_loading)
     {
-        <div style="display:flex;justify-content:center;padding:60px;">
-            <div class="ukuu-loader"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;">
+            @for (int i = 0; i < 6; i++)
+            {
+                <div style="background:var(--bk-bg);border:1px solid var(--bk-line);border-radius:18px;padding:24px;">
+                    <div class="emp-skeleton" style="width:56px;height:56px;border-radius:16px;margin-bottom:16px;"></div>
+                    <div class="emp-skeleton" style="width:60%;height:18px;margin-bottom:8px;"></div>
+                    <div class="emp-skeleton" style="width:40%;height:12px;margin-bottom:20px;"></div>
+                    <div class="emp-skeleton" style="width:80%;height:14px;margin-bottom:8px;"></div>
+                    <div class="emp-skeleton" style="width:60%;height:14px;"></div>
+                </div>
+            }
         </div>
     }
     else
     {
-        <div class="bk-admin-card" style="overflow:hidden;">
-            <table class="bk-admin-table bk-mobile-card-view">
+        @* ── Grid View (default) ─ *@
+        <div class="emp-grid" id="emp-grid-view">
+            @foreach (var emp in _employees)
+            {
+                <div class="emp-card"
+                     data-search="@(emp.FullName)|@(emp.Email ?? "")|@(emp.EmployeeCode ?? "")|@(emp.JobTitle ?? "")"
+                     data-dept="@(emp.Department ?? "")"
+                     data-status="@emp.StatusDisplay">
+                    <div class="emp-card-banner"></div>
+                    <div class="emp-card-body">
+                        <div class="emp-card-avatar c@(GetAvatarColorIndex(emp.Id))">@emp.Initials</div>
+                        <div class="emp-card-name">@emp.FullName</div>
+                        <div class="emp-card-code">@emp.EmployeeCode</div>
+                        <div class="emp-card-meta">
+                            <div class="emp-card-row">
+                                <span class="material-icons-round">work</span>
+                                <span>@emp.JobTitle</span>
+                            </div>
+                            <div class="emp-card-row">
+                                <span class="material-icons-round">mail</span>
+                                <span>@(emp.Email ?? "—")</span>
+                            </div>
+                        </div>
+                        <div class="emp-card-tags">
+                            <span class="emp-tag emp-tag-dept">@(emp.Department ?? "Unassigned")</span>
+                            <span class="emp-tag emp-tag-type">@(emp.ContractType ?? "N/A")</span>
+                            <span class="emp-status @(emp.Status.ToString().ToLower())">@emp.StatusDisplay</span>
+                        </div>
+                        <div class="emp-card-actions">
+                            <a href="/employees/@emp.Id" class="emp-card-action view">
+                                <span class="material-icons-round" style="font-size:15px;">visibility</span>
+                                View
+                            </a>
+                            <a href="/employees/@emp.Id/edit" class="emp-card-action edit">
+                                <span class="material-icons-round" style="font-size:15px;">edit</span>
+                                Edit
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* ── Table View ─ *@
+        <div class="emp-table-wrap" id="emp-table-view" style="display:none;">
+            <table class="emp-table">
                 <thead>
                     <tr>
                         <th>Employee</th>
@@ -67,89 +480,127 @@
                         <th>Job Title</th>
                         <th>Type</th>
                         <th>Status</th>
-                        <th style="text-align:right;">Actions</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="ukuu-emp-tbody">
                     @foreach (var emp in _employees)
                     {
-                        <tr data-search="@(emp.FullName)|@(emp.Email ?? "")|@(emp.EmployeeCode ?? "")|@(emp.JobTitle ?? "")" data-dept="@(emp.Department ?? "")" data-status="@emp.StatusDisplay">
-                            <td data-label="Employee">
-                                <div style="display:flex;align-items:center;gap:12px;">
-                                    <div class="bk-admin-avatar @GetAvatarColor(emp.Id)">@emp.Initials</div>
+                        <tr data-search="@(emp.FullName)|@(emp.Email ?? "")|@(emp.EmployeeCode ?? "")|@(emp.JobTitle ?? "")"
+                            data-dept="@(emp.Department ?? "")"
+                            data-status="@emp.StatusDisplay">
+                            <td>
+                                <div class="emp-table-emp">
+                                    <div class="emp-table-avatar c@(GetAvatarColorIndex(emp.Id))">@emp.Initials</div>
                                     <div>
-                                        <div style="font-weight:600;color:var(--bk-ink);font-size:13px;">@emp.FullName</div>
-                                        <div style="font-size:11px;color:var(--bk-ink-3);">@emp.Email · @emp.EmployeeCode</div>
+                                        <div class="emp-table-name">@emp.FullName</div>
+                                        <div class="emp-table-email">@emp.Email &middot; @emp.EmployeeCode</div>
                                     </div>
                                 </div>
                             </td>
-                            <td data-label="Department" style="font-weight:500;">@emp.Department</td>
-                            <td data-label="Job Title">@emp.JobTitle</td>
-                            <td data-label="Type">
-                                <span style="font-size:12px;color:var(--bk-ink-3);">@emp.ContractType</span>
+                            <td style="font-weight:500;">@emp.Department</td>
+                            <td>@emp.JobTitle</td>
+                            <td><span style="color:var(--bk-ink-3);font-size:12px;">@emp.ContractType</span></td>
+                            <td>
+                                <span class="emp-status @(emp.Status.ToString().ToLower())">@emp.StatusDisplay</span>
                             </td>
-                            <td data-label="Status">
-                                <span class="bk-admin-pill @(emp.Status == EmploymentStatus.Active ? "active" : emp.Status == EmploymentStatus.Probation ? "probation" : "inactive")">
-                                    @emp.StatusDisplay
-                                </span>
-                            </td>
-                            <td data-label="Actions" style="text-align:right;">
-                                <a href="/employees/@emp.Id" class="bk-admin-topbar-icon-btn" style="display:inline-flex;width:36px;height:36px;border-radius:8px;" title="View" aria-label="View">
-                                    <span class="material-icons-round" style="font-size:18px;">visibility</span>
-                                </a>
-                                <a href="/employees/@emp.Id/edit" class="bk-admin-topbar-icon-btn" style="display:inline-flex;width:36px;height:36px;border-radius:8px;margin-left:4px;" title="Edit" aria-label="Edit">
-                                    <span class="material-icons-round" style="font-size:18px;">edit</span>
-                                </a>
+                            <td>
+                                <div class="emp-table-actions">
+                                    <a href="/employees/@emp.Id" class="emp-table-action" title="View">
+                                        <span class="material-icons-round" style="font-size:16px;">visibility</span>
+                                    </a>
+                                    <a href="/employees/@emp.Id/edit" class="emp-table-action" title="Edit">
+                                        <span class="material-icons-round" style="font-size:16px;">edit</span>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
-            <div id="ukuu-emp-empty" style="display:none;padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
-                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">person_off</span>
-                </div>
-                <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No employees found</h3>
-                <p style="font-size:13px;">Try adjusting your search or filters, or add a new employee.</p>
+        </div>
+
+        @* ── Empty States ─ *@
+        <div id="ukuu-emp-empty-grid" style="display:none;">
+            <div class="emp-empty">
+                <div class="emp-empty-icon"><span class="material-icons-round">person_off</span></div>
+                <h3>No employees found</h3>
+                <p>Try adjusting your search or filters, or add a new employee.</p>
+            </div>
+        </div>
+        <div id="ukuu-emp-empty-table" style="display:none;padding:24px;">
+            <div class="emp-empty">
+                <div class="emp-empty-icon"><span class="material-icons-round">person_off</span></div>
+                <h3>No employees found</h3>
+                <p>Try adjusting your search or filters, or add a new employee.</p>
             </div>
         </div>
     }
-
-    <script>
-        function ukuuFilterEmployees() {
-            var search = (document.getElementById('ukuu-emp-search') || {}).value || '';
-            var dept = (document.getElementById('ukuu-emp-dept') || {}).value || 'All';
-            var status = (document.getElementById('ukuu-emp-status') || {}).value || 'All';
-            var rows = document.querySelectorAll('#ukuu-emp-tbody tr');
-            var visible = 0;
-            search = search.toLowerCase().trim();
-            rows.forEach(function(row) {
-                var searchData = (row.getAttribute('data-search') || '').toLowerCase();
-                var rowDept = row.getAttribute('data-dept') || '';
-                var rowStatus = row.getAttribute('data-status') || '';
-                var matchSearch = !search || searchData.indexOf(search) >= 0;
-                var matchDept = dept === 'All' || rowDept === dept;
-                var matchStatus = status === 'All' || rowStatus === status;
-                if (matchSearch && matchDept && matchStatus) {
-                    row.style.display = '';
-                    visible++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-            var empty = document.getElementById('ukuu-emp-empty');
-            if (empty) empty.style.display = visible === 0 ? 'block' : 'none';
-        }
-    </script>
 </div>
+
+<script>
+function ukuuFilterEmployees() {
+    var search = (document.getElementById('ukuu-emp-search') || {}).value || '';
+    var dept = (document.getElementById('ukuu-emp-dept') || {}).value || 'All';
+    var status = (document.getElementById('ukuu-emp-status') || {}).value || 'All';
+    search = search.toLowerCase().trim();
+
+    var isGrid = document.getElementById('emp-grid-view') && document.getElementById('emp-grid-view').style.display !== 'none';
+    var container = isGrid
+        ? document.getElementById('emp-grid-view')
+        : (document.getElementById('ukuu-emp-tbody'));
+
+    if (!container) return;
+    var items = container.querySelectorAll(isGrid ? '.emp-card' : 'tr');
+    var visible = 0;
+
+    items.forEach(function(item) {
+        var searchData = (item.getAttribute('data-search') || '').toLowerCase();
+        var rowDept = item.getAttribute('data-dept') || '';
+        var rowStatus = item.getAttribute('data-status') || '';
+        var matchSearch = !search || searchData.indexOf(search) >= 0;
+        var matchDept = dept === 'All' || rowDept === dept;
+        var matchStatus = status === 'All' || rowStatus === status;
+        if (matchSearch && matchDept && matchStatus) {
+            item.style.display = '';
+            visible++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    var emptyGrid = document.getElementById('ukuu-emp-empty-grid');
+    var emptyTable = document.getElementById('ukuu-emp-empty-table');
+    if (emptyGrid) emptyGrid.style.display = (visible === 0 && isGrid) ? 'block' : 'none';
+    if (emptyTable) emptyTable.style.display = (visible === 0 && !isGrid) ? 'block' : 'none';
+}
+
+function empToggleView(view) {
+    var gridView = document.getElementById('emp-grid-view');
+    var tableView = document.getElementById('emp-table-view');
+    var btnGrid = document.getElementById('emp-view-grid');
+    var btnTable = document.getElementById('emp-view-table');
+    if (!gridView || !tableView) return;
+
+    if (view === 'grid') {
+        gridView.style.display = '';
+        tableView.style.display = 'none';
+        btnGrid.classList.add('active');
+        btnTable.classList.remove('active');
+    } else {
+        gridView.style.display = 'none';
+        tableView.style.display = '';
+        btnGrid.classList.remove('active');
+        btnTable.classList.add('active');
+    }
+    ukuuFilterEmployees();
+}
+</script>
 
 @code {
     private List<Employee> _employees = new();
     private List<string> _departments = new();
     private bool _loading = true;
-    // NOTE: Search/filter is now done client-side via JavaScript (ukuuFilterEmployees)
-    // so it works without a Blazor SignalR circuit. The server renders all employees
-    // and the browser filters table rows on input/change events.
 
     protected override async Task OnInitializedAsync()
     {
@@ -169,11 +620,5 @@
         _loading = false;
     }
 
-    private string GetAvatarColor(int id) => (id % 4) switch
-    {
-        0 => "gold",
-        1 => "green",
-        2 => "purple",
-        _ => "pink"
-    };
+    private int GetAvatarColorIndex(int id) => id % 4;
 }
