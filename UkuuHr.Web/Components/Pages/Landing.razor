@@ -347,7 +347,7 @@ html { scroll-behavior: smooth; }
 .lp-download-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lp-lavender); margin-bottom: 8px; }
 .lp-download-title { font-size: clamp(26px, 4vw, 44px); font-weight: 800; color: #fff; letter-spacing: -0.035em; margin-bottom: 12px; }
 .lp-download-sub { font-size: 16px; color: rgba(255,255,255,0.5); margin-bottom: 48px; }
-.lp-download-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 800px; margin: 0 auto 40px; }
+.lp-download-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1200px; margin: 0 auto 40px; }
 .lp-dl-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 22px; padding: 40px 28px; backdrop-filter: blur(16px); transition: all 0.3s ease; }
 .lp-dl-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); transform: translateY(-4px); }
 .lp-dl-icon { width: 60px; height: 60px; border-radius: 18px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
@@ -369,6 +369,22 @@ html { scroll-behavior: smooth; }
 .lp-dl-pwa h4 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px; }
 .lp-dl-pwa p { font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.5); margin: 0; }
 .lp-dl-pwa a { color: var(--lp-lavender); text-decoration: underline; }
+
+/* ─── Docker Card ─── */
+.lp-docker-cmd {
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 16px; text-align: left; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; color: rgba(255,255,255,0.75); line-height: 1.7; overflow-x: auto;
+}
+.lp-docker-cmd .lp-cmd-comment { color: rgba(255,255,255,0.3); }
+.lp-docker-cmd .lp-cmd-prompt { color: var(--lp-green); }
+.lp-docker-cmd .lp-cmd-flag { color: var(--lp-lavender); }
+.lp-docker-badge {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 14px;
+    padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 600;
+    background: linear-gradient(135deg, rgba(0,120,215,0.15), rgba(0,120,215,0.08));
+    border: 1px solid rgba(0,120,215,0.25); color: rgba(100,180,255,0.9);
+}
 
 /* ─── CTA ─── */
 .lp-cta { padding: 104px clamp(16px, 4vw, 64px); background: linear-gradient(135deg, var(--lp-purple) 0%, var(--lp-purple-deep) 50%, #1A0D42 100%); position: relative; overflow: hidden; text-align: center; }
@@ -727,9 +743,9 @@ html { scroll-behavior: smooth; }
 @* 7. DOWNLOAD SECTION *@
 <section class="lp-download" id="download">
     <div class="lp-download-inner">
-        <p class="lp-download-eyebrow">Desktop App</p>
-        <h2 class="lp-download-title">Install Ukuu HR locally.</h2>
-        <p class="lp-download-sub">Self-contained single-file builds. No .NET runtime required.</p>
+        <p class="lp-download-eyebrow">Get Started</p>
+        <h2 class="lp-download-title">Run Ukuu HR anywhere.</h2>
+        <p class="lp-download-sub">Desktop apps, Docker container, or browser PWA &mdash; choose what works for you.</p>
         <div class="lp-download-cards">
             <div class="lp-dl-card">
                 <div class="lp-dl-icon"><span class="material-icons-round">desktop_windows</span></div>
@@ -754,6 +770,32 @@ html { scroll-behavior: smooth; }
                 </a>
                 <p class="lp-dl-meta">@_macFileSize &middot; .dmg file</p>
                 <p class="lp-dl-note">First launch: <strong>right-click</strong> the app &rarr; <strong>Open</strong> &rarr; click Open again.</p>
+            </div>
+            @* Docker Card *@
+            <div class="lp-dl-card">
+                <div class="lp-dl-icon" style="background:linear-gradient(135deg, rgba(0,120,215,0.2), rgba(0,120,215,0.08));">
+                    <svg viewBox="0 0 24 24" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M13.5 3.5C13.5 2.67 14.17 2 15 2s1.5.67 1.5 1.5S15.83 5 15 5s-1.5-.67-1.5-1.5zM9 5.5C9 4.67 9.67 4 10.5 4S12 4.67 12 5.5 11.33 7 10.5 7 9 6.33 9 5.5zM4.5 7c0-.83.67-1.5 1.5-1.5S7.5 6.17 7.5 7 6.83 8.5 6 8.5 4.5 7.83 4.5 7zM0 9c0-.83.67-1.5 1.5-1.5S3 8.17 3 9s-.67 1.5-1.5 1.5S0 9.83 0 9z" fill="rgba(255,255,255,0.5)"/>
+                        <path d="M23.5 12c-.3-.4-1.1-.7-2-.4-.2-1.1-1.1-2-2.2-2.3.1-.3.2-.7.1-1.1-.2-.8-.9-1.3-1.7-1.3-.6 0-1.2.3-1.5.8-.7-.6-1.6-1-2.5-1-1.3 0-2.5.7-3.1 1.7-.3-.1-.6-.2-.9-.2-1.4 0-2.5 1.1-2.5 2.5 0 .3.1.6.2.9-1.1.4-1.9 1.5-1.9 2.8 0 1.7 1.3 3 3 3h11c1.7 0 3-1.3 3-3 0-1-.5-1.9-1.3-2.4z" fill="rgba(100,180,255,0.9)"/>
+                    </svg>
+                </div>
+                <h3>Docker</h3>
+                <p>Windows, macOS &amp; Linux<br/>Containerized deployment</p>
+                <div class="lp-docker-cmd">
+                    <span class="lp-cmd-comment"># Clone &amp; run in one go</span><br/>
+                    <span class="lp-cmd-prompt">$</span> git clone https://github.com/StackOne-Tec/ukuu-hr-csharp.git<br/>
+                    <span class="lp-cmd-prompt">$</span> cd ukuu-hr-csharp<br/>
+                    <span class="lp-cmd-prompt">$</span> docker compose up
+                </div>
+                <a href="https://github.com/StackOne-Tec/ukuu-hr-csharp#docker"
+                   class="lp-dl-btn" target="_blank" rel="noopener">
+                    <span class="material-icons-round" style="font-size:16px;">deployed_code</span>
+                    View Docker Guide
+                </a>
+                <p class="lp-docker-badge">
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Multi-arch &middot; amd64 + arm64
+                </p>
             </div>
         </div>
         <div class="lp-dl-pwa">
@@ -789,7 +831,7 @@ html { scroll-behavior: smooth; }
                     <span>UKUU HR</span>
                 </div>
                 <p>A complete HR management system for African businesses. Employees, attendance, leave and statutory compliance &mdash; all in one platform.</p>
-                <p style="font-size:11px;color:rgba(255,255,255,0.25);">Built with .NET 9, Blazor Server, EF Core &amp; PostgreSQL.</p>
+                <p style="font-size:11px;color:rgba(255,255,255,0.25);">Built with .NET 10, Blazor Server, EF Core &amp; PostgreSQL. Runs in Docker on any OS.</p>
             </div>
             <div>
                 <h4>Platform</h4>
@@ -807,6 +849,7 @@ html { scroll-behavior: smooth; }
                     <li><a href="/login">Sign in</a></li>
                     <li><a href="/signup">Create account</a></li>
                     <li><a href="https://github.com/StackOne-Tec/ukuu-hr-csharp">GitHub</a></li>
+                    <li><a href="https://github.com/StackOne-Tec/ukuu-hr-csharp#docker">Docker</a></li>
                     <li><a href="/health">Health status</a></li>
                 </ul>
             </div>
