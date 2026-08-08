@@ -6,22 +6,175 @@
 @inject NavigationManager Nav
 @inject ILogger<AttendanceLogs> Logger
 
-<div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Attendance Logs · @_tab.ToUpper()</div>
-            <h1 class="bk-admin-h1">Attendance Logs</h1>
-            <p class="bk-admin-sub">
-                Daily, weekly, and monthly attendance with leave, holiday, and overtime interlinking.
-                Time cards are generated from the same data with approved overtime included.
-            </p>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR — Attendance Logs · World-Class Redesign
+   Premium design · Pill tabs · Refined tables · Micro-interactions
+   ═══════════════════════════════════════════════════════════════ */
+
+@@keyframes attFadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@@keyframes attSlideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@@keyframes attCountUp { from { opacity:0; transform:scale(0.8); } to { opacity:1; transform:scale(1); } }
+@@keyframes attPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(123,47,190,0.2); } 50%{ box-shadow:0 0 0 6px rgba(123,47,190,0); } }
+@@keyframes attShimmer { 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
+
+.att-page { animation: attFadeIn 0.4s ease-out both; }
+
+/* ─── Stats Row ─── */
+.att-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; animation:attSlideUp 0.5s ease-out 0.1s both; }
+.att-stat {
+    background:var(--bk-bg); border:1px solid var(--bk-line); border-radius:16px;
+    padding:20px 24px; display:flex; align-items:center; gap:16px;
+    transition:all 0.25s ease; position:relative; overflow:hidden;
+}
+.att-stat::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(123,47,190,0.03),transparent 60%); pointer-events:none; }
+.att-stat:hover { border-color:rgba(123,47,190,0.25); transform:translateY(-2px); box-shadow:0 8px 24px rgba(123,47,190,0.08); }
+.att-stat-icon { width:48px; height:48px; border-radius:14px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:22px; transition:transform 0.3s ease; }
+.att-stat:hover .att-stat-icon { transform:scale(1.08); }
+.att-stat-icon.purple { background:rgba(123,47,190,0.1); color:#7B2FBE; }
+.att-stat-icon.green  { background:rgba(20,163,127,0.1); color:#14a37f; }
+.att-stat-icon.pink   { background:rgba(232,93,117,0.1); color:#e85d75; }
+.att-stat-icon.gold   { background:rgba(216,156,17,0.1); color:#d89c11; }
+.att-stat-value { font-size:28px; font-weight:800; color:var(--bk-ink); letter-spacing:-0.03em; line-height:1.1; animation:attCountUp 0.6s ease-out 0.3s both; }
+.att-stat-label { font-size:12px; font-weight:600; color:var(--bk-ink-3); letter-spacing:0.04em; text-transform:uppercase; margin-top:2px; }
+
+/* ─── Section Header ─── */
+.att-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; gap:20px; flex-wrap:wrap; animation:attSlideUp 0.5s ease-out 0.15s both; }
+.att-header-eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--bk-accent); margin-bottom:6px; }
+.att-header-eyebrow::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--bk-accent-3); box-shadow:0 0 0 3px rgba(20,163,127,0.2); animation:attPulse 2s ease-in-out infinite; }
+.att-header h1 { font-size:clamp(24px,3vw,32px); font-weight:800; color:var(--bk-ink); letter-spacing:-0.03em; line-height:1.15; margin:0 0 4px; }
+.att-header-sub { font-size:14px; color:var(--bk-ink-3); line-height:1.5; }
+.att-header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.att-btn { display:inline-flex; align-items:center; gap:7px; padding:10px 20px; border-radius:12px; font-size:13px; font-weight:600; text-decoration:none; border:none; cursor:pointer; transition:all 0.2s ease; font-family:inherit; }
+.att-btn-ghost { background:transparent; color:var(--bk-ink-2); border:1px solid var(--bk-line); }
+.att-btn-ghost:hover { background:var(--bk-muted); border-color:var(--bk-line-strong); }
+.att-btn-primary { background:linear-gradient(135deg,#7B2FBE,#6A24A8); color:#fff; box-shadow:0 4px 16px rgba(123,47,190,0.25); }
+.att-btn-primary:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(123,47,190,0.35); }
+
+/* ─── Pill Tabs ─── */
+.att-tabs { display:flex; gap:4px; background:var(--bk-muted); border-radius:14px; padding:4px; margin-bottom:24px; border:1px solid var(--bk-line); overflow-x:auto; animation:attSlideUp 0.5s ease-out 0.2s both; }
+.att-tab {
+    display:inline-flex; align-items:center; gap:7px; padding:10px 20px; border-radius:10px;
+    font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap;
+    color:var(--bk-ink-3); transition:all 0.2s ease; cursor:pointer;
+}
+.att-tab:hover { color:var(--bk-ink); background:rgba(255,255,255,0.5); }
+.att-tab.active { background:#fff; color:var(--bk-accent); box-shadow:0 1px 6px rgba(0,0,0,0.08); }
+
+/* ─── Date Filter ─── */
+.att-filter { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:var(--bk-bg); border:1px solid var(--bk-line); border-radius:16px; padding:14px 20px; margin-bottom:20px; animation:attSlideUp 0.5s ease-out 0.25s both; }
+.att-filter-label { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--bk-ink); }
+.att-filter-label .material-icons-round { font-size:18px; color:var(--bk-ink-3); }
+.att-date-input { height:40px; border:1px solid var(--bk-line); border-radius:10px; background:var(--bk-muted); padding:0 12px; font-family:inherit; font-size:13px; color:var(--bk-ink); outline:none; transition:all 0.2s ease; }
+.att-date-input:focus { border-color:var(--bk-accent); background:#fff; box-shadow:0 0 0 3px rgba(123,47,190,0.1); }
+.att-nav-btn { display:inline-flex; align-items:center; gap:4px; padding:6px 14px; border-radius:10px; font-size:12px; font-weight:600; text-decoration:none; color:var(--bk-ink-2); border:1px solid var(--bk-line); transition:all 0.2s ease; background:transparent; cursor:pointer; }
+.att-nav-btn:hover { background:var(--bk-muted); border-color:var(--bk-line-strong); }
+.att-apply-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:10px; font-size:12px; font-weight:600; color:#fff; background:linear-gradient(135deg,#7B2FBE,#6A24A8); border:none; cursor:pointer; transition:all 0.2s ease; }
+.att-apply-btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(123,47,190,0.25); }
+
+/* ─── Legend ─── */
+.att-legend { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; animation:attSlideUp 0.5s ease-out 0.3s both; }
+.att-legend-item { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:var(--bk-ink-3); padding:4px 10px; border-radius:8px; background:var(--bk-muted); }
+.att-legend-dot { width:8px; height:8px; border-radius:3px; }
+
+/* ─── Refined Table ─── */
+.att-table-wrap { background:var(--bk-bg); border:1px solid var(--bk-line); border-radius:18px; overflow:hidden; animation:attSlideUp 0.5s ease-out 0.35s both; }
+.att-table { width:100%; border-collapse:collapse; }
+.att-table thead th { padding:14px 16px; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--bk-ink-3); text-align:left; background:var(--bk-muted); border-bottom:1px solid var(--bk-line); white-space:nowrap; }
+.att-table thead th.sticky { position:sticky; background:var(--bk-muted); z-index:2; }
+.att-table tbody tr { transition:all 0.15s ease; border-bottom:1px solid rgba(123,47,190,0.06); }
+.att-table tbody tr:last-child { border-bottom:none; }
+.att-table tbody tr:hover { background:rgba(123,47,190,0.03); }
+.att-table td { padding:14px 16px; font-size:13px; vertical-align:middle; }
+.att-table td.sticky { position:sticky; background:var(--bk-bg); z-index:1; }
+.att-table tbody tr:hover td.sticky { background:rgba(123,47,190,0.03); }
+
+/* ─── Status Badges ─── */
+.att-status { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:100px; letter-spacing:0.04em; text-transform:uppercase; }
+.att-status::before { content:''; width:6px; height:6px; border-radius:50%; }
+.att-status.present { background:rgba(20,163,127,0.1); color:#14a37f; }
+.att-status.present::before { background:#14a37f; }
+.att-status.leave { background:rgba(108,99,255,0.1); color:#6c63ff; }
+.att-status.leave::before { background:#6c63ff; }
+.att-status.holiday { background:rgba(216,156,17,0.1); color:#d89c11; }
+.att-status.holiday::before { background:#d89c11; }
+.att-status.absent { background:rgba(232,93,117,0.1); color:#e85d75; }
+.att-status.absent::before { background:#e85d75; }
+
+/* ─── Day Cells (Weekly/Monthly) ─── */
+.att-day { text-align:center; font-family:'JetBrains Mono',monospace; font-size:11px; border-radius:6px; min-width:36px; padding:6px 4px; }
+.att-day.present { background:rgba(20,163,127,0.08); }
+.att-day.leave { background:rgba(108,99,255,0.08); }
+.att-day.holiday { background:rgba(216,156,17,0.08); }
+.att-day.absent { background:rgba(232,93,117,0.08); }
+
+/* ─── Empty State ─── */
+.att-empty { text-align:center; padding:64px 24px; }
+.att-empty-icon { width:80px; height:80px; border-radius:24px; background:var(--bk-muted); margin:0 auto 20px; display:flex; align-items:center; justify-content:center; }
+.att-empty-icon .material-icons-round { font-size:36px; color:var(--bk-ink-3); }
+.att-empty h3 { font-size:18px; font-weight:700; color:var(--bk-ink); margin-bottom:6px; }
+.att-empty p { font-size:14px; color:var(--bk-ink-3); }
+
+/* ─── Error State ─── */
+.att-error { text-align:center; padding:64px 24px; }
+.att-error-icon { width:64px; height:64px; border-radius:50%; background:rgba(244,63,94,0.1); color:#f43f5e; margin:0 auto 16px; display:flex; align-items:center; justify-content:center; }
+
+/* ─── Custom Range Header ─── */
+.att-custom-header { padding:16px 20px; border-bottom:1px solid var(--bk-line); display:flex; justify-content:space-between; align-items:center; }
+.att-custom-header h3 { font-size:14px; font-weight:700; margin:0; color:var(--bk-ink); }
+.att-custom-header p { font-size:12px; color:var(--bk-ink-3); margin:2px 0 0; }
+
+/* ─── Responsive ─── */
+@@media (max-width:900px) { .att-stats { grid-template-columns:repeat(2,1fr); } .att-header { flex-direction:column; } .att-header-actions { width:100%; } }
+@@media (max-width:600px) { .att-stats { grid-template-columns:1fr; gap:12px; } .att-stat { padding:16px; } .att-stat-value { font-size:22px; } .att-filter { flex-direction:column; align-items:stretch; } .att-tabs { flex-wrap:nowrap; overflow-x:auto; } }
+</style>
+
+<div class="att-page">
+    @* ── Stats Row ─ *@
+    <div class="att-stats">
+        <div class="att-stat">
+            <div class="att-stat-icon purple"><span class="material-icons-round">groups</span></div>
+            <div>
+                <div class="att-stat-value">@(_tab == "daily" ? _daily.Count : _tab == "weekly" ? _weekly.Count : _tab == "monthly" ? _monthly.Count : _customRows.Count)</div>
+                <div class="att-stat-label">Employees</div>
+            </div>
         </div>
-        <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary" onclick="ukuuOpenImportModal()">
+        <div class="att-stat">
+            <div class="att-stat-icon green"><span class="material-icons-round">check_circle</span></div>
+            <div>
+                <div class="att-stat-value">@(_daily.Count(r => r.Status == "PRESENT"))</div>
+                <div class="att-stat-label">Present Today</div>
+            </div>
+        </div>
+        <div class="att-stat">
+            <div class="att-stat-icon pink"><span class="material-icons-round">schedule</span></div>
+            <div>
+                <div class="att-stat-value">@(_daily.Count(r => r.LateHours > 0))</div>
+                <div class="att-stat-label">Late Arrivals</div>
+            </div>
+        </div>
+        <div class="att-stat">
+            <div class="att-stat-icon gold"><span class="material-icons-round">event_busy</span></div>
+            <div>
+                <div class="att-stat-value">@(_daily.Count(r => r.Status == "ABSENT" || r.Status == "LEAVE"))</div>
+                <div class="att-stat-label">Absent / On Leave</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Section Header ─ *@
+    <div class="att-header">
+        <div>
+            <div class="att-header-eyebrow">Attendance · @_tab.ToUpper()</div>
+            <h1>Attendance Logs</h1>
+            <p class="att-header-sub">Daily, weekly, and monthly attendance with leave, holiday, and overtime interlinking.</p>
+        </div>
+        <div class="att-header-actions">
+            <button class="att-btn att-btn-ghost" onclick="ukuuOpenImportModal()">
                 <span class="material-icons-round" style="font-size:16px;">download</span>
                 Import From Device
             </button>
-            <a href="/attendance-logs/time-cards" class="bk-btn bk-btn-primary" style="text-decoration:none;">
+            <a href="/attendance-logs/time-cards" class="att-btn att-btn-primary">
                 <span class="material-icons-round" style="font-size:16px;">badge</span>
                 View Time Cards
             </a>
@@ -30,13 +183,11 @@
 
     @if (_loadError != null)
     {
-        <div class="bk-admin-card" style="padding:32px;text-align:center;">
-            <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:rgba(244,63,94,0.1);color:var(--bk-error);margin-bottom:16px;">
-                <span class="material-icons-round" style="font-size:32px;">error_outline</span>
-            </div>
+        <div class="att-error">
+            <div class="att-error-icon"><span class="material-icons-round" style="font-size:32px;">error_outline</span></div>
             <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--bk-ink);">Couldn't load attendance data</h3>
             <p style="font-size:14px;color:var(--bk-ink-3);max-width:480px;margin:0 auto 20px;">@_loadError</p>
-            <a href="/attendance-logs" class="bk-btn bk-btn-secondary">
+            <a href="/attendance-logs" class="att-btn att-btn-ghost">
                 <span class="material-icons-round" style="font-size:16px;">refresh</span>
                 Try again
             </a>
@@ -44,41 +195,41 @@
     }
     else
     {
-        @* ───── Tab navigation ───── *@
-        <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:20px;overflow-x:auto;">
-            <a href="/attendance-logs?tab=daily&date=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "daily" ? "var(--bk-ink)" : "transparent");color:@(_tab == "daily" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
-                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">today</span>
+        @* ── Pill Tabs ─ *@
+        <div class="att-tabs">
+            <a href="/attendance-logs?tab=daily&date=@_dateStr" class="att-tab @(_tab == "daily" ? "active" : "")">
+                <span class="material-icons-round" style="font-size:18px;">today</span>
                 Daily
             </a>
-            <a href="/attendance-logs?tab=weekly&date=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "weekly" ? "var(--bk-ink)" : "transparent");color:@(_tab == "weekly" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
-                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">date_range</span>
+            <a href="/attendance-logs?tab=weekly&date=@_dateStr" class="att-tab @(_tab == "weekly" ? "active" : "")">
+                <span class="material-icons-round" style="font-size:18px;">date_range</span>
                 Weekly
             </a>
-            <a href="/attendance-logs?tab=monthly&date=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "monthly" ? "var(--bk-ink)" : "transparent");color:@(_tab == "monthly" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
-                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">calendar_month</span>
+            <a href="/attendance-logs?tab=monthly&date=@_dateStr" class="att-tab @(_tab == "monthly" ? "active" : "")">
+                <span class="material-icons-round" style="font-size:18px;">calendar_month</span>
                 Monthly
             </a>
-            <a href="/attendance-logs?tab=custom&from=@_dateStr&to=@_dateStr" style="padding:12px 16px;border-bottom:2px solid @(_tab == "custom" ? "var(--bk-ink)" : "transparent");color:@(_tab == "custom" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;">
-                <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">tune</span>
+            <a href="/attendance-logs?tab=custom&from=@_dateStr&to=@_dateStr" class="att-tab @(_tab == "custom" ? "active" : "")">
+                <span class="material-icons-round" style="font-size:18px;">tune</span>
                 Custom
             </a>
         </div>
 
-        @* ───── Date filter ───── *@
-        <div class="bk-admin-card" style="padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <span class="material-icons-round" style="font-size:18px;color:var(--bk-ink-3);">filter_list</span>
-                <span style="font-size:13px;font-weight:600;color:var(--bk-ink);">Filter by date:</span>
+        @* ── Date Filter ─ *@
+        <div class="att-filter">
+            <div class="att-filter-label">
+                <span class="material-icons-round">filter_list</span>
+                <span>Filter by date:</span>
             </div>
             @if (_tab == "custom")
             {
                 <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <input type="hidden" name="tab" value="custom" />
                     <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">From:</label>
-                    <input type="date" name="from" value="@_fromDateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
+                    <input type="date" name="from" value="@_fromDateStr" class="att-date-input" />
                     <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">To:</label>
-                    <input type="date" name="to" value="@_toDateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
-                    <button type="submit" class="bk-btn bk-btn-primary" style="font-size:12px;padding:6px 14px;height:38px;">
+                    <input type="date" name="to" value="@_toDateStr" class="att-date-input" />
+                    <button type="submit" class="att-apply-btn">
                         <span class="material-icons-round" style="font-size:14px;">search</span>
                         Apply
                     </button>
@@ -88,18 +239,18 @@
             {
                 <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;">
                     <input type="hidden" name="tab" value="@_tab" />
-                    <input type="date" name="date" value="@_dateStr" class="bk-input" style="width:auto;height:38px;padding:0 12px;" />
-                    <button type="submit" class="bk-btn bk-btn-primary" style="font-size:12px;padding:6px 14px;height:38px;">
+                    <input type="date" name="date" value="@_dateStr" class="att-date-input" />
+                    <button type="submit" class="att-apply-btn">
                         <span class="material-icons-round" style="font-size:14px;">search</span>
                         Apply
                     </button>
                 </form>
                 <div style="margin-left:auto;display:flex;gap:6px;">
-                    <a href="/attendance-logs?tab=@_tab&date=@_prevDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
+                    <a href="/attendance-logs?tab=@_tab&date=@_prevDateStr" class="att-nav-btn">
                         <span class="material-icons-round" style="font-size:14px;">chevron_left</span>
                         @(_tab == "daily" ? "Prev Day" : _tab == "weekly" ? "Prev Week" : "Prev Month")
                     </a>
-                    <a href="/attendance-logs?tab=@_tab&date=@_nextDateStr" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;height:32px;text-decoration:none;">
+                    <a href="/attendance-logs?tab=@_tab&date=@_nextDateStr" class="att-nav-btn">
                         @(_tab == "daily" ? "Next Day" : _tab == "weekly" ? "Next Week" : "Next Month")
                         <span class="material-icons-round" style="font-size:14px;">chevron_right</span>
                     </a>
@@ -107,21 +258,21 @@
             }
         </div>
 
-        @* ───── Legend ───── *@
-        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;font-size:11px;color:var(--bk-ink-3);">
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(45,212,167,0.3);margin-right:4px;"></span>P = Present</span>
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(139,128,255,0.3);margin-right:4px;"></span>L = On Leave</span>
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(244,185,66,0.3);margin-right:4px;"></span>H = Holiday</span>
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,122,145,0.3);margin-right:4px;"></span>A = Absent</span>
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,255,255,0.1);margin-right:4px;"></span>— = Weekend</span>
+        @* ── Legend ─ *@
+        <div class="att-legend">
+            <span class="att-legend-item"><span class="att-legend-dot" style="background:rgba(20,163,127,0.5);"></span>P = Present</span>
+            <span class="att-legend-item"><span class="att-legend-dot" style="background:rgba(108,99,255,0.5);"></span>L = On Leave</span>
+            <span class="att-legend-item"><span class="att-legend-dot" style="background:rgba(216,156,17,0.5);"></span>H = Holiday</span>
+            <span class="att-legend-item"><span class="att-legend-dot" style="background:rgba(232,93,117,0.5);"></span>A = Absent</span>
+            <span class="att-legend-item"><span class="att-legend-dot" style="background:rgba(0,0,0,0.08);"></span>— = Weekend</span>
         </div>
 
-        @* ───── Daily tab ───── *@
+        @* ── Daily Tab ─ *@
         @if (_tab == "daily")
         {
-            <div class="bk-admin-card" style="overflow:hidden;">
+            <div class="att-table-wrap">
                 <div style="overflow-x:auto;">
-                    <table class="bk-admin-table bk-mobile-card-view">
+                    <table class="att-table">
                         <thead>
                             <tr>
                                 <th>First Name</th>
@@ -140,27 +291,20 @@
                             @foreach (var row in _daily)
                             {
                                 <tr>
-                                    <td style="font-weight:600;font-size:13px;">@row.FirstName</td>
-                                    <td style="font-size:13px;">@row.LastName</td>
+                                    <td style="font-weight:600;">@row.FirstName</td>
+                                    <td>@row.LastName</td>
                                     <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@row.EmployeeCode</td>
                                     <td style="font-size:12px;font-family:'JetBrains Mono',monospace;">@row.CheckInLabel</td>
                                     <td style="font-size:12px;font-family:'JetBrains Mono',monospace;">@row.CheckOutLabel</td>
-                                    <td style="font-weight:700;color:var(--bk-accent);font-size:13px;">@row.WorkedHoursLabel</td>
-                                    <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.LateHoursLabel</td>
+                                    <td style="font-weight:700;color:var(--bk-accent);">@row.WorkedHoursLabel</td>
+                                    <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");font-weight:@(row.LateHours > 0 ? "600" : "400")">@row.LateHoursLabel</td>
                                     <td style="font-size:12px;color:@(row.OvertimeHours > 0 ? "var(--bk-accent-3)" : "var(--bk-ink-3)");font-weight:@(row.OvertimeHours > 0 ? "700" : "400")">@row.OvertimeHoursLabel</td>
                                     <td>
-                                        <span class="bk-admin-pill @(
-                                            row.Status == "LEAVE" ? "pending" :
-                                            row.Status == "HOLIDAY" ? "active" :
-                                            row.Status == "ABSENT" ? "rejected" : "approved"
-                                        )" style="@(
-                                            row.Status == "LEAVE" ? "background:rgba(139,128,255,0.12);color:var(--bk-accent-2);" :
-                                            row.Status == "HOLIDAY" ? "background:rgba(244,185,66,0.12);color:var(--bk-accent);" :
-                                            row.Status == "ABSENT" ? "background:rgba(255,122,145,0.12);color:var(--bk-accent-4);" :
-                                            "background:rgba(45,212,167,0.12);color:var(--bk-accent-3);"
-                                        )">
-                                            @row.Status
-                                        </span>
+                                        <span class="att-status @(
+                                            row.Status == "LEAVE" ? "leave" :
+                                            row.Status == "HOLIDAY" ? "holiday" :
+                                            row.Status == "ABSENT" ? "absent" : "present"
+                                        )">@row.Status</span>
                                     </td>
                                     <td style="font-size:11px;color:var(--bk-ink-3);">@row.ShiftName</td>
                                 </tr>
@@ -170,33 +314,28 @@
                 </div>
                 @if (!_daily.Any())
                 {
-                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                        <span class="material-icons-round" style="font-size:32px;">event_busy</span>
-                        <p style="font-size:13px;margin-top:8px;">No attendance data for this date.</p>
+                    <div class="att-empty">
+                        <div class="att-empty-icon"><span class="material-icons-round">event_busy</span></div>
+                        <h3>No attendance data</h3>
+                        <p>No records found for this date.</p>
                     </div>
                 }
             </div>
         }
 
-        @* ───── Weekly tab ───── *@
+        @* ── Weekly Tab ─ *@
         @if (_tab == "weekly")
         {
-            <div class="bk-admin-card" style="overflow:hidden;">
+            <div class="att-table-wrap">
                 <div style="overflow-x:auto;">
-                    <table class="bk-admin-table bk-mobile-card-view">
+                    <table class="att-table">
                         <thead>
                             <tr>
                                 <th>First Name</th>
                                 <th>Last Name</th>
                                 <th>Employee ID</th>
                                 <th>Department</th>
-                                <th>Mon</th>
-                                <th>Tue</th>
-                                <th>Wed</th>
-                                <th>Thu</th>
-                                <th>Fri</th>
-                                <th>Sat</th>
-                                <th>Sun</th>
+                                <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
                                 <th>Late Hrs</th>
                                 <th>Total Worked</th>
                                 <th>OT Workday</th>
@@ -208,23 +347,18 @@
                             @foreach (var row in _weekly)
                             {
                                 <tr>
-                                    <td style="font-weight:600;font-size:13px;">@row.FirstName</td>
-                                    <td style="font-size:13px;">@row.LastName</td>
+                                    <td style="font-weight:600;">@row.FirstName</td>
+                                    <td>@row.LastName</td>
                                     <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@row.EmployeeCode</td>
                                     <td style="font-size:12px;color:var(--bk-ink-3);">@row.Department</td>
                                     @for (int i = 0; i < 7; i++)
                                     {
                                         var status = row.DailyStatus[i];
-                                        var bg = status == "L" ? "rgba(139,128,255,0.08)" :
-                                                 status == "H" ? "rgba(244,185,66,0.08)" :
-                                                 status == "A" ? "rgba(255,122,145,0.08)" :
-                                                 status == "P" ? "rgba(45,212,167,0.08)" : "transparent";
-                                        <td style="font-size:11px;text-align:center;font-family:'JetBrains Mono',monospace;background:@bg;">
-                                            @row.DayLabel(i)
-                                        </td>
+                                        var cls = status == "L" ? "leave" : status == "H" ? "holiday" : status == "A" ? "absent" : status == "P" ? "present" : "";
+                                        <td class="att-day @cls">@row.DayLabel(i)</td>
                                     }
-                                    <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.LateLabel</td>
-                                    <td style="font-weight:700;color:var(--bk-accent);font-size:13px;">@row.TotalWorkedLabel</td>
+                                    <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");font-weight:@(row.LateHours > 0 ? "600" : "400")">@row.LateLabel</td>
+                                    <td style="font-weight:700;color:var(--bk-accent);">@row.TotalWorkedLabel</td>
                                     <td style="font-size:12px;color:@(row.OvertimeWorkday > 0 ? "var(--bk-accent-2)" : "var(--bk-ink-3)");">@row.OtWorkdayLabel</td>
                                     <td style="font-size:12px;color:@(row.OvertimeWeekend > 0 ? "var(--bk-accent)" : "var(--bk-ink-3)");">@row.OtWeekendLabel</td>
                                     <td style="font-size:12px;color:@(row.OvertimeHoliday > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.OtHolidayLabel</td>
@@ -235,51 +369,45 @@
                 </div>
                 @if (!_weekly.Any())
                 {
-                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                        <span class="material-icons-round" style="font-size:32px;">date_range</span>
-                        <p style="font-size:13px;margin-top:8px;">No attendance data for this week.</p>
+                    <div class="att-empty">
+                        <div class="att-empty-icon"><span class="material-icons-round">date_range</span></div>
+                        <h3>No attendance data</h3>
+                        <p>No records found for this week.</p>
                     </div>
                 }
             </div>
         }
 
-        @* ───── Monthly tab ───── *@
+        @* ── Monthly Tab ─ *@
         @if (_tab == "monthly")
         {
-            <div class="bk-admin-card" style="overflow:hidden;">
+            <div class="att-table-wrap">
                 <div style="overflow-x:auto;">
-                    <table class="bk-admin-table" style="font-size:11px;">
+                    <table class="att-table" style="font-size:11px;">
                         <thead>
                             <tr>
-                                <th style="position:sticky;left:0;background:var(--bk-muted);z-index:1;">First Name</th>
-                                <th style="position:sticky;left:80px;background:var(--bk-muted);z-index:1;">Last Name</th>
-                                <th style="position:sticky;left:160px;background:var(--bk-muted);z-index:1;">Employee ID</th>
+                                <th class="sticky" style="left:0;">First Name</th>
+                                <th class="sticky" style="left:80px;">Last Name</th>
+                                <th class="sticky" style="left:160px;">Employee ID</th>
                                 @for (int d = 1; d <= _daysInMonth; d++)
                                 {
                                     <th style="text-align:center;min-width:36px;">@d.ToString("00")</th>
                                 }
-                                <th>Total</th>
-                                <th>OT W</th>
-                                <th>OT WE</th>
-                                <th>OT H</th>
-                                <th>Late</th>
+                                <th>Total</th><th>OT W</th><th>OT WE</th><th>OT H</th><th>Late</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var row in _monthly)
                             {
                                 <tr>
-                                    <td style="position:sticky;left:0;background:var(--bk-bg-strong);z-index:1;font-weight:600;">@row.FirstName</td>
-                                    <td style="position:sticky;left:80px;background:var(--bk-bg-strong);z-index:1;">@row.LastName</td>
-                                    <td style="position:sticky;left:160px;background:var(--bk-bg-strong);z-index:1;font-family:'JetBrains Mono',monospace;font-size:10px;">@row.EmployeeCode</td>
+                                    <td class="sticky" style="left:0;font-weight:600;">@row.FirstName</td>
+                                    <td class="sticky" style="left:80px;">@row.LastName</td>
+                                    <td class="sticky" style="left:160px;font-family:'JetBrains Mono',monospace;font-size:10px;">@row.EmployeeCode</td>
                                     @for (int i = 0; i < _daysInMonth; i++)
                                     {
                                         var status = row.DailyStatus[i];
-                                        var bg = status == "L" ? "rgba(139,128,255,0.1)" :
-                                                 status == "H" ? "rgba(244,185,66,0.1)" :
-                                                 status == "A" ? "rgba(255,122,145,0.1)" :
-                                                 status == "P" ? "rgba(45,212,167,0.1)" : "transparent";
-                                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;background:@bg;">
+                                        var cls = status == "L" ? "leave" : status == "H" ? "holiday" : status == "A" ? "absent" : status == "P" ? "present" : "";
+                                        <td class="att-day @cls">
                                             @(row.DailyHours[i] > 0 ? row.DailyHours[i]!.Value.ToString("F1") : status)
                                         </td>
                                     }
@@ -295,26 +423,27 @@
                 </div>
                 @if (!_monthly.Any())
                 {
-                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                        <span class="material-icons-round" style="font-size:32px;">calendar_month</span>
-                        <p style="font-size:13px;margin-top:8px;">No attendance data for this month.</p>
+                    <div class="att-empty">
+                        <div class="att-empty-icon"><span class="material-icons-round">calendar_month</span></div>
+                        <h3>No attendance data</h3>
+                        <p>No records found for this month.</p>
                     </div>
                 }
             </div>
         }
 
-        @* ───── Custom tab ───── *@
+        @* ── Custom Tab ─ *@
         @if (_tab == "custom")
         {
-            <div class="bk-admin-card" style="overflow:hidden;">
-                <div style="padding:16px 20px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;">
+            <div class="att-table-wrap">
+                <div class="att-custom-header">
                     <div>
-                        <h3 style="font-size:14px;font-weight:700;margin:0;">Custom Range — @_fromDate.ToString("dd MMM yyyy") to @_toDate.ToString("dd MMM yyyy")</h3>
-                        <p style="font-size:12px;color:var(--bk-ink-3);margin:2px 0 0;">@_customRows.Count employees · @((_toDate - _fromDate).Days + 1) days</p>
+                        <h3>Custom Range — @_fromDate.ToString("dd MMM yyyy") to @_toDate.ToString("dd MMM yyyy")</h3>
+                        <p>@_customRows.Count employees &middot; @((_toDate - _fromDate).Days + 1) days</p>
                     </div>
                 </div>
                 <div style="overflow-x:auto;">
-                    <table class="bk-admin-table bk-mobile-card-view">
+                    <table class="att-table">
                         <thead>
                             <tr>
                                 <th>First Name</th>
@@ -332,11 +461,11 @@
                             @foreach (var row in _customRows)
                             {
                                 <tr>
-                                    <td style="font-weight:600;font-size:13px;">@row.FirstName</td>
-                                    <td style="font-size:13px;">@row.LastName</td>
+                                    <td style="font-weight:600;">@row.FirstName</td>
+                                    <td>@row.LastName</td>
                                     <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@row.EmployeeCode</td>
                                     <td style="font-size:12px;color:var(--bk-ink-3);">@row.Department</td>
-                                    <td style="font-weight:700;color:var(--bk-accent);font-size:13px;">@row.TotalWorkedLabel</td>
+                                    <td style="font-weight:700;color:var(--bk-accent);">@row.TotalWorkedLabel</td>
                                     <td style="font-size:12px;color:@(row.LateHours > 0 ? "var(--bk-accent-4)" : "var(--bk-ink-3)");">@row.LateLabel</td>
                                     <td style="font-size:12px;color:@(row.OvertimeWorkday > 0 ? "var(--bk-accent-2)" : "var(--bk-ink-3)");">@row.OtWorkdayLabel</td>
                                     <td style="font-size:12px;color:@(row.OvertimeWeekend > 0 ? "var(--bk-accent)" : "var(--bk-ink-3)");">@row.OtWeekendLabel</td>
@@ -348,16 +477,114 @@
                 </div>
                 @if (!_customRows.Any())
                 {
-                    <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                        <span class="material-icons-round" style="font-size:32px;">date_range</span>
-                        <p style="font-size:13px;margin-top:8px;">No attendance data for this date range.</p>
+                    <div class="att-empty">
+                        <div class="att-empty-icon"><span class="material-icons-round">date_range</span></div>
+                        <h3>No attendance data</h3>
+                        <p>No records found for this date range.</p>
                     </div>
                 }
             </div>
         }
     }
-
 </div>
+
+<!-- Import From Device - Modal -->
+<div id="ukuu-import-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(8px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportModal()">
+    <div style="background:var(--bk-bg,#fff);border:1px solid var(--bk-line);border-radius:20px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+        <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;font-size:18px;font-weight:700;color:var(--bk-ink);">Import Attendance From Device</h3>
+            <button onclick="ukuuCloseImportModal()" style="width:32px;height:32px;border-radius:8px;background:var(--bk-muted);border:none;cursor:pointer;color:var(--bk-ink-3);display:flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
+                <span class="material-icons-round" style="font-size:18px;">close</span>
+            </button>
+        </div>
+        <div style="padding:28px;">
+            <div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.15);border-radius:12px;padding:14px;margin-bottom:20px;">
+                <div style="display:flex;align-items:flex-start;gap:10px;">
+                    <span class="material-icons-round" style="color:#2563EB;font-size:18px;margin-top:1px;">info</span>
+                    <div style="font-size:12px;color:var(--bk-ink-2);line-height:1.6;">
+                        <strong style="color:var(--bk-ink);">How to get data:</strong>
+                        Open your Hikvision device web UI, go to <strong>Attendance Report</strong>, export as CSV, then paste below.
+                        Each row: <code style="background:var(--bk-muted);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;">EmployeeNo, Time, EventType</code>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">Paste Attendance Data (CSV)</label>
+                <textarea id="ukuu-imp-data" rows="10" placeholder="EmployeeNo,Time,EventType&#10;UKU-001,2025-07-30 08:15:00,check_in&#10;UKU-001,2025-07-30 17:05:00,check_out&#10;..." style="width:100%;border:1px solid var(--bk-line);border-radius:12px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--bk-ink);outline:none;box-sizing:border-box;resize:vertical;line-height:1.6;transition:border-color 0.2s ease;"></textarea>
+            </div>
+            <div id="ukuu-imp-status" style="display:none;margin-bottom:16px;"></div>
+            <button class="att-btn att-btn-primary" id="ukuu-imp-btn" onclick="ukuuDoImport()" style="width:100%;height:44px;font-size:14px;font-weight:600;justify-content:center;">
+                <span class="material-icons-round" style="font-size:18px;">download</span>
+                Import Records
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function ukuuOpenImportModal() { var m = document.getElementById('ukuu-import-modal'); if (m) m.style.display = 'flex'; }
+function ukuuCloseImportModal() { var m = document.getElementById('ukuu-import-modal'); if (m) m.style.display = 'none'; }
+
+async function ukuuDoImport() {
+    var raw = document.getElementById('ukuu-imp-data').value.trim();
+    if (!raw) { ukuuImpStatus('error','Please paste attendance data first.'); return; }
+    var events = [];
+    var lines = raw.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line || line.startsWith('#')) continue;
+        var cols = line.split(',');
+        if (cols.length < 2) continue;
+        var empNo = cols[0].trim();
+        var time = cols[1].trim();
+        if (empNo.toLowerCase() === 'employeeno' || empNo.toLowerCase() === 'employee') continue;
+        var eventType = 'check_in';
+        if (cols.length >= 3) {
+            var et = cols[2].trim().toLowerCase();
+            if (et.indexOf('out') >= 0 || et.indexOf('exit') >= 0 || et === '76') eventType = 'check_out';
+        }
+        events.push({ employeeNo: empNo, time: time, eventType: eventType, major: 1, minor: eventType === 'check_out' ? 76 : 75 });
+    }
+    if (events.length === 0) { ukuuImpStatus('error','No valid rows found. Expected: EmployeeNo,Time,EventType'); return; }
+    var btn = document.getElementById('ukuu-imp-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;animation:ukuu-imp-spin 0.8s linear infinite;">sync</span> Importing ' + events.length + ' records...';
+    ukuuImpStatus('loading','Saving ' + events.length + ' attendance records...');
+    try {
+        var resp = await fetch('/api/attendance/save-imported', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ events: events, deviceInfo: { name: 'Manual Import', model: '', serial: '' }, faceRecognition: null })
+        });
+        var data = await resp.json();
+        if (resp.ok && data.success) {
+            ukuuImpStatus('success',
+                '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.8;">' +
+                '<div><strong>Events processed:</strong> ' + data.eventsFetched + '</div>' +
+                '<div><strong>Employees matched:</strong> ' + data.employeesMatched + '</div>' +
+                (data.employeesUnmatched > 0 ? '<div><strong>Unmatched:</strong> ' + data.employeesUnmatched + '</div>' : '') +
+                '<div><strong>Records imported:</strong> ' + data.recordsImported + '</div></div>');
+            setTimeout(function() { window.location.reload(); }, 3000);
+        } else { ukuuImpStatus('error', data.error || ('HTTP ' + resp.status)); }
+    } catch (e) { ukuuImpStatus('error', 'Import failed: ' + e.message); }
+    finally { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;">download</span> Import Records'; }
+}
+
+function ukuuImpStatus(type, html) {
+    var el = document.getElementById('ukuu-imp-status'); if (!el) return;
+    el.style.display = 'block'; el.style.borderRadius = '12px'; el.style.padding = '12px';
+    if (type === 'loading') {
+        el.style.background = 'rgba(37,99,235,0.06)'; el.style.border = '1px solid rgba(37,99,235,0.15)';
+        el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div style="width:18px;height:18px;border:2px solid rgba(37,99,235,0.2);border-top-color:#2563EB;border-radius:50%;animation:ukuu-imp-spin 0.8s linear infinite;"></div><span style="font-size:13px;color:var(--bk-ink);font-weight:600;">' + html + '</span></div>';
+    } else if (type === 'error') {
+        el.style.background = 'rgba(244,63,94,0.06)'; el.style.border = '1px solid rgba(244,63,94,0.2)';
+        el.innerHTML = '<div style="display:flex;align-items:flex-start;gap:8px;"><span class="material-icons-round" style="color:#f43f5e;font-size:18px;">error_outline</span><span style="font-size:13px;color:var(--bk-ink);line-height:1.5;">' + html + '</span></div>';
+    } else {
+        el.style.background = 'rgba(20,163,127,0.06)'; el.style.border = '1px solid rgba(20,163,127,0.2)';
+        el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="material-icons-round" style="color:#14a37f;font-size:18px;">check_circle</span><strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong></div>' + html;
+    }
+}
+</script>
+<style>@@keyframes ukuu-imp-spin { to { transform: rotate(360deg); } }</style>
 
 @code {
     private string _tab = "daily";
@@ -381,7 +608,6 @@
     {
         try
         {
-            // Parse query string
             var uri = Nav.ToAbsoluteUri(Nav.Uri);
             var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
             var qTab = query["tab"];
@@ -400,7 +626,6 @@
             _fromDateStr = _fromDate.ToString("yyyy-MM-dd");
             _toDateStr = _toDate.ToString("yyyy-MM-dd");
 
-            // Compute prev/next dates
             _prevDateStr = (_tab switch { "weekly" => _date.AddDays(-7), "monthly" => _date.AddMonths(-1), _ => _date.AddDays(-1) }).ToString("yyyy-MM-dd");
             _nextDateStr = (_tab switch { "weekly" => _date.AddDays(7), "monthly" => _date.AddMonths(1), _ => _date.AddDays(1) }).ToString("yyyy-MM-dd");
 
@@ -420,23 +645,12 @@
         try
         {
             var org = await Db.Organizations.FirstOrDefaultAsync();
-            if (org == null)
-            {
-                _loadError = "No organization found.";
-                return;
-            }
-
+            if (org == null) { _loadError = "No organization found."; return; }
             _loadError = null;
-
-            if (_tab == "daily")
-                _daily = await TimeCardSvc.GetDailyAsync(org.Id, _date);
-            else if (_tab == "weekly")
-                _weekly = await TimeCardSvc.GetWeeklyAsync(org.Id, _date);
-            else if (_tab == "monthly")
-                _monthly = await TimeCardSvc.GetMonthlyAsync(org.Id, _date);
-            else if (_tab == "custom")
-                _customRows = await TimeCardSvc.GetCustomRangeAsync(org.Id, _fromDate, _toDate);
-
+            if (_tab == "daily") _daily = await TimeCardSvc.GetDailyAsync(org.Id, _date);
+            else if (_tab == "weekly") _weekly = await TimeCardSvc.GetWeeklyAsync(org.Id, _date);
+            else if (_tab == "monthly") _monthly = await TimeCardSvc.GetMonthlyAsync(org.Id, _date);
+            else if (_tab == "custom") _customRows = await TimeCardSvc.GetCustomRangeAsync(org.Id, _fromDate, _toDate);
             StateHasChanged();
         }
         catch (Exception ex)
@@ -445,145 +659,4 @@
             _loadError = "We couldn't load the attendance data. Please try refreshing the page.";
         }
     }
-
-    // NOTE: Import From Device uses plain HTML/JS (see <script> block above) —
-    // no Blazor state or handlers needed. The JS calls POST /api/attendance/
-    // import-from-device directly via fetch().
 }
-
-
-<!-- Import From Device - Direct data paste modal -->
-<div id="ukuu-import-modal" style="position:fixed;inset:0;background:rgba(16,8,30,0.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;padding:24px;" onclick="ukuuCloseImportModal()">
-    <div style="background:var(--bk-surface,#fff);border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
-        <div style="padding:24px 28px;border-bottom:1px solid var(--bk-line);display:flex;justify-content:space-between;align-items:center;">
-            <h3 style="margin:0;font-size:18px;font-weight:700;color:var(--bk-ink);">Import Attendance From Device</h3>
-            <button onclick="ukuuCloseImportModal()" style="background:none;border:none;cursor:pointer;color:var(--bk-ink-3);padding:4px;border-radius:6px;">
-                <span class="material-icons-round">close</span>
-            </button>
-        </div>
-        <div style="padding:28px;">
-            <div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:10px;padding:14px;margin-bottom:20px;">
-                <div style="display:flex;align-items:flex-start;gap:10px;">
-                    <span class="material-icons-round" style="color:var(--bk-info);font-size:18px;margin-top:1px;">info</span>
-                    <div style="font-size:12px;color:var(--bk-ink-2);line-height:1.6;">
-                        <strong style="color:var(--bk-ink);">How to get data:</strong>
-                        Open your Hikvision device web UI, go to <strong>Attendance Report</strong>, export the records as CSV, then paste the data below.
-                        Each row should have: <code style="background:var(--bk-muted);padding:1px 4px;border-radius:3px;">EmployeeNo, Time, EventType</code>
-                    </div>
-                </div>
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="display:block;font-size:13px;font-weight:600;color:var(--bk-ink);margin-bottom:8px;">Paste Attendance Data (CSV)</label>
-                <textarea id="ukuu-imp-data" rows="10" placeholder="EmployeeNo,Time,EventType&#10;UKU-001,2025-07-30 08:15:00,check_in&#10;UKU-001,2025-07-30 17:05:00,check_out&#10;UKU-002,2025-07-30 08:30:00,check_in&#10;..." style="width:100%;border:1px solid var(--bk-line);border-radius:10px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--bk-ink);outline:none;box-sizing:border-box;resize:vertical;line-height:1.5;"></textarea>
-            </div>
-            <div id="ukuu-imp-status" style="display:none;margin-bottom:16px;"></div>
-            <button class="bk-btn bk-btn-primary" id="ukuu-imp-btn" onclick="ukuuDoImport()" style="width:100%;height:44px;font-size:14px;font-weight:600;">
-                <span class="material-icons-round" style="font-size:18px;">download</span>
-                Import Records
-            </button>
-        </div>
-    </div>
-</div>
-<script>
-    function ukuuOpenImportModal() {
-        var m = document.getElementById('ukuu-import-modal');
-        if (m) m.style.display = 'flex';
-    }
-    function ukuuCloseImportModal() {
-        var m = document.getElementById('ukuu-import-modal');
-        if (m) m.style.display = 'none';
-    }
-    async function ukuuDoImport() {
-        var raw = document.getElementById('ukuu-imp-data').value.trim();
-        if (!raw) { ukuuImpStatus('error', 'Please paste attendance data first.'); return; }
-
-        var events = [];
-        var lines = raw.split('\n');
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim();
-            if (!line || line.startsWith('#')) continue;
-            var cols = line.split(',');
-            if (cols.length < 2) continue;
-
-            // Skip header row
-            var empNo = cols[0].trim();
-            var time = cols[1].trim();
-            if (empNo.toLowerCase() === 'employeeno' || empNo.toLowerCase() === 'employee') continue;
-
-            // Try to parse the event type from column 3, or infer from the time pattern
-            var eventType = 'check_in';
-            if (cols.length >= 3) {
-                var et = cols[2].trim().toLowerCase();
-                if (et.indexOf('out') >= 0 || et.indexOf('exit') >= 0 || et === '76') eventType = 'check_out';
-                else eventType = 'check_in';
-            }
-
-            events.push({ employeeNo: empNo, time: time, eventType: eventType, major: 1, minor: eventType === 'check_out' ? 76 : 75 });
-        }
-
-        if (events.length === 0) {
-            ukuuImpStatus('error', 'No valid rows found. Expected format: EmployeeNo,Time,EventType (one per line).');
-            return;
-        }
-
-        var btn = document.getElementById('ukuu-imp-btn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;animation:ukuu-imp-spin 0.8s linear infinite;">sync</span> Importing ' + events.length + ' records...';
-        ukuuImpStatus('loading', 'Saving ' + events.length + ' attendance records to the database...');
-
-        try {
-            var resp = await fetch('/api/attendance/save-imported', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    events: events,
-                    deviceInfo: { name: 'Manual Import', model: '', serial: '' },
-                    faceRecognition: null
-                })
-            });
-            var data = await resp.json();
-            if (resp.ok && data.success) {
-                ukuuImpStatus('success',
-                    '<div style="font-size:13px;color:var(--bk-ink-2);line-height:1.8;">' +
-                    '<div><strong>Events processed:</strong> ' + data.eventsFetched + '</div>' +
-                    '<div><strong>Employees matched:</strong> ' + data.employeesMatched + '</div>' +
-                    (data.employeesUnmatched > 0 ? '<div><strong>Unmatched (skipped):</strong> ' + data.employeesUnmatched + '</div>' : '') +
-                    '<div><strong>Records imported/updated:</strong> ' + data.recordsImported + '</div>' +
-                    '</div>');
-                setTimeout(function() { window.location.reload(); }, 3000);
-            } else {
-                ukuuImpStatus('error', data.error || ('HTTP ' + resp.status));
-            }
-        } catch (e) {
-            ukuuImpStatus('error', 'Import failed: ' + e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;">download</span> Import Records';
-        }
-    }
-    function ukuuImpStatus(type, html) {
-        var el = document.getElementById('ukuu-imp-status');
-        if (!el) return;
-        el.style.display = 'block';
-        if (type === 'loading') {
-            el.style.background = 'rgba(37,99,235,0.06)';
-            el.style.border = '1px solid rgba(37,99,235,0.2)';
-            el.style.borderRadius = '10px';
-            el.style.padding = '12px';
-            el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div style="width:18px;height:18px;border:2px solid rgba(37,99,235,0.2);border-top-color:var(--bk-info);border-radius:50%;animation:ukuu-imp-spin 0.8s linear infinite;"></div><span style="font-size:13px;color:var(--bk-ink);font-weight:600;">' + html + '</span></div>';
-        } else if (type === 'error') {
-            el.style.background = 'rgba(244,63,94,0.08)';
-            el.style.border = '1px solid rgba(244,63,94,0.3)';
-            el.style.borderRadius = '10px';
-            el.style.padding = '12px';
-            el.innerHTML = '<div style="display:flex;align-items:flex-start;gap:8px;"><span class="material-icons-round" style="color:var(--bk-error);font-size:18px;">error_outline</span><span style="font-size:13px;color:var(--bk-ink);line-height:1.5;">' + html + '</span></div>';
-        } else {
-            el.style.background = 'rgba(20,163,127,0.08)';
-            el.style.border = '1px solid rgba(20,163,127,0.3)';
-            el.style.borderRadius = '10px';
-            el.style.padding = '12px';
-            el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="material-icons-round" style="color:var(--bk-success);font-size:18px;">check_circle</span><strong style="font-size:14px;color:var(--bk-ink);">Import Complete</strong></div>' + html;
-        }
-    }
-</script>
-<style>@@keyframes ukuu-imp-spin { to { transform: rotate(360deg); } }</style>
