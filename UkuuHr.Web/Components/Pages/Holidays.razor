@@ -6,295 +6,669 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
-<div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Holiday Management · @_holidays.Count holidays in @_selectedYear</div>
-            <h1 class="bk-admin-h1">Holiday Calendar</h1>
-            <p class="bk-admin-sub">
-                Manage public holidays per organization. Holidays drive overtime classification (FR-007),
-                attendance tolerance grace rules (FR-003), and payroll day-rate calculations.
-            </p>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR — Holiday Calendar · World-Class Redesign
+   Premium design language · Animated stats · Cards · CRUD · Micro-interactions
+   ═══════════════════════════════════════════════════════════════ */
+
+@@keyframes holFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes holSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes holCountUp {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@@keyframes holShimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+@@keyframes holPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(216,156,17,0.2); }
+    50%      { box-shadow: 0 0 0 6px rgba(216,156,17,0); }
+}
+@@keyframes holModalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.hol-page { animation: holFadeIn 0.4s ease-out both; }
+
+/* ─── Stats Row ─── */
+.hol-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 28px; animation: holSlideUp 0.5s ease-out 0.1s both;
+}
+.hol-stat {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+    transition: all 0.25s ease; position: relative; overflow: hidden;
+}
+.hol-stat::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(216,156,17,0.03), transparent 60%);
+    pointer-events: none;
+}
+.hol-stat:hover {
+    border-color: rgba(216,156,17,0.25); transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(216,156,17,0.08);
+}
+.hol-stat-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; transition: transform 0.3s ease;
+}
+.hol-stat:hover .hol-stat-icon { transform: scale(1.08); }
+.hol-stat-icon.purple { background: rgba(123,47,190,0.1); color: #7B2FBE; }
+.hol-stat-icon.green  { background: rgba(20,163,127,0.1); color: #14a37f; }
+.hol-stat-icon.gold   { background: rgba(216,156,17,0.1); color: #d89c11; }
+.hol-stat-icon.blue   { background: rgba(37,99,235,0.1); color: #2563EB; }
+.hol-stat-value {
+    font-size: 28px; font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.1; animation: holCountUp 0.6s ease-out 0.3s both;
+}
+.hol-stat-label { font-size: 12px; font-weight: 600; color: var(--bk-ink-3); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+
+/* ─── Section Header ─── */
+.hol-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 24px; gap: 20px; flex-wrap: wrap;
+    animation: holSlideUp 0.5s ease-out 0.15s both;
+}
+.hol-header-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #d89c11; margin-bottom: 6px;
+}
+.hol-header-eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: #d89c11; box-shadow: 0 0 0 3px rgba(216,156,17,0.2);
+    animation: holPulse 2s ease-in-out infinite;
+}
+.hol-header h1 {
+    font-size: clamp(24px, 3vw, 32px); font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 4px;
+}
+.hol-header-sub { font-size: 14px; color: var(--bk-ink-3); line-height: 1.5; }
+.hol-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ─── Action Buttons ─── */
+.hol-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all 0.2s ease; font-family: inherit;
+}
+.hol-btn-ghost {
+    background: transparent; color: var(--bk-ink-2);
+    border: 1px solid var(--bk-line);
+}
+.hol-btn-ghost:hover { background: var(--bk-muted); border-color: var(--bk-line-strong); }
+.hol-btn-primary {
+    background: linear-gradient(135deg, #7B2FBE, #6A24A8); color: #fff;
+    box-shadow: 0 4px 16px rgba(123,47,190,0.25);
+}
+.hol-btn-primary:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(123,47,190,0.35);
+    background: linear-gradient(135deg, #8B3FCE, #7A34B8);
+}
+.hol-btn-gold {
+    background: linear-gradient(135deg, #d89c11, #b8860b); color: #fff;
+    box-shadow: 0 4px 16px rgba(216,156,17,0.25);
+}
+.hol-btn-gold:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(216,156,17,0.35);
+}
+.hol-btn-danger {
+    background: transparent; color: #DC2626; border: 1px solid rgba(220,38,38,0.3);
+}
+.hol-btn-danger:hover { background: rgba(220,38,38,0.08); border-color: #DC2626; }
+
+/* ─── Year Selector ─── */
+.hol-year-select {
+    height: 42px; border: 1px solid var(--bk-line); border-radius: 12px;
+    background: var(--bk-muted); padding: 0 36px 0 14px; font-family: inherit;
+    font-size: 13px; font-weight: 600; color: var(--bk-ink); outline: none;
+    appearance: none; cursor: pointer; transition: all 0.2s ease;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23d89c11'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+}
+.hol-year-select:focus { border-color: #d89c11; background-color: #fff; box-shadow: 0 0 0 3px rgba(216,156,17,0.1); }
+
+/* ─── CSV Hint ─── */
+.hol-csv-hint {
+    background: var(--bk-bg); border: 1px solid rgba(37,99,235,0.18);
+    border-radius: 16px; padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 24px; animation: holSlideUp 0.5s ease-out 0.3s both;
+    background: linear-gradient(135deg, rgba(37,99,235,0.03), transparent 60%);
+}
+.hol-csv-hint .material-icons-round { color: var(--bk-info); font-size: 20px; flex-shrink: 0; }
+.hol-csv-hint-text { font-size: 12px; color: var(--bk-ink-2); line-height: 1.6; }
+.hol-csv-hint code {
+    background: rgba(37,99,235,0.1); padding: 2px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+}
+
+/* ─── Filter Bar ─── */
+.hol-filter-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+    background: var(--bk-bg); border: 1px solid var(--bk-line);
+    border-radius: 16px; padding: 14px 20px; margin-bottom: 24px;
+    animation: holSlideUp 0.5s ease-out 0.35s both;
+}
+.hol-search-wrap { flex: 1; min-width: 240px; position: relative; }
+.hol-search-wrap .material-icons-round {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--bk-ink-3); font-size: 20px; pointer-events: none;
+}
+.hol-search {
+    width: 100%; height: 42px; border: 1px solid var(--bk-line); border-radius: 12px;
+    background: var(--bk-muted); padding: 0 16px 0 42px; font-family: inherit;
+    font-size: 13px; color: var(--bk-ink); outline: none; transition: all 0.2s ease;
+}
+.hol-search:focus { border-color: #d89c11; background: #fff; box-shadow: 0 0 0 3px rgba(216,156,17,0.1); }
+
+/* ─── Holiday Cards ─── */
+.hol-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px; animation: holSlideUp 0.5s ease-out 0.4s both;
+}
+.hol-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    overflow: hidden; transition: all 0.3s ease; position: relative;
+}
+.hol-card:hover {
+    border-color: rgba(216,156,17,0.22); transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(216,156,17,0.1), 0 0 0 1px rgba(216,156,17,0.06);
+}
+.hol-card.past { opacity: 0.65; }
+.hol-card.past:hover { opacity: 0.85; }
+.hol-card-banner { height: 6px; background: linear-gradient(90deg, #d89c11, #e8a817, #d89c11); }
+.hol-card-banner.today { background: linear-gradient(90deg, #14a37f, #2BC4A1, #14a37f); }
+.hol-card-banner.past { background: linear-gradient(90deg, #9CA3AF, #D1D5DB, #9CA3AF); }
+.hol-card-body { padding: 20px 24px; }
+.hol-card-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.hol-card-left { display: flex; align-items: flex-start; gap: 14px; flex: 1; }
+.hol-card-date-box {
+    width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(216,156,17,0.08); border: 1px solid rgba(216,156,17,0.12);
+    transition: transform 0.3s ease;
+}
+.hol-card:hover .hol-card-date-box { transform: scale(1.06); }
+.hol-card-date-box.today { background: rgba(20,163,127,0.08); border-color: rgba(20,163,127,0.15); }
+.hol-card-date-day { font-size: 20px; font-weight: 800; color: #d89c11; line-height: 1; }
+.hol-card-date-day.today { color: #14a37f; }
+.hol-card-date-month { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bk-ink-3); margin-top: 2px; }
+.hol-card-name { font-size: 15px; font-weight: 700; color: var(--bk-ink); line-height: 1.3; }
+.hol-card-weekday { font-size: 12px; color: var(--bk-ink-3); margin-top: 2px; }
+.hol-card-meta {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+    padding-top: 14px; border-top: 1px solid var(--bk-line);
+}
+.hol-tag {
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px;
+    letter-spacing: 0.02em;
+}
+.hol-tag-country { background: rgba(37,99,235,0.08); color: #2563EB; }
+.hol-tag-recurring { background: rgba(123,47,190,0.08); color: #7B2FBE; }
+.hol-tag-onceoff { background: rgba(107,114,128,0.08); color: #6B7280; }
+
+/* ─── Status Badges ─── */
+.hol-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 100px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+}
+.hol-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.hol-status.today { background: rgba(20,163,127,0.1); color: #14a37f; }
+.hol-status.today::before { background: #14a37f; animation: holPulse 2s ease-in-out infinite; }
+.hol-status.upcoming { background: rgba(216,156,17,0.1); color: #d89c11; }
+.hol-status.upcoming::before { background: #d89c11; }
+.hol-status.past { background: rgba(107,114,128,0.1); color: #6B7280; }
+.hol-status.past::before { background: #6B7280; }
+
+/* ─── Card Actions ─── */
+.hol-card-actions {
+    display: flex; gap: 8px; margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--bk-line);
+}
+.hol-card-action {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 0; border-radius: 10px; font-size: 12px; font-weight: 600;
+    text-decoration: none; transition: all 0.2s ease; cursor: pointer;
+    border: none; font-family: inherit; background: none;
+}
+.hol-card-action.edit { background: var(--bk-muted); color: var(--bk-ink-2); }
+.hol-card-action.edit:hover { background: rgba(123,47,190,0.12); color: var(--bk-accent); }
+.hol-card-action.delete { background: rgba(220,38,38,0.06); color: #DC2626; }
+.hol-card-action.delete:hover { background: rgba(220,38,38,0.12); }
+
+/* ─── Empty State ─── */
+.hol-empty {
+    text-align: center; padding: 80px 24px;
+    animation: holSlideUp 0.5s ease-out 0.3s both;
+}
+.hol-empty-icon {
+    width: 80px; height: 80px; border-radius: 24px;
+    background: var(--bk-muted); margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+}
+.hol-empty-icon .material-icons-round { font-size: 36px; color: var(--bk-ink-3); }
+.hol-empty h3 { font-size: 18px; font-weight: 700; color: var(--bk-ink); margin-bottom: 6px; }
+.hol-empty p { font-size: 14px; color: var(--bk-ink-3); max-width: 400px; margin: 0 auto 16px; }
+
+/* ─── Modal ─── */
+.hol-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 20px; backdrop-filter: blur(4px);
+}
+.hol-modal {
+    background: var(--bk-bg); border: 1px solid var(--bk-line);
+    border-radius: 20px; width: 100%; max-width: 520px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+    animation: holModalIn 0.3s ease-out both;
+    max-height: 90vh; overflow-y: auto;
+}
+.hol-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 28px 0;
+}
+.hol-modal-header h3 {
+    font-size: 18px; font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.02em; margin: 0;
+}
+.hol-modal-close {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--bk-line);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bk-ink-3); cursor: pointer; background: none; transition: all 0.2s ease;
+}
+.hol-modal-close:hover { background: var(--bk-muted); color: var(--bk-ink); }
+.hol-modal-body { padding: 20px 28px 28px; }
+.hol-field { margin-top: 16px; }
+.hol-field:first-child { margin-top: 0; }
+.hol-label {
+    display: block; font-size: 12px; font-weight: 700; color: var(--bk-ink-2);
+    letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px;
+}
+.hol-input {
+    width: 100%; height: 44px; border: 1px solid var(--bk-line); border-radius: 12px;
+    background: var(--bk-muted); padding: 0 14px; font-family: inherit;
+    font-size: 14px; color: var(--bk-ink); outline: none; transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+.hol-input:focus { border-color: var(--bk-accent); background: #fff; box-shadow: 0 0 0 3px rgba(123,47,190,0.1); }
+.hol-checkbox-row {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--bk-ink-2);
+}
+.hol-checkbox-row input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: var(--bk-accent); cursor: pointer;
+}
+.hol-modal-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 20px 28px 24px; border-top: 1px solid var(--bk-line);
+    margin-top: 8px;
+}
+
+/* ─── Import Results ─── */
+.hol-import-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;
+}
+.hol-import-stat {
+    border-radius: 14px; padding: 16px; text-align: center;
+}
+.hol-import-stat-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bk-ink-3); }
+.hol-import-stat-value { font-size: 28px; font-weight: 800; line-height: 1.1; margin-top: 4px; }
+
+/* ─── Responsive ─── */
+@@media (max-width: 900px) {
+    .hol-stats { grid-template-columns: repeat(2, 1fr); }
+    .hol-grid { grid-template-columns: 1fr; }
+    .hol-header { flex-direction: column; }
+    .hol-header-actions { width: 100%; }
+}
+@@media (max-width: 600px) {
+    .hol-stats { grid-template-columns: 1fr; gap: 12px; }
+    .hol-stat { padding: 16px; }
+    .hol-stat-value { font-size: 22px; }
+    .hol-filter-bar { flex-direction: column; padding: 12px; }
+    .hol-search-wrap { min-width: 100%; }
+    .hol-grid { grid-template-columns: 1fr; }
+    .hol-header-actions { flex-wrap: wrap; }
+}
+</style>
+
+<div class="hol-page">
+
+    @* ── Stats Row ─ *@
+    <div class="hol-stats">
+        <div class="hol-stat">
+            <div class="hol-stat-icon gold"><span class="material-icons-round">event</span></div>
+            <div>
+                <div class="hol-stat-value">@_holidays.Count</div>
+                <div class="hol-stat-label">Holidays in @_selectedYear</div>
+            </div>
         </div>
-        <div class="bk-admin-actions">
-            <select value="@_selectedYear" @onchange="OnSelectedYearChanged" style="height:40px;border:1px solid var(--bk-line);border-radius:999px;background:rgba(255,255,255,0.74);padding:0 16px;font-family:inherit;font-size:13px;color:var(--bk-ink);outline:none;">
+        <div class="hol-stat">
+            <div class="hol-stat-icon green"><span class="material-icons-round">event_available</span></div>
+            <div>
+                <div class="hol-stat-value">@_upcomingCount</div>
+                <div class="hol-stat-label">Upcoming (30 days)</div>
+            </div>
+        </div>
+        <div class="hol-stat">
+            <div class="hol-stat-icon blue"><span class="material-icons-round">history</span></div>
+            <div>
+                <div class="hol-stat-value">@_pastCount</div>
+                <div class="hol-stat-label">Past Holidays</div>
+            </div>
+        </div>
+        <div class="hol-stat">
+            <div class="hol-stat-icon purple"><span class="material-icons-round">public</span></div>
+            <div>
+                <div class="hol-stat-value">@(_holidays.Select(h => h.Country ?? "Unknown").Distinct().Count())</div>
+                <div class="hol-stat-label">Countries</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Section Header ─ *@
+    <div class="hol-header">
+        <div>
+            <div class="hol-header-eyebrow">Calendar</div>
+            <h1>Holiday Calendar</h1>
+            <p class="hol-header-sub">Manage public holidays. Holidays drive overtime classification, attendance tolerance, and payroll calculations.</p>
+        </div>
+        <div class="hol-header-actions">
+            <select value="@_selectedYear" @onchange="OnSelectedYearChanged" class="hol-year-select">
                 @for (int y = DateTime.Now.Year - 1; y <= DateTime.Now.Year + 2; y++)
                 {
                     <option value="@y" selected="@(y == _selectedYear)">@y</option>
                 }
             </select>
-            <button class="bk-btn bk-btn-secondary" @onclick="ExportCsv" disabled="@(_holidays.Count == 0)">
+            <button class="hol-btn hol-btn-ghost" @onclick="ExportCsv" disabled="@(_holidays.Count == 0)">
                 <span class="material-icons-round" style="font-size:16px;">download</span>
                 Export CSV
             </button>
-            @if (_holidays.Count > 0)
-            {
-                <button class="bk-btn bk-btn-secondary" @onclick="DeleteYear" style="color:var(--bk-error);">
-                    <span class="material-icons-round" style="font-size:16px;">delete_sweep</span>
-                    Delete @_selectedYear
-                </button>
-            }
-            <button class="bk-btn bk-btn-secondary" @onclick="SeedZambia">
-                <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
-                Seed @_selectedYear
-            </button>
-            <label class="bk-btn bk-btn-secondary" style="cursor:pointer;">
+            <label class="hol-btn hol-btn-ghost" style="cursor:pointer;">
                 <span class="material-icons-round" style="font-size:16px;">upload</span>
                 Import CSV
                 <InputFile OnChange="OnCsvUpload" accept=".csv,text/csv" style="display:none;" />
             </label>
-            <button class="bk-btn bk-btn-primary" @onclick="() => OpenHolidayDialog(null)">
+            <button class="hol-btn hol-btn-gold" @onclick="SeedZambia">
+                <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
+                Seed @_selectedYear
+            </button>
+            @if (_holidays.Count > 0)
+            {
+                <button class="hol-btn hol-btn-danger" @onclick="DeleteYear">
+                    <span class="material-icons-round" style="font-size:16px;">delete_sweep</span>
+                    Delete @_selectedYear
+                </button>
+            }
+            <button class="hol-btn hol-btn-primary" @onclick="() => OpenHolidayDialog(null)">
                 <span class="material-icons-round" style="font-size:16px;">add</span>
                 New Holiday
             </button>
         </div>
     </div>
 
-    @* ───── KPI cards ───── *@
-    <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon"><span class="material-icons-round">event</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_holidays.Count</div>
-            <div class="bk-admin-kpi-label">Holidays in @_selectedYear</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon green"><span class="material-icons-round">event_available</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_upcomingCount</div>
-            <div class="bk-admin-kpi-label">Upcoming (next 30 days)</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">schedule</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_pastCount</div>
-            <div class="bk-admin-kpi-label">Past Holidays</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon purple"><span class="material-icons-round">public</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@(_holidays.Select(h => h.Country ?? "Unknown").Distinct().Count())</div>
-            <div class="bk-admin-kpi-label">Countries</div>
+    @* ── CSV Format Hint ─ *@
+    <div class="hol-csv-hint">
+        <span class="material-icons-round">info</span>
+        <div class="hol-csv-hint-text">
+            <strong>CSV format:</strong>
+            <code>Name,Date,Country</code>
+            &mdash; Date must be <code>yyyy-MM-dd</code>.
+            Country is optional (defaults to <code>Zambia</code>).
+            Duplicate dates within the org are silently skipped.
         </div>
     </div>
 
-    @* ───── CSV format hint ───── *@
-    <div class="bk-admin-card" style="margin-bottom:24px;background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.18);">
-        <div class="bk-admin-card-content" style="display:flex;align-items:center;gap:12px;padding:12px 16px;">
-            <span class="material-icons-round" style="color:var(--bk-info);">info</span>
-            <div style="font-size:12px;color:var(--bk-ink-2);line-height:1.5;flex:1;">
-                <strong>CSV format:</strong>
-                <code style="background:rgba(37,99,235,0.1);padding:2px 6px;border-radius:4px;font-family:var(--ukuu-font-mono);font-size:11px;">Name,Date,Country</code>
-                — Date must be <code style="background:rgba(37,99,235,0.1);padding:2px 6px;border-radius:4px;font-family:var(--ukuu-font-mono);font-size:11px;">yyyy-MM-dd</code>.
-                Country is optional (defaults to <code style="background:rgba(37,99,235,0.1);padding:2px 6px;border-radius:4px;font-family:var(--ukuu-font-mono);font-size:11px;">Zambia</code>).
-                Duplicate dates within the org are silently skipped.
-            </div>
+    @* ── Filter Bar ─ *@
+    <div class="hol-filter-bar">
+        <div class="hol-search-wrap">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="ukuu-hol-search" class="hol-search"
+                   placeholder="Search by holiday name, country, or date..."
+                   oninput="ukuuFilterHolidays()" />
         </div>
     </div>
 
-    @* ───── Holidays list ───── *@
-    <div class="bk-admin-card" style="overflow:hidden;">
-        <div class="bk-admin-card-header">
-            <h3>@_selectedYear Holiday Calendar</h3>
-            <p>Click any holiday to edit. Past holidays are dimmed.</p>
-        </div>
-        <div style="overflow-x:auto;">
-            <table class="bk-admin-table bk-mobile-card-view">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Day</th>
-                        <th>Holiday Name</th>
-                        <th>Country</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var h in _holidays.OrderBy(x => x.Date))
-                    {
-                        var isPast = h.Date.Date < DateTime.Today;
-                        <tr style="opacity:@(isPast ? 0.6 : 1);">
-                            <td style="font-family:var(--ukuu-font-mono);font-size:12px;font-weight:600;">@h.Date.ToString("yyyy-MM-dd")</td>
-                            <td style="font-size:12px;color:var(--bk-ink-3);">@h.Date.ToString("dddd")</td>
-                            <td>
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <div style="width:8px;height:32px;border-radius:4px;background:linear-gradient(135deg, var(--ukuu-ink) 0%, var(--ukuu-accent-violet, #5E4B85) 100%);"></div>
-                                    <span style="font-weight:600;font-size:13px;">@h.Name</span>
-                                </div>
-                            </td>
-                            <td><span class="bk-admin-pill info" style="font-size:11px;">@(h.Country ?? "Zambia")</span></td>
-                            <td>
-                                @if (h.IsRecurring)
-                                {
-                                    <span class="bk-admin-pill pending" style="font-size:11px;">Recurring</span>
-                                }
-                                else
-                                {
-                                    <span style="font-size:11px;color:var(--bk-ink-3);">Once-off</span>
-                                }
-                            </td>
-                            <td>
-                                @if (isPast)
-                                {
-                                    <span class="bk-admin-pill inactive" style="font-size:11px;">Past</span>
-                                }
-                                else if (h.Date.Date == DateTime.Today)
-                                {
-                                    <span class="bk-admin-pill pending" style="font-size:11px;">Today</span>
-                                }
-                                else
-                                {
-                                    <span class="bk-admin-pill active" style="font-size:11px;">Upcoming</span>
-                                }
-                            </td>
-                            <td>
-                                <div style="display:flex;gap:4px;">
-                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;" @onclick="() => OpenHolidayDialog(h)">
-                                        <span class="material-icons-round" style="font-size:14px;">edit</span>
-                                    </button>
-                                    <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;color:var(--bk-error);" @onclick="() => DeleteHoliday(h)">
-                                        <span class="material-icons-round" style="font-size:14px;">delete</span>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-        @if (_holidays.Count == 0)
-        {
-            <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
-                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">event_busy</span>
-                </div>
-                <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No holidays for @_selectedYear</h3>
-                <p style="font-size:13px;margin-bottom:16px;">Add manually, import a CSV, or click "Seed @_selectedYear" to populate the public calendar.</p>
-                <button class="bk-btn bk-btn-primary" @onclick="SeedZambia">
-                    <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
-                    Seed @_selectedYear Zambia Holidays
-                </button>
-            </div>
-        }
-    </div>
-
-    @* ───── Import errors dialog ───── *@
-    @if (_showImportResults)
+    @* ── Holiday Cards ─ *@
+    @if (_holidays.Any())
     {
-        <div class="bk-modal-backdrop" @onclick="() => _showImportResults = false">
-            <div class="bk-modal" @onclick:stopPropagation style="max-width:560px;">
-                <div class="bk-modal-header">
-                    <h3>CSV Import Results</h3>
-                    <button class="bk-modal-close" @onclick="() => _showImportResults = false"><span class="material-icons-round">close</span></button>
-                </div>
-                <div class="bk-modal-body">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-                        <div class="bk-admin-stat-box" style="background:rgba(22,163,74,0.08);">
-                            <div class="bk-admin-stat-box-label">Imported</div>
-                            <div class="bk-admin-stat-box-value" style="color:var(--bk-success);">@_importResult.imported</div>
+        <div class="hol-grid" id="ukuu-hol-grid">
+            @foreach (var h in _holidays.OrderBy(x => x.Date))
+            {
+                var isPast = h.Date.Date < DateTime.Today;
+                var isToday = h.Date.Date == DateTime.Today;
+                var bannerClass = isToday ? "today" : isPast ? "past" : "";
+                var cardClass = isPast ? "past" : "";
+                <div class="hol-card @cardClass"
+                     data-search="@(h.Name)|@(h.Country ?? "")|@(h.Date.ToString("dd MMM yyyy"))|@h.Date.DayOfWeek">
+                    <div class="hol-card-banner @bannerClass"></div>
+                    <div class="hol-card-body">
+                        <div class="hol-card-top">
+                            <div class="hol-card-left">
+                                <div class="hol-card-date-box @(isToday ? "today" : "")">
+                                    <span class="hol-card-date-day @(isToday ? "today" : "")">@h.Date.Day</span>
+                                    <span class="hol-card-date-month">@h.Date.ToString("MMM")</span>
+                                </div>
+                                <div>
+                                    <div class="hol-card-name">@h.Name</div>
+                                    <div class="hol-card-weekday">@h.Date.DayOfWeek &middot; @(h.Country ?? "Zambia")</div>
+                                </div>
+                            </div>
+                            <span class="hol-status @(isToday ? "today" : isPast ? "past" : "upcoming")">
+                                @(isToday ? "Today" : isPast ? "Past" : "Upcoming")
+                            </span>
                         </div>
-                        <div class="bk-admin-stat-box" style="background:rgba(245,158,11,0.08);">
-                            <div class="bk-admin-stat-box-label">Skipped</div>
-                            <div class="bk-admin-stat-box-value" style="color:var(--bk-warning);">@_importResult.skipped</div>
-                        </div>
-                    </div>
-                    @if (_importResult.errors.Count > 0)
-                    {
-                        <h4 style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--bk-error);">Errors (@_importResult.errors.Count)</h4>
-                        <div style="max-height:240px;overflow-y:auto;border:1px solid var(--bk-line);border-radius:8px;padding:8px;">
-                            @foreach (var err in _importResult.errors)
+                        <div class="hol-card-meta">
+                            <span class="hol-tag hol-tag-country">@(h.Country ?? "Zambia")</span>
+                            @if (h.IsRecurring)
                             {
-                                <div style="font-size:12px;color:var(--bk-error);padding:4px 0;font-family:var(--ukuu-font-mono);">@err</div>
+                                <span class="hol-tag hol-tag-recurring">Recurring</span>
+                            }
+                            else
+                            {
+                                <span class="hol-tag hol-tag-onceoff">Once-off</span>
                             }
                         </div>
-                    }
-                    else if (_importResult.imported > 0)
-                    {
-                        <div style="padding:12px;background:rgba(22,163,74,0.08);border-radius:8px;color:var(--bk-success);font-size:13px;">
-                            <span class="material-icons-round" style="font-size:16px;vertical-align:middle;">check_circle</span>
-                            All rows imported successfully.
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    }
-
-    @* ───── Holiday create/edit dialog ───── *@
-    @if (_showHolidayDialog)
-    {
-        <div class="bk-modal-backdrop" @onclick="CloseHolidayDialog">
-            <div class="bk-modal" @onclick:stopPropagation style="max-width:480px;">
-                <div class="bk-modal-header">
-                    <h3>@(_editingHoliday?.Id > 0 ? "Edit Holiday" : "New Holiday")</h3>
-                    <button class="bk-modal-close" @onclick="CloseHolidayDialog"><span class="material-icons-round">close</span></button>
-                </div>
-                <div class="bk-modal-body">
-                    <EditForm Model="@_holidayForm" OnValidSubmit="SaveHoliday">
-                        <div class="bk-field">
-                            <label class="bk-label">Holiday Name *</label>
-                            <InputText class="bk-input" @bind-Value="_holidayForm.Name" placeholder="e.g. Independence Day" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;">
-                            <label class="bk-label">Date *</label>
-                            <input type="date" class="bk-input" value="@_holidayDateStr" @oninput="OnHolidayDateInput" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;">
-                            <label class="bk-label">Country</label>
-                            <InputText class="bk-input" @bind-Value="_holidayForm.Country" placeholder="Zambia" />
-                        </div>
-                        <div class="bk-field" style="margin-top:12px;">
-                            <label class="bk-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                                <InputCheckbox class="bk-checkbox" @bind-Value="_holidayForm.IsRecurring" />
-                                <span>Recurring annually</span>
-                            </label>
-                            <p style="font-size:11px;color:var(--bk-ink-3);margin:4px 0 0 0;">If checked, this holiday repeats every year on the same date.</p>
-                        </div>
-                        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--bk-line);">
-                            <button type="button" class="bk-btn bk-btn-secondary" @onclick="CloseHolidayDialog">Cancel</button>
-                            <button type="submit" class="bk-btn bk-btn-primary">
-                                <span class="material-icons-round" style="font-size:16px;">save</span>
-                                @(_editingHoliday?.Id > 0 ? "Update" : "Create")
+                        <div class="hol-card-actions">
+                            <button class="hol-card-action edit" @onclick="() => OpenHolidayDialog(h)">
+                                <span class="material-icons-round" style="font-size:15px;">edit</span>
+                                Edit
+                            </button>
+                            <button class="hol-card-action delete" @onclick="() => DeleteHoliday(h)">
+                                <span class="material-icons-round" style="font-size:15px;">delete</span>
+                                Delete
                             </button>
                         </div>
-                    </EditForm>
+                    </div>
                 </div>
+            }
+        </div>
+        <div id="ukuu-hol-empty" style="display:none;">
+            <div class="hol-empty" style="padding:48px 24px;">
+                <div class="hol-empty-icon"><span class="material-icons-round">search_off</span></div>
+                <h3>No holidays match your search</h3>
+                <p>Try a different search term.</p>
             </div>
+        </div>
+    }
+    else
+    {
+        <div class="hol-empty">
+            <div class="hol-empty-icon"><span class="material-icons-round">event_busy</span></div>
+            <h3>No holidays for @_selectedYear</h3>
+            <p>Add manually, import a CSV, or seed the public calendar.</p>
+            <button class="hol-btn hol-btn-gold" @onclick="SeedZambia">
+                <span class="material-icons-round" style="font-size:16px;">auto_awesome</span>
+                Seed @_selectedYear Zambia Holidays
+            </button>
         </div>
     }
 
-    @* ───── Bulk delete confirmation ───── *@
-    @if (_showBulkDeleteConfirm)
-    {
-        <div class="bk-modal-backdrop" @onclick="() => _showBulkDeleteConfirm = false">
-            <div class="bk-modal" @onclick:stopPropagation style="max-width:420px;">
-                <div class="bk-modal-header">
-                    <h3>Delete all @_selectedYear holidays?</h3>
-                    <button class="bk-modal-close" @onclick="() => _showBulkDeleteConfirm = false"><span class="material-icons-round">close</span></button>
+</div>
+
+@* ═══════════════════════════════════════════════════════════
+   IMPORT RESULTS DIALOG
+   ═══════════════════════════════════════════════════════════ *@
+@if (_showImportResults)
+{
+    <div class="hol-modal-backdrop" @onclick="() => _showImportResults = false">
+        <div class="hol-modal" @onclick:stopPropagation style="max-width:480px;">
+            <div class="hol-modal-header">
+                <h3>CSV Import Results</h3>
+                <button class="hol-modal-close" @onclick="() => _showImportResults = false">
+                    <span class="material-icons-round" style="font-size:18px;">close</span>
+                </button>
+            </div>
+            <div class="hol-modal-body">
+                <div class="hol-import-stats">
+                    <div class="hol-import-stat" style="background:rgba(20,163,127,0.06);">
+                        <div class="hol-import-stat-label">Imported</div>
+                        <div class="hol-import-stat-value" style="color:#14a37f;">@_importResult.imported</div>
+                    </div>
+                    <div class="hol-import-stat" style="background:rgba(216,156,17,0.06);">
+                        <div class="hol-import-stat-label">Skipped</div>
+                        <div class="hol-import-stat-value" style="color:#d89c11;">@_importResult.skipped</div>
+                    </div>
                 </div>
-                <div class="bk-modal-body">
-                    <p style="font-size:14px;color:var(--bk-ink-2);line-height:1.6;margin:0;">
-                        This will permanently delete all <strong>@_holidays.Count holidays</strong>
-                        for the year <strong>@_selectedYear</strong>. This action cannot be undone.
-                    </p>
-                </div>
-                <div class="bk-modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding:16px 24px;border-top:1px solid var(--bk-line);">
-                    <button class="bk-btn bk-btn-secondary" @onclick="() => _showBulkDeleteConfirm = false">Cancel</button>
-                    <button class="bk-btn bk-btn-secondary" style="color:var(--bk-error);" @onclick="ConfirmDeleteYear">
-                        <span class="material-icons-round" style="font-size:14px;">delete_forever</span>
-                        Delete All @_selectedYear
-                    </button>
-                </div>
+                @if (_importResult.errors.Count > 0)
+                {
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 8px;color:#DC2626;">Errors (@_importResult.errors.Count)</h4>
+                    <div style="max-height:240px;overflow-y:auto;border:1px solid var(--bk-line);border-radius:12px;padding:12px;">
+                        @foreach (var err in _importResult.errors)
+                        {
+                            <div style="font-size:12px;color:#DC2626;padding:4px 0;font-family:'JetBrains Mono',monospace;">@err</div>
+                        }
+                    </div>
+                }
+                else if (_importResult.imported > 0)
+                {
+                    <div style="padding:14px;background:rgba(20,163,127,0.06);border-radius:12px;color:#14a37f;font-size:13px;font-weight:600;">
+                        <span class="material-icons-round" style="font-size:16px;vertical-align:middle;">check_circle</span>
+                        All rows imported successfully.
+                    </div>
+                }
             </div>
         </div>
-    }
-</div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════════════
+   HOLIDAY CREATE / EDIT DIALOG
+   ═══════════════════════════════════════════════════════════ *@
+@if (_showHolidayDialog)
+{
+    <div class="hol-modal-backdrop" @onclick="CloseHolidayDialog">
+        <div class="hol-modal" @onclick:stopPropagation style="max-width:480px;">
+            <div class="hol-modal-header">
+                <h3>@(_editingHoliday?.Id > 0 ? "Edit Holiday" : "New Holiday")</h3>
+                <button class="hol-modal-close" @onclick="CloseHolidayDialog">
+                    <span class="material-icons-round" style="font-size:18px;">close</span>
+                </button>
+            </div>
+            <div class="hol-modal-body">
+                <EditForm Model="@_holidayForm" OnValidSubmit="SaveHoliday">
+                    <div class="hol-field">
+                        <label class="hol-label">Holiday Name *</label>
+                        <InputText class="hol-input" @bind-Value="_holidayForm.Name" placeholder="e.g. Independence Day" />
+                    </div>
+                    <div class="hol-field">
+                        <label class="hol-label">Date *</label>
+                        <input type="date" class="hol-input" value="@_holidayDateStr" @oninput="OnHolidayDateInput" />
+                    </div>
+                    <div class="hol-field">
+                        <label class="hol-label">Country</label>
+                        <InputText class="hol-input" @bind-Value="_holidayForm.Country" placeholder="Zambia" />
+                    </div>
+                    <div class="hol-field">
+                        <label class="hol-checkbox-row">
+                            <input type="checkbox" @bind="_holidayForm.IsRecurring" />
+                            <span>Recurring annually</span>
+                        </label>
+                        <p style="font-size:11px;color:var(--bk-ink-3);margin:6px 0 0 28px;">If checked, this holiday repeats every year on the same date.</p>
+                    </div>
+                    <div class="hol-modal-footer" style="margin-top:0;padding-top:0;border-top:none;">
+                        <button type="button" class="hol-btn hol-btn-ghost" @onclick="CloseHolidayDialog">Cancel</button>
+                        <button type="submit" class="hol-btn hol-btn-primary">
+                            <span class="material-icons-round" style="font-size:16px;">save</span>
+                            @(_editingHoliday?.Id > 0 ? "Update" : "Create")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════════════
+   BULK DELETE CONFIRMATION
+   ═══════════════════════════════════════════════════════════ *@
+@if (_showBulkDeleteConfirm)
+{
+    <div class="hol-modal-backdrop" @onclick="() => _showBulkDeleteConfirm = false">
+        <div class="hol-modal" @onclick:stopPropagation style="max-width:420px;">
+            <div class="hol-modal-header">
+                <h3>Delete all @_selectedYear holidays?</h3>
+                <button class="hol-modal-close" @onclick="() => _showBulkDeleteConfirm = false">
+                    <span class="material-icons-round" style="font-size:18px;">close</span>
+                </button>
+            </div>
+            <div class="hol-modal-body">
+                <p style="font-size:14px;color:var(--bk-ink-2);line-height:1.6;margin:0;">
+                    This will permanently delete all <strong>@_holidays.Count holidays</strong>
+                    for the year <strong>@_selectedYear</strong>. This action cannot be undone.
+                </p>
+            </div>
+            <div class="hol-modal-footer">
+                <button class="hol-btn hol-btn-ghost" @onclick="() => _showBulkDeleteConfirm = false">Cancel</button>
+                <button class="hol-btn hol-btn-danger" @onclick="ConfirmDeleteYear">
+                    <span class="material-icons-round" style="font-size:14px;">delete_forever</span>
+                    Delete All @_selectedYear
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+function ukuuFilterHolidays() {
+    var search = (document.getElementById('ukuu-hol-search') || {}).value || '';
+    search = search.toLowerCase().trim();
+
+    var grid = document.getElementById('ukuu-hol-grid');
+    if (!grid) return;
+    var cards = grid.querySelectorAll('.hol-card');
+    var visible = 0;
+    cards.forEach(function(card) {
+        var data = (card.getAttribute('data-search') || '').toLowerCase();
+        if (!search || data.indexOf(search) >= 0) {
+            card.style.display = '';
+            visible++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    var emptyEl = document.getElementById('ukuu-hol-empty');
+    if (emptyEl) emptyEl.style.display = visible === 0 ? 'block' : 'none';
+}
+</script>
 
 @code {
     private int _selectedYear = DateTime.Now.Year;
@@ -337,13 +711,6 @@
         }
     }
 
-    // Wire up the @bind in markup (Blazor 9 select binding works, but this is the safe fallback).
-    private async Task OnYearChanged(int year)
-    {
-        _selectedYear = year;
-        await LoadAsync();
-    }
-
     private void OpenHolidayDialog(LeaveHoliday? existing)
     {
         _editingHoliday = existing;
@@ -354,7 +721,8 @@
                 Id = existing.Id,
                 Name = existing.Name,
                 Date = existing.Date,
-                Country = existing.Country
+                Country = existing.Country,
+                IsRecurring = existing.IsRecurring
             };
             _holidayDateStr = existing.Date.ToString("yyyy-MM-dd");
         }

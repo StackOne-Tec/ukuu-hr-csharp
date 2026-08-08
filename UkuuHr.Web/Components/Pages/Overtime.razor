@@ -6,152 +6,634 @@
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
-<div class="bk-admin-fade-in">
-    <div class="bk-admin-section-header">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">Overtime Management · @_summary.PendingCount pending</div>
-            <h1 class="bk-admin-h1">Overtime Management</h1>
-            <p class="bk-admin-sub">Track, calculate, and approve overtime. Auto-calculated from attendance + Hikvision clock events.</p>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR — Overtime Management · World-Class Redesign
+   Premium design language · Animated stats · Cards + Table · Micro-interactions
+   ═══════════════════════════════════════════════════════════════ */
+
+@@keyframes otFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes otSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes otCountUp {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@@keyframes otShimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+@@keyframes otPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(216,156,17,0.2); }
+    50%      { box-shadow: 0 0 0 6px rgba(216,156,17,0); }
+}
+
+.ot-page { animation: otFadeIn 0.4s ease-out both; }
+
+/* ─── Stats Row ─── */
+.ot-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 28px; animation: otSlideUp 0.5s ease-out 0.1s both;
+}
+.ot-stat {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+    transition: all 0.25s ease; position: relative; overflow: hidden;
+}
+.ot-stat::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(216,156,17,0.03), transparent 60%);
+    pointer-events: none;
+}
+.ot-stat:hover {
+    border-color: rgba(216,156,17,0.25); transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(216,156,17,0.08);
+}
+.ot-stat-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; transition: transform 0.3s ease;
+}
+.ot-stat:hover .ot-stat-icon { transform: scale(1.08); }
+.ot-stat-icon.purple { background: rgba(123,47,190,0.1); color: #7B2FBE; }
+.ot-stat-icon.green  { background: rgba(20,163,127,0.1); color: #14a37f; }
+.ot-stat-icon.gold   { background: rgba(216,156,17,0.1); color: #d89c11; }
+.ot-stat-icon.blue   { background: rgba(37,99,235,0.1); color: #2563EB; }
+.ot-stat-icon.red    { background: rgba(220,38,38,0.1); color: #DC2626; }
+.ot-stat-value {
+    font-size: 28px; font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.1; animation: otCountUp 0.6s ease-out 0.3s both;
+}
+.ot-stat-label { font-size: 12px; font-weight: 600; color: var(--bk-ink-3); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+
+/* ─── Section Header ─── */
+.ot-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 24px; gap: 20px; flex-wrap: wrap;
+    animation: otSlideUp 0.5s ease-out 0.15s both;
+}
+.ot-header-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #d89c11; margin-bottom: 6px;
+}
+.ot-header-eyebrow::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: #d89c11; box-shadow: 0 0 0 3px rgba(216,156,17,0.2);
+    animation: otPulse 2s ease-in-out infinite;
+}
+.ot-header h1 {
+    font-size: clamp(24px, 3vw, 32px); font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 4px;
+}
+.ot-header-sub { font-size: 14px; color: var(--bk-ink-3); line-height: 1.5; }
+.ot-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ─── Action Buttons ─── */
+.ot-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all 0.2s ease; font-family: inherit;
+}
+.ot-btn-ghost {
+    background: transparent; color: var(--bk-ink-2);
+    border: 1px solid var(--bk-line);
+}
+.ot-btn-ghost:hover { background: var(--bk-muted); border-color: var(--bk-line-strong); }
+.ot-btn-primary {
+    background: linear-gradient(135deg, #7B2FBE, #6A24A8); color: #fff;
+    box-shadow: 0 4px 16px rgba(123,47,190,0.25);
+}
+.ot-btn-primary:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(123,47,190,0.35);
+    background: linear-gradient(135deg, #8B3FCE, #7A34B8);
+}
+.ot-btn-gold {
+    background: linear-gradient(135deg, #d89c11, #b8860b); color: #fff;
+    box-shadow: 0 4px 16px rgba(216,156,17,0.25);
+}
+.ot-btn-gold:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(216,156,17,0.35);
+}
+
+/* ─── View Toggle ─── */
+.ot-view-toggle {
+    display: flex; background: var(--bk-muted); border-radius: 10px;
+    padding: 3px; gap: 2px; border: 1px solid var(--bk-line);
+}
+.ot-view-btn {
+    width: 36px; height: 32px; border-radius: 8px; border: none;
+    background: transparent; color: var(--bk-ink-3); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s ease; font-size: 18px;
+}
+.ot-view-btn.active { background: #fff; color: var(--bk-accent); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+/* ─── Pill Tabs ─── */
+.ot-tabs {
+    display: flex; gap: 4px; padding: 4px;
+    background: var(--bk-muted); border: 1px solid var(--bk-line);
+    border-radius: 14px; margin-bottom: 24px; overflow-x: auto;
+    animation: otSlideUp 0.5s ease-out 0.2s both;
+}
+.ot-tab {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    color: var(--bk-ink-3); text-decoration: none; white-space: nowrap;
+    transition: all 0.2s ease; cursor: pointer;
+}
+.ot-tab:hover { color: var(--bk-ink); background: rgba(255,255,255,0.5); }
+.ot-tab.active {
+    background: #fff; color: var(--bk-ink);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(216,156,17,0.1);
+}
+.ot-tab .material-icons-round { font-size: 16px; }
+.ot-tab-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 7px;
+    border-radius: 100px; background: rgba(216,156,17,0.12); color: #d89c11;
+    line-height: 1.3;
+}
+
+/* ─── Filter Bar ─── */
+.ot-filter-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+    background: var(--bk-bg); border: 1px solid var(--bk-line);
+    border-radius: 16px; padding: 14px 20px; margin-bottom: 24px;
+    animation: otSlideUp 0.5s ease-out 0.25s both;
+}
+.ot-search-wrap { flex: 1; min-width: 240px; position: relative; }
+.ot-search-wrap .material-icons-round {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--bk-ink-3); font-size: 20px; pointer-events: none;
+}
+.ot-search {
+    width: 100%; height: 42px; border: 1px solid var(--bk-line); border-radius: 12px;
+    background: var(--bk-muted); padding: 0 16px 0 42px; font-family: inherit;
+    font-size: 13px; color: var(--bk-ink); outline: none; transition: all 0.2s ease;
+}
+.ot-search:focus { border-color: #d89c11; background: #fff; box-shadow: 0 0 0 3px rgba(216,156,17,0.1); }
+
+/* ─── OT Cards ─── */
+.ot-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px; animation: otSlideUp 0.5s ease-out 0.3s both;
+}
+.ot-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    overflow: hidden; transition: all 0.3s ease; position: relative;
+}
+.ot-card:hover {
+    border-color: rgba(216,156,17,0.22); transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(216,156,17,0.1), 0 0 0 1px rgba(216,156,17,0.06);
+}
+.ot-card-banner {
+    height: 6px;
+    background: linear-gradient(90deg, #d89c11, #e8a817, #d89c11);
+}
+.ot-card-banner.approved { background: linear-gradient(90deg, #14a37f, #2BC4A1, #14a37f); }
+.ot-card-banner.rejected { background: linear-gradient(90deg, #DC2626, #e85d75, #DC2626); }
+.ot-card-banner.auto { background: linear-gradient(90deg, #2563EB, #4F83F0, #2563EB); }
+.ot-card-body { padding: 20px 24px; }
+.ot-card-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 14px;
+}
+.ot-card-emp { display: flex; align-items: center; gap: 12px; }
+.ot-card-avatar {
+    width: 44px; height: 44px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800; color: #fff; flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.ot-card-avatar.c0 { background: linear-gradient(135deg, #7B2FBE, #9B4FD8); }
+.ot-card-avatar.c1 { background: linear-gradient(135deg, #14a37f, #2BC4A1); }
+.ot-card-avatar.c2 { background: linear-gradient(135deg, #2563EB, #4F83F0); }
+.ot-card-avatar.c3 { background: linear-gradient(135deg, #e85d75, #F07D95); }
+.ot-card-name { font-size: 15px; font-weight: 700; color: var(--bk-ink); line-height: 1.3; }
+.ot-card-dept { font-size: 12px; color: var(--bk-ink-3); margin-top: 2px; }
+.ot-card-meta {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    padding-top: 14px; border-top: 1px solid var(--bk-line);
+    margin-top: 14px;
+}
+.ot-card-meta-item { display: flex; flex-direction: column; gap: 2px; }
+.ot-card-meta-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bk-ink-3); }
+.ot-card-meta-value { font-size: 13px; font-weight: 600; color: var(--bk-ink); }
+.ot-card-meta-value.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.ot-card-meta-value.gold { color: #d89c11; }
+.ot-card-rate {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 8px;
+    margin-top: 14px;
+}
+.ot-card-rate.standard { background: rgba(216,156,17,0.1); color: #d89c11; }
+.ot-card-rate.restday { background: rgba(37,99,235,0.1); color: #2563EB; }
+.ot-card-rate.holiday { background: rgba(123,47,190,0.1); color: #7B2FBE; }
+.ot-card-rate.doubletime { background: rgba(220,38,38,0.1); color: #DC2626; }
+.ot-card-actions {
+    display: flex; gap: 8px; margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--bk-line);
+}
+.ot-card-action {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 0; border-radius: 10px; font-size: 12px; font-weight: 600;
+    text-decoration: none; transition: all 0.2s ease; cursor: pointer; border: none;
+    font-family: inherit;
+}
+.ot-card-action.edit { background: var(--bk-muted); color: var(--bk-ink-2); }
+.ot-card-action.edit:hover { background: rgba(123,47,190,0.12); color: var(--bk-accent); }
+.ot-card-action.approve { background: rgba(20,163,127,0.08); color: #14a37f; }
+.ot-card-action.approve:hover { background: rgba(20,163,127,0.16); }
+.ot-card-action.reject { background: rgba(220,38,38,0.06); color: #DC2626; }
+.ot-card-action.reject:hover { background: rgba(220,38,38,0.12); }
+
+/* ─── Status Badges ─── */
+.ot-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 100px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+}
+.ot-status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+}
+.ot-status.pending { background: rgba(216,156,17,0.1); color: #d89c11; }
+.ot-status.pending::before { background: #d89c11; }
+.ot-status.approved { background: rgba(20,163,127,0.1); color: #14a37f; }
+.ot-status.approved::before { background: #14a37f; }
+.ot-status.rejected { background: rgba(220,38,38,0.1); color: #DC2626; }
+.ot-status.rejected::before { background: #DC2626; }
+.ot-status.autoapproved { background: rgba(37,99,235,0.1); color: #2563EB; }
+.ot-status.autoapproved::before { background: #2563EB; }
+
+/* ─── Empty State ─── */
+.ot-empty {
+    text-align: center; padding: 80px 24px;
+    animation: otSlideUp 0.5s ease-out 0.3s both;
+}
+.ot-empty-icon {
+    width: 80px; height: 80px; border-radius: 24px;
+    background: var(--bk-muted); margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+}
+.ot-empty-icon .material-icons-round { font-size: 36px; color: var(--bk-ink-3); }
+.ot-empty h3 { font-size: 18px; font-weight: 700; color: var(--bk-ink); margin-bottom: 6px; }
+.ot-empty p { font-size: 14px; color: var(--bk-ink-3); max-width: 400px; margin: 0 auto; }
+
+/* ─── Responsive ─── */
+@@media (max-width: 900px) {
+    .ot-stats { grid-template-columns: repeat(2, 1fr); }
+    .ot-grid { grid-template-columns: 1fr; }
+    .ot-header { flex-direction: column; }
+    .ot-header-actions { width: 100%; }
+}
+@@media (max-width: 600px) {
+    .ot-stats { grid-template-columns: 1fr; gap: 12px; }
+    .ot-stat { padding: 16px; }
+    .ot-stat-value { font-size: 22px; }
+    .ot-filter-bar { flex-direction: column; padding: 12px; }
+    .ot-search-wrap { min-width: 100%; }
+    .ot-tabs { flex-wrap: nowrap; overflow-x: auto; }
+    .ot-grid { grid-template-columns: 1fr; }
+    .ot-card-meta { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="ot-page">
+
+    @* ── Stats Row ─ *@
+    <div class="ot-stats">
+        <div class="ot-stat">
+            <div class="ot-stat-icon gold"><span class="material-icons-round">schedule</span></div>
+            <div>
+                <div class="ot-stat-value">@_summary.TotalHours.ToString("0.0")h</div>
+                <div class="ot-stat-label">Total OT Hours</div>
+            </div>
         </div>
-        <div class="bk-admin-actions">
+        <div class="ot-stat">
+            <div class="ot-stat-icon red"><span class="material-icons-round">pending_actions</span></div>
+            <div>
+                <div class="ot-stat-value">@_summary.PendingCount</div>
+                <div class="ot-stat-label">Pending Approval</div>
+            </div>
+        </div>
+        <div class="ot-stat">
+            <div class="ot-stat-icon green"><span class="material-icons-round">groups</span></div>
+            <div>
+                <div class="ot-stat-value">@_summary.EmployeeCount</div>
+                <div class="ot-stat-label">Employees with OT</div>
+            </div>
+        </div>
+        <div class="ot-stat">
+            <div class="ot-stat-icon purple"><span class="material-icons-round">payments</span></div>
+            <div>
+                <div class="ot-stat-value">@_totalPay.ToString("N0")</div>
+                <div class="ot-stat-label">Estimated Pay</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Section Header ─ *@
+    <div class="ot-header">
+        <div>
+            <div class="ot-header-eyebrow">Compensation</div>
+            <h1>Overtime Management</h1>
+            <p class="ot-header-sub">Track, calculate, and approve overtime for @DateTime.Now.ToString("MMMM yyyy").</p>
+        </div>
+        <div class="ot-header-actions">
+            <div class="ot-view-toggle">
+                <button class="ot-view-btn active" id="ot-view-grid" onclick="otToggleView('grid')" title="Grid view">
+                    <span class="material-icons-round">grid_view</span>
+                </button>
+                <button class="ot-view-btn" id="ot-view-table" onclick="otToggleView('table')" title="Table view">
+                    <span class="material-icons-round">view_list</span>
+                </button>
+            </div>
             <form method="post" action="/api/overtime/auto-calculate" style="display:inline;">
-                <button type="submit" class="bk-btn bk-btn-secondary">
+                <button type="submit" class="ot-btn ot-btn-gold">
                     <span class="material-icons-round" style="font-size:16px;">calculate</span>
                     Auto-Calculate
                 </button>
             </form>
-            <a href="/overtime/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
+            <a href="/overtime/add" class="ot-btn ot-btn-primary" style="text-decoration:none;">
                 <span class="material-icons-round" style="font-size:16px;">add</span>
                 Add Overtime
             </a>
         </div>
     </div>
 
-    <!-- KPI cards -->
-    <div class="bk-admin-kpi-grid">
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon gold"><span class="material-icons-round">schedule</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_summary.TotalHours.ToString("0.0")h</div>
-            <div class="bk-admin-kpi-label">Total OT Hours (@DateTime.Now.ToString("MMM yyyy"))</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon pink"><span class="material-icons-round">pending_actions</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_summary.PendingCount</div>
-            <div class="bk-admin-kpi-label">Pending Approval</div>
-        </div>
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon blue"><span class="material-icons-round">groups</span></div>
-            </div>
-            <div class="bk-admin-kpi-value">@_summary.EmployeeCount</div>
-            <div class="bk-admin-kpi-label">Employees with OT</div>
-        </div>
-    </div>
-
-    <!-- Tabs -->
-    <div style="display:flex;gap:4px;border-bottom:1px solid var(--bk-line);margin-bottom:24px;overflow-x:auto;">
-        <a href="/overtime?tab=pending" style="padding:12px 16px;border-bottom:2px solid @(_tab == "pending" ? "var(--bk-ink)" : "transparent");color:@(_tab == "pending" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
-            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">pending_actions</span>
-            Pending (@_summary.PendingCount)
+    @* ── Pill Tabs ─ *@
+    <div class="ot-tabs">
+        <a href="/overtime?tab=pending" class="ot-tab @(_tab == "pending" ? "active" : "")">
+            <span class="material-icons-round">pending_actions</span>
+            Pending
+            <span class="ot-tab-badge">@_summary.PendingCount</span>
         </a>
-        <a href="/overtime?tab=approved" style="padding:12px 16px;border-bottom:2px solid @(_tab == "approved" ? "var(--bk-ink)" : "transparent");color:@(_tab == "approved" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
-            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">check_circle</span>
-            Approved (@_summary.ApprovedCount)
+        <a href="/overtime?tab=approved" class="ot-tab @(_tab == "approved" ? "active" : "")">
+            <span class="material-icons-round">check_circle</span>
+            Approved
         </a>
-        <a href="/overtime?tab=all" style="padding:12px 16px;border-bottom:2px solid @(_tab == "all" ? "var(--bk-ink)" : "transparent");color:@(_tab == "all" ? "var(--bk-ink)" : "var(--bk-ink-3)");font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none;">
-            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:6px;">list_alt</span>
-            All Records (@_all.Count)
+        <a href="/overtime?tab=all" class="ot-tab @(_tab == "all" ? "active" : "")">
+            <span class="material-icons-round">list_alt</span>
+            All Records
         </a>
     </div>
 
-    <div class="bk-admin-card" style="overflow:hidden;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--bk-line);">
-            <div style="font-size:13px;font-weight:700;color:var(--bk-ink);">
-                @_filtered.Count() records
-            </div>
-            <a href="/api/overtime/export?tab=@_tab" class="bk-btn bk-btn-secondary" style="font-size:12px;padding:6px 14px;text-decoration:none;">
-                <span class="material-icons-round" style="font-size:14px;">file_download</span>
-                Export Excel
-            </a>
+    @* ── Filter Bar ─ *@
+    <div class="ot-filter-bar">
+        <div class="ot-search-wrap">
+            <span class="material-icons-round">search</span>
+            <input type="text" id="ukuu-ot-search" class="ot-search"
+                   placeholder="Search by employee name, department, or rate type..."
+                   oninput="ukuuFilterOvertime()" />
         </div>
-        <div style="overflow-x:auto;">
-        <table class="bk-admin-table bk-mobile-card-view">
-            <thead>
-                <tr>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>ID</th>
-                    <th>Department</th>
-                    <th>Date</th>
-                    <th>Weekday</th>
-                    <th>OT Hours</th>
-                    <th>Workday OT</th>
-                    <th>Weekend OT</th>
-                    <th>Holiday OT</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var ot in _filtered)
-                {
-                    <tr>
-                        <td style="font-weight:600;font-size:13px;">@GetFirstName(ot.EmployeeId)</td>
-                        <td style="font-size:13px;">@GetLastName(ot.EmployeeId)</td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);font-family:'JetBrains Mono',monospace;">@GetEmployeeCode(ot.EmployeeId)</td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);">@GetDepartment(ot.EmployeeId)</td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dd MMM yyyy")</td>
-                        <td style="font-size:12px;color:var(--bk-ink-3);">@ot.Date.ToString("dddd")</td>
-                        <td style="font-weight:700;color:var(--bk-accent);">@ot.Hours.ToString("0.0")h</td>
-                        <td style="font-size:12px;">@GetOvertimeByCategory(ot, "workday")</td>
-                        <td style="font-size:12px;">@GetOvertimeByCategory(ot, "weekend")</td>
-                        <td style="font-size:12px;">@GetOvertimeByCategory(ot, "holiday")</td>
-                        <td>
-                            <span class="bk-admin-pill @(ot.Status == OvertimeStatus.Approved || ot.Status == OvertimeStatus.AutoApproved ? "approved" : ot.Status == OvertimeStatus.Rejected ? "rejected" : "pending")">
-                                @ot.StatusDisplay
-                            </span>
-                        </td>
-                        <td>
-                            <div style="display:flex;gap:4px;">
-                                <a href="/overtime/edit/@ot.Id" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;min-height:32px;text-decoration:none;">
-                                    <span class="material-icons-round" style="font-size:14px;">edit</span>
-                                </a>
-                                @if (_tab == "pending")
-                                {
-                                    <form method="post" action="/api/overtime/@ot.Id/approve" style="display:inline;">
-                                        <button type="submit" class="bk-btn bk-btn-primary" style="font-size:11px;padding:6px 10px;min-height:32px;background:linear-gradient(180deg,var(--bk-accent-3),#0d8061);box-shadow:none;">
-                                            <span class="material-icons-round" style="font-size:14px;">check</span>
-                                        </button>
-                                    </form>
-                                    <form method="post" action="/api/overtime/@ot.Id/reject" style="display:inline;">
-                                        <button type="submit" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;min-height:32px;color:var(--bk-accent-4);border-color:var(--bk-accent-4);">
-                                            <span class="material-icons-round" style="font-size:14px;">close</span>
-                                        </button>
-                                    </form>
-                                }
+        <a href="/api/overtime/export?tab=@_tab" class="ot-btn ot-btn-ghost" style="font-size:12px;padding:8px 14px;">
+            <span class="material-icons-round" style="font-size:14px;">file_download</span>
+            Export Excel
+        </a>
+    </div>
+
+    @* ── Grid View ─ *@
+    @if (_filtered.Any())
+    {
+        <div class="ot-grid" id="ot-grid-view">
+            @foreach (var ot in _filtered)
+            {
+                var bannerClass = ot.Status == OvertimeStatus.Approved ? "approved"
+                                : ot.Status == OvertimeStatus.Rejected ? "rejected"
+                                : ot.Status == OvertimeStatus.AutoApproved ? "auto" : "";
+                var rateClass = ot.RateType == OvertimeRateType.Standard ? "standard"
+                              : ot.RateType == OvertimeRateType.RestDay ? "restday"
+                              : ot.RateType == OvertimeRateType.PublicHoliday ? "holiday" : "doubletime";
+                var empName = GetFullName(ot.EmployeeId);
+                var colorIdx = empName.Length % 4;
+                <div class="ot-card"
+                     data-search="@(empName)|@GetDepartment(ot.EmployeeId)|@ot.RateTypeDisplay|@GetEmployeeCode(ot.EmployeeId)">
+                    <div class="ot-card-banner @bannerClass"></div>
+                    <div class="ot-card-body">
+                        <div class="ot-card-top">
+                            <div class="ot-card-emp">
+                                <div class="ot-card-avatar c@colorIdx">@GetInitials(empName)</div>
+                                <div>
+                                    <div class="ot-card-name">@empName</div>
+                                    <div class="ot-card-dept">@GetDepartment(ot.EmployeeId) &middot; @GetEmployeeCode(ot.EmployeeId)</div>
+                                </div>
                             </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        </div>
-        @if (!_filtered.Any())
-        {
-            <div style="padding:48px 24px;text-align:center;color:var(--bk-ink-3);">
-                <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--bk-muted);border-radius:50%;display:flex;align-items:center;justify-content:center;">
-                    <span class="material-icons-round" style="font-size:32px;color:var(--bk-ink-3);">schedule</span>
+                            <span class="ot-status @ot.Status.ToString().ToLower()">@ot.StatusDisplay</span>
+                        </div>
+                        <div class="ot-card-meta">
+                            <div class="ot-card-meta-item">
+                                <span class="ot-card-meta-label">Date</span>
+                                <span class="ot-card-meta-value mono">@ot.Date.ToString("dd MMM")</span>
+                            </div>
+                            <div class="ot-card-meta-item">
+                                <span class="ot-card-meta-label">Hours</span>
+                                <span class="ot-card-meta-value gold">@ot.Hours.ToString("0.0")h</span>
+                            </div>
+                            <div class="ot-card-meta-item">
+                                <span class="ot-card-meta-label">Pay</span>
+                                <span class="ot-card-meta-value">ZMW @ot.Pay.ToString("N0")</span>
+                            </div>
+                        </div>
+                        <span class="ot-card-rate @rateClass">
+                            <span class="material-icons-round" style="font-size:12px;">schedule</span>
+                            @ot.RateTypeDisplay
+                        </span>
+                        <div class="ot-card-actions">
+                            <a href="/overtime/edit/@ot.Id" class="ot-card-action edit">
+                                <span class="material-icons-round" style="font-size:15px;">edit</span>
+                                Edit
+                            </a>
+                            @if (_tab == "pending")
+                            {
+                                <form method="post" action="/api/overtime/@ot.Id/approve" style="flex:1;display:flex;">
+                                    <button type="submit" class="ot-card-action approve" style="width:100%;justify-content:center;">
+                                        <span class="material-icons-round" style="font-size:15px;">check</span>
+                                        Approve
+                                    </button>
+                                </form>
+                                <form method="post" action="/api/overtime/@ot.Id/reject" style="flex:1;display:flex;">
+                                    <button type="submit" class="ot-card-action reject" style="width:100%;justify-content:center;">
+                                        <span class="material-icons-round" style="font-size:15px;">close</span>
+                                        Reject
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </div>
                 </div>
-                <h3 style="font-size:16px;margin-bottom:4px;color:var(--bk-ink);">No overtime records</h3>
-                <p style="font-size:13px;">Click "Auto-Calculate" to generate overtime from attendance records, or add manually.</p>
-            </div>
-        }
-    </div>
+            }
+        </div>
+
+        @* ── Table View ─ *@
+        <div class="ot-table-wrap" id="ot-table-view" style="display:none;">
+            <table class="ot-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Date</th>
+                        <th>Hours</th>
+                        <th>Rate Type</th>
+                        <th>Pay</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="ukuu-ot-tbody">
+                    @foreach (var ot in _filtered)
+                    {
+                        var empName = GetFullName(ot.EmployeeId);
+                        var colorIdx = empName.Length % 4;
+                        var rateClass = ot.RateType == OvertimeRateType.Standard ? "standard"
+                                      : ot.RateType == OvertimeRateType.RestDay ? "restday"
+                                      : ot.RateType == OvertimeRateType.PublicHoliday ? "holiday" : "doubletime";
+                        <tr data-search="@(empName)|@GetDepartment(ot.EmployeeId)|@ot.RateTypeDisplay|@GetEmployeeCode(ot.EmployeeId)">
+                            <td>
+                                <div class="ot-table-emp">
+                                    <div class="ot-table-avatar c@colorIdx">@GetInitials(empName)</div>
+                                    <div>
+                                        <div class="ot-table-name">@empName</div>
+                                        <div class="ot-table-dept">@GetDepartment(ot.EmployeeId) &middot; @GetEmployeeCode(ot.EmployeeId)</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;">@ot.Date.ToString("dd MMM yyyy")</span>
+                                <span style="font-size:11px;color:var(--bk-ink-3);display:block;">@ot.Date.ToString("dddd")</span>
+                            </td>
+                            <td style="font-weight:700;color:#d89c11;font-size:14px;">@ot.Hours.ToString("0.0")h</td>
+                            <td><span class="ot-card-rate @rateClass" style="margin-top:0;">@ot.RateTypeDisplay</span></td>
+                            <td style="font-weight:600;">ZMW @ot.Pay.ToString("N0")</td>
+                            <td><span class="ot-status @ot.Status.ToString().ToLower()">@ot.StatusDisplay</span></td>
+                            <td>
+                                <div class="ot-table-actions">
+                                    <a href="/overtime/edit/@ot.Id" class="ot-table-action" title="Edit">
+                                        <span class="material-icons-round" style="font-size:16px;">edit</span>
+                                    </a>
+                                    @if (_tab == "pending")
+                                    {
+                                        <form method="post" action="/api/overtime/@ot.Id/approve" style="display:inline;">
+                                            <button type="submit" class="ot-table-action" style="color:#14a37f;border-color:rgba(20,163,127,0.3);" title="Approve">
+                                                <span class="material-icons-round" style="font-size:16px;">check</span>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="/api/overtime/@ot.Id/reject" style="display:inline;">
+                                            <button type="submit" class="ot-table-action" style="color:#DC2626;border-color:rgba(220,38,38,0.3);" title="Reject">
+                                                <span class="material-icons-round" style="font-size:16px;">close</span>
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="ot-empty">
+            <div class="ot-empty-icon"><span class="material-icons-round">schedule</span></div>
+            <h3>No overtime records</h3>
+            <p>Click "Auto-Calculate" to generate overtime from attendance, or add manually.</p>
+        </div>
+    }
+
 </div>
+
+<style>
+/* ─── Table View (shared) ─── */
+.ot-table-wrap {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 18px;
+    overflow: hidden; animation: otSlideUp 0.5s ease-out 0.3s both;
+}
+.ot-table { width: 100%; border-collapse: collapse; }
+.ot-table thead th {
+    padding: 14px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--bk-ink-3); text-align: left;
+    background: var(--bk-muted); border-bottom: 1px solid var(--bk-line);
+}
+.ot-table thead th:last-child { text-align: right; }
+.ot-table tbody tr {
+    transition: all 0.15s ease; border-bottom: 1px solid rgba(216,156,17,0.06);
+}
+.ot-table tbody tr:last-child { border-bottom: none; }
+.ot-table tbody tr:hover { background: rgba(216,156,17,0.03); }
+.ot-table td { padding: 16px 20px; font-size: 13px; vertical-align: middle; }
+.ot-table td:last-child { text-align: right; }
+.ot-table-emp { display: flex; align-items: center; gap: 14px; }
+.ot-table-avatar {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.ot-table-avatar.c0 { background: linear-gradient(135deg, #7B2FBE, #9B4FD8); }
+.ot-table-avatar.c1 { background: linear-gradient(135deg, #14a37f, #2BC4A1); }
+.ot-table-avatar.c2 { background: linear-gradient(135deg, #2563EB, #4F83F0); }
+.ot-table-avatar.c3 { background: linear-gradient(135deg, #e85d75, #F07D95); }
+.ot-table-name { font-weight: 600; color: var(--bk-ink); font-size: 13px; }
+.ot-table-dept { font-size: 11px; color: var(--bk-ink-3); margin-top: 1px; }
+.ot-table-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.ot-table-action {
+    width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--bk-line);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--bk-ink-3); text-decoration: none; transition: all 0.2s ease;
+    cursor: pointer; background: none; font-family: inherit; padding: 0;
+}
+.ot-table-action:hover { border-color: var(--bk-accent); color: var(--bk-accent); background: rgba(123,47,190,0.06); }
+</style>
+
+<script>
+function ukuuFilterOvertime() {
+    var search = (document.getElementById('ukuu-ot-search') || {}).value || '';
+    search = search.toLowerCase().trim();
+
+    var isGrid = document.getElementById('ot-grid-view') && document.getElementById('ot-grid-view').style.display !== 'none';
+    var container = isGrid
+        ? document.getElementById('ot-grid-view')
+        : document.getElementById('ukuu-ot-tbody');
+    if (!container) return;
+
+    var items = container.querySelectorAll(isGrid ? '.ot-card' : 'tr');
+    var visible = 0;
+    items.forEach(function(item) {
+        var data = (item.getAttribute('data-search') || '').toLowerCase();
+        if (!search || data.indexOf(search) >= 0) {
+            item.style.display = '';
+            visible++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function otToggleView(view) {
+    var gridView = document.getElementById('ot-grid-view');
+    var tableView = document.getElementById('ot-table-view');
+    var btnGrid = document.getElementById('ot-view-grid');
+    var btnTable = document.getElementById('ot-view-table');
+    if (!gridView || !tableView) return;
+
+    if (view === 'grid') {
+        gridView.style.display = '';
+        tableView.style.display = 'none';
+        btnGrid.classList.add('active');
+        btnTable.classList.remove('active');
+    } else {
+        gridView.style.display = 'none';
+        tableView.style.display = '';
+        btnGrid.classList.remove('active');
+        btnTable.classList.add('active');
+    }
+    ukuuFilterOvertime();
+}
+</script>
 
 @code {
     private string _tab = "pending";
@@ -159,6 +641,8 @@
     private OvertimeSummary _summary = new();
     private Dictionary<int, Employee> _employeeMap = new();
     private int _orgId;
+    private double _totalPay;
+
     private IEnumerable<OvertimeRecord> _filtered => _tab switch
     {
         "pending" => _all.Where(o => o.Status == OvertimeStatus.Pending),
@@ -168,7 +652,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Read tab from query string (?tab=approved) — works without Blazor circuit
         try
         {
             var uri = Nav.ToAbsoluteUri(Nav.Uri);
@@ -177,15 +660,10 @@
             if (!string.IsNullOrEmpty(qTab) && (qTab == "pending" || qTab == "approved" || qTab == "all"))
                 _tab = qTab;
 
-            // Show success toast if we just redirected from the Add or Edit Overtime page
             if (query["added"] == "1")
-            {
                 Snackbar.Add("Overtime record created successfully.", Severity.Success);
-            }
             if (query["updated"] == "1")
-            {
                 Snackbar.Add("Overtime record updated successfully.", Severity.Success);
-            }
         }
         catch { }
 
@@ -200,8 +678,8 @@
         _all = await OvertimeSvc.GetAllAsync(_orgId);
         var now = DateTime.Now;
         _summary = await OvertimeSvc.GetSummaryAsync(_orgId, now.Month, now.Year);
+        _totalPay = _all.Where(o => o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved).Sum(o => o.Pay);
 
-        // Load employee details for the table
         var empIds = _all.Select(o => o.EmployeeId).Distinct().ToList();
         if (empIds.Any())
         {
@@ -210,18 +688,11 @@
         }
     }
 
-    private string GetFirstName(int employeeId)
+    private string GetFullName(int employeeId)
     {
-        if (_employeeMap.TryGetValue(employeeId, out var emp) && !string.IsNullOrWhiteSpace(emp.FirstName))
-            return emp.FirstName;
-        return "—";
-    }
-
-    private string GetLastName(int employeeId)
-    {
-        if (_employeeMap.TryGetValue(employeeId, out var emp) && !string.IsNullOrWhiteSpace(emp.Surname))
-            return emp.Surname;
-        return "—";
+        if (_employeeMap.TryGetValue(employeeId, out var emp))
+            return emp.FullName;
+        return "Unknown";
     }
 
     private string GetEmployeeCode(int employeeId)
@@ -236,41 +707,6 @@
         if (_employeeMap.TryGetValue(employeeId, out var emp) && !string.IsNullOrWhiteSpace(emp.Department))
             return emp.Department;
         return "—";
-    }
-
-    private string GetOvertimeByCategory(OvertimeRecord ot, string category)
-    {
-        var match = category switch
-        {
-            "workday" => ot.RateType == OvertimeRateType.Standard || ot.RateType == OvertimeRateType.DoubleTime,
-            "weekend" => ot.RateType == OvertimeRateType.RestDay,
-            "holiday" => ot.RateType == OvertimeRateType.PublicHoliday,
-            _ => false
-        };
-        return match ? $"{ot.Hours:F1}h" : "—";
-    }
-
-    private async Task AutoCalculate()
-    {
-        var from = DateTime.Today.AddDays(-30);
-        var to = DateTime.Today;
-        var count = await OvertimeSvc.AutoCalculateForDateRangeAsync(_orgId, from, to);
-        Snackbar.Add($"Auto-calculated {count} overtime records from attendance.", Severity.Success);
-        await LoadData();
-    }
-
-    private async Task Approve(int id)
-    {
-        await OvertimeSvc.ApproveAsync(_orgId, id, "admin@ukuuhr.demo", "Approved.");
-        Snackbar.Add("Overtime approved.", Severity.Success);
-        await LoadData();
-    }
-
-    private async Task Reject(int id)
-    {
-        await OvertimeSvc.RejectAsync(_orgId, id, "admin@ukuuhr.demo", "Rejected by admin.");
-        Snackbar.Add("Overtime rejected.", Severity.Warning);
-        await LoadData();
     }
 
     private string GetInitials(string name)
