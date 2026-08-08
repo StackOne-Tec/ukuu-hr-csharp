@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -18,23 +19,27 @@ namespace UkuuHr.Sync;
 ///   UkuuHrSync --once             — single sync, then exit
 ///   UkuuHrSync --config=settings.json  — use a config file
 ///   UkuuHrSync --headless         — non-interactive mode (requires settings.json)
+///   UkuuHrSync --stop             — signal a running headless instance to stop
+///   UkuuHrSync --status           — check if a headless instance is running
 /// 
 /// The app reads/writes settings.json in the same directory for persistence.
 /// When launched as a macOS .app bundle (no TTY), it runs in headless mode
 /// automatically and creates a default settings.json if none exists.
+/// 
+/// Session lifecycle:
+///   - A PID file (ukuu-sync.pid) is written on start and removed on clean exit.
+///   - A stop-signal file (ukuu-sync.stop) is checked every sync cycle; writing
+///     this file causes the running instance to end its connection session gracefully.
+///   - On macOS, AppDomain.ProcessExit handles SIGTERM (Dock → Quit) so the
+///     bridge shuts down cleanly even without a TTY.
+///   - The shared HttpClient is disposed on shutdown to release TCP connections.
 /// </summary>
 class Program
 {
-    private static readonly HttpClient _httpClient = new(new HttpClientHandler
-    {
-        // Biometric devices (Hikvision, ZKTeco, etc.) use self-signed certificates.
-        // Bypass validation so HTTPS connections work without installing root CAs.
-        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-        SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
-    })
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+    private static HttpClient? _httpClient;
+    private static readonly string _pidPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.pid");
+    private static readonly string _stopSignalPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.stop");
+    private static readonly string _logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.log");
 
     /// <summary>
     /// Detects whether stdin is connected to a terminal (TTY).
@@ -57,6 +62,18 @@ class Program
 
     static async Task<int> Main(string[] args)
     {
+        // ── Handle --stop: signal a running headless instance to end its session ──
+        if (args.Contains("--stop"))
+        {
+            return HandleStopCommand();
+        }
+
+        // ── Handle --status: check if a headless instance is running ──────────
+        if (args.Contains("--status"))
+        {
+            return HandleStatusCommand();
+        }
+
         // ── Top-level exception handler — prevents SIGABRT on unhandled exceptions ──
         try
         {
@@ -65,10 +82,10 @@ class Program
         catch (Exception ex)
         {
             // Last-resort catch: log to file and console, then exit cleanly
-            var logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync-error.log");
+            var errorLogPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync-error.log");
             try
             {
-                await File.WriteAllTextAsync(logPath,
+                await File.WriteAllTextAsync(errorLogPath,
                     $"[{DateTime.UtcNow:O}] FATAL: {ex}\n");
             }
             catch { /* give up */ }
@@ -78,6 +95,200 @@ class Program
 
             return 2;
         }
+        finally
+        {
+            // ── Always clean up: dispose HttpClient, remove PID file ──────────
+            CleanupOnExit();
+        }
+    }
+
+    /// <summary>
+    /// Handles the --stop command: writes a stop-signal file that the running
+    /// headless instance checks on every cycle, then attempts to signal via
+    /// PID if the signal file isn't picked up within a timeout.
+    /// </summary>
+    static int HandleStopCommand()
+    {
+        // Check if a running instance exists
+        if (!File.Exists(_pidPath))
+        {
+            try { Console.WriteLine("No running UkuuHrSync instance found (PID file does not exist)."); }
+            catch { }
+            return 1;
+        }
+
+        int pid;
+        try { pid = int.Parse(File.ReadAllText(_pidPath).Trim()); }
+        catch
+        {
+            try { Console.WriteLine("Could not read PID file. The instance may have exited uncleanly."); }
+            catch { }
+            // Remove stale PID file
+            try { File.Delete(_pidPath); } catch { }
+            return 1;
+        }
+
+        // Write the stop-signal file — the running instance checks this
+        try
+        {
+            File.WriteAllText(_stopSignalPath, $"[{DateTime.UtcNow:O}] Stop requested by --stop command (PID {pid})");
+            try { Console.WriteLine($"Stop signal written. Waiting for instance (PID {pid}) to end session..."); }
+            catch { }
+        }
+        catch (Exception ex)
+        {
+            try { Console.WriteLine($"Could not write stop signal: {ex.Message}"); }
+            catch { }
+            return 1;
+        }
+
+        // Wait up to 15 seconds for the instance to exit
+        for (int i = 0; i < 30; i++)
+        {
+            Thread.Sleep(500);
+            if (!File.Exists(_pidPath))
+            {
+                try { Console.WriteLine("Instance stopped successfully."); } catch { }
+                // Clean up stop-signal file
+                try { File.Delete(_stopSignalPath); } catch { }
+                return 0;
+            }
+        }
+
+        // Instance didn't stop gracefully — try sending SIGTERM on Unix
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                var process = System.Diagnostics.Process.GetProcessById(pid);
+                process.Kill(); // Sends SIGKILL on Unix
+                try { Console.WriteLine($"Instance (PID {pid}) did not stop gracefully — force killed."); } catch { }
+                try { File.Delete(_pidPath); } catch { }
+                try { File.Delete(_stopSignalPath); } catch { }
+                return 0;
+            }
+            catch
+            {
+                try { Console.WriteLine($"Could not kill process {pid}. It may have already exited."); } catch { }
+                try { File.Delete(_pidPath); } catch { }
+                return 1;
+            }
+        }
+
+        try { Console.WriteLine("Timeout waiting for instance to stop. Try closing it manually."); } catch { }
+        return 1;
+    }
+
+    /// <summary>
+    /// Handles the --status command: checks PID file and verifies the process
+    /// is still alive.
+    /// </summary>
+    static int HandleStatusCommand()
+    {
+        if (!File.Exists(_pidPath))
+        {
+            try { Console.WriteLine("No running UkuuHrSync instance found."); } catch { }
+            return 1;
+        }
+
+        try
+        {
+            var pid = int.Parse(File.ReadAllText(_pidPath).Trim());
+            var process = System.Diagnostics.Process.GetProcessById(pid);
+            try
+            {
+                Console.WriteLine($"UkuuHrSync is running (PID {pid}, started: {process.StartTime:yyyy-MM-dd HH:mm:ss})");
+                Console.WriteLine($"Log file: {_logPath}");
+            }
+            catch { }
+            return 0;
+        }
+        catch
+        {
+            try { Console.WriteLine("PID file exists but process is not running (stale PID file)."); } catch { }
+            try { File.Delete(_pidPath); } catch { }
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Writes the PID file on startup. Prevents duplicate instances.
+    /// Returns false if another instance is already running.
+    /// </summary>
+    static bool WritePidFile()
+    {
+        // Check for existing PID file from a previous instance
+        if (File.Exists(_pidPath))
+        {
+            try
+            {
+                var existingPid = int.Parse(File.ReadAllText(_pidPath).Trim());
+                var existingProcess = System.Diagnostics.Process.GetProcessById(existingPid);
+                // Process still alive — don't start a second instance
+                WriteLog($"Another UkuuHrSync instance is already running (PID {existingPid}). Stopping.");
+                return false;
+            }
+            catch
+            {
+                // Process is gone — stale PID file, safe to remove
+                try { File.Delete(_pidPath); } catch { }
+            }
+        }
+
+        try
+        {
+            File.WriteAllText(_pidPath, Environment.ProcessId.ToString());
+            return true;
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"WARNING: Could not write PID file: {ex.Message}");
+            return true; // Non-fatal — continue without PID file
+        }
+    }
+
+    /// <summary>
+    /// Checks if a stop-signal file exists (written by --stop command).
+    /// If found, deletes it and returns true to indicate the session should end.
+    /// </summary>
+    static bool CheckStopSignal()
+    {
+        if (!File.Exists(_stopSignalPath)) return false;
+
+        try
+        {
+            File.Delete(_stopSignalPath);
+            WriteLog("Stop signal received (ukuu-sync.stop). Ending connection session...");
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Cleanup on exit: dispose HttpClient to close TCP connections, remove PID file.
+    /// </summary>
+    static void CleanupOnExit()
+    {
+        // Dispose the shared HttpClient — releases any lingering TCP connections
+        // to the Hikvision device and the cloud API, preventing CLOSE_WAIT sockets.
+        try { _httpClient?.Dispose(); _httpClient = null; } catch { }
+
+        // Remove PID file so --status no longer reports this instance
+        try { File.Delete(_pidPath); } catch { }
+
+        // Remove stop-signal file (in case it wasn't consumed)
+        try { File.Delete(_stopSignalPath); } catch { }
+
+        // Write shutdown marker to log
+        try
+        {
+            File.AppendAllText(_logPath,
+                $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] === UkuuHrSync shutdown complete (PID {Environment.ProcessId}) ===\n");
+        }
+        catch { }
     }
 
     static async Task<int> RunApp(string[] args)
@@ -97,7 +308,25 @@ class Program
             WriteLog("Running in headless mode (no TTY detected — likely launched from Finder/Dock).");
         }
 
+        // ── Prevent duplicate instances ──────────────────────────────────────
+        if (!onceMode && !WritePidFile())
+        {
+            return 1;
+        }
+
         PrintBanner();
+
+        // ── Initialize the shared HttpClient ─────────────────────────────────
+        _httpClient = new HttpClient(new HttpClientHandler
+        {
+            // Biometric devices (Hikvision, ZKTeco, etc.) use self-signed certificates.
+            // Bypass validation so HTTPS connections work without installing root CAs.
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+            SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+        })
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
 
         // ── Load or create settings ──────────────────────────────────────────
         var settings = LoadOrCreateSettings(configPath, headlessMode);
@@ -118,22 +347,89 @@ class Program
 
         if (!onceMode)
         {
-            WriteLog("  Press Ctrl+C to stop. The bridge will auto-sync every " +
-                $"{settings.SyncIntervalMinutes} minutes.\n");
+            if (headlessMode)
+            {
+                WriteLog("  Running in headless mode. To end the session:");
+                WriteLog("    • Run: ./UkuuHrSync --stop");
+                WriteLog("    • Or on macOS: Quit from the Dock");
+                WriteLog("    • Or on Windows: Close the terminal / Task Manager\n");
+            }
+            else
+            {
+                WriteLog("  Press Ctrl+C to end the session. The bridge will auto-sync every " +
+                    $"{settings.SyncIntervalMinutes} minutes.\n");
+            }
         }
 
-        // ── Sync loop ────────────────────────────────────────────────────────
+        // ── Sync loop with graceful shutdown ────────────────────────────────
         var lastSync = DateTime.MinValue;
         var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
+
+        // Handle Ctrl+C (SIGINT) — works when TTY is attached
+        Console.CancelKeyPress += (s, e) =>
+        {
+            e.Cancel = true; // Don't kill the process — let the loop exit gracefully
+            WriteLog("Ctrl+C received — ending connection session...");
+            cts.Cancel();
+        };
+
+        // Handle SIGTERM / ProcessExit — critical for macOS Dock → Quit and
+        // Windows Task Manager "End Task". On Unix, AppDomain.ProcessExit fires
+        // for SIGTERM; on Windows it fires for normal process shutdown.
+        AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+        {
+            if (!cts.IsCancellationRequested)
+            {
+                WriteLog("Process exit signal received — ending connection session...");
+                cts.Cancel();
+            }
+        };
+
+        // On Unix (macOS/Linux), also register a POSIX signal handler for SIGTERM
+        // for more reliable shutdown when the .app bundle is quit from the Dock.
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                // .NET 7+ POSIX signal handling
+                System.Runtime.InteropServices.NativeLibrary.TryLoad("libc", out var _);
+                var sigterm = PosixSignal.SIGTERM;
+                PosixSignalRegistration.Create(sigterm, sig =>
+                {
+                    if (!cts.IsCancellationRequested)
+                    {
+                        WriteLog("SIGTERM received — ending connection session...");
+                        cts.Cancel();
+                    }
+                });
+            }
+            catch
+            {
+                // POSIX signal handling not available (older .NET or Windows) — 
+                // ProcessExit handler above will catch SIGTERM on most runtimes
+            }
+        }
+
+        WriteLog($"  Bridge started (PID {Environment.ProcessId}). Session active.\n");
 
         while (!cts.Token.IsCancellationRequested)
         {
+            // ── Check for external stop signal (from --stop command) ──────────
+            if (CheckStopSignal())
+            {
+                cts.Cancel();
+                break;
+            }
+
             try
             {
                 await RunSync(settings, lastSync, cts.Token);
                 lastSync = DateTime.UtcNow;
                 WriteLog($"  [{DateTime.Now:HH:mm:ss}] Sync complete. Next sync in {settings.SyncIntervalMinutes} min.\n");
+            }
+            catch (OperationCanceledException)
+            {
+                break; // CTS cancelled — exit the loop
             }
             catch (Exception ex)
             {
@@ -146,7 +442,7 @@ class Program
             catch (TaskCanceledException) { break; }
         }
 
-        WriteLog("  Ukuu HR Sync Bridge stopped.");
+        WriteLog("  Ukuu HR Sync Bridge stopped. Connection session ended.");
         return 0;
     }
 
@@ -174,6 +470,12 @@ class Program
     // ═══════════════════════════════════════════════════════════════════════
     static async Task RunSync(SyncSettings settings, DateTime lastSync, CancellationToken ct)
     {
+        if (_httpClient == null)
+        {
+            WriteLog("  ERROR: HttpClient not initialized. Cannot sync.");
+            return;
+        }
+
         var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         var baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
         var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.DeviceUsername}:{settings.DevicePassword}"));
