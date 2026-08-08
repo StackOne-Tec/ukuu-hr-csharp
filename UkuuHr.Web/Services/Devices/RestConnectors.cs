@@ -450,7 +450,7 @@ public class MatrixRestConnector : RestConnectorBase, IDeviceConnector
                 var timeStr = item.TryGetProperty("time", out var t) ? t.GetString() ?? "" : "";
                 var typeStr = item.TryGetProperty("type", out var ty) ? ty.GetString() : "";
                 if (!DateTime.TryParse(timeStr, out var eventTime)) continue;
-                var eventType = typeStr.Contains("Out") ? ClockEventType.CheckOut : ClockEventType.CheckIn;
+                var eventType = (typeStr ?? "").Contains("Out") ? ClockEventType.CheckOut : ClockEventType.CheckIn;
                 events.Add(new NormalizedClockEvent(empCode, eventTime, eventType, item.TryGetProperty("verify_mode", out var v) ? v.GetString() : null, typeStr, TruncatePayload(item.ToString())));
             }
         }

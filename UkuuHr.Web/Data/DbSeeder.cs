@@ -492,7 +492,7 @@ public static class DbSeeder
         // P0/C-2: Admin password from UKUU_ADMIN_PASSWORD env var or auto-generated.
         // AuthUid contains the BCrypt hash for password verification.
         var adminPwd = Environment.GetEnvironmentVariable("UKUU_ADMIN_PASSWORD")
-            ?? System.Security.Cryptography.RandomNumberGenerator.GetHexString(24, uppercase: false);
+            ?? System.Security.Cryptography.RandomNumberGenerator.GetHexString(24);
         if (Environment.GetEnvironmentVariable("UKUU_ADMIN_PASSWORD") == null)
             Console.WriteLine($"[DbSeeder] Generated random admin password: {adminPwd} — set UKUU_ADMIN_PASSWORD to override.");
         var adminHash = AuthService.HashPassword(adminPwd);

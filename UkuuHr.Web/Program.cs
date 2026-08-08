@@ -98,17 +98,7 @@ static string ConvertRenderDatabaseUrlToNpgsql(string url)
     return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={user};Password={pass};SSL Mode={(ssl ? "Require" : "Prefer")};Timeout=15;CommandTimeout=60";
 }
 
-static string ExtractHost(string connStr)
-{
-    var parts = connStr.Split(';');
-    foreach (var p in parts)
-    {
-        var kv = p.Split('=', 2);
-        if (kv.Length == 2 && kv[0].Trim().Equals("Host", StringComparison.OrdinalIgnoreCase))
-            return kv[1].Trim();
-    }
-    return "<unknown>";
-}
+// ExtractHost removed — was unused (CS8321)
 
 // ───── Sanitize messages before embedding them in redirect query strings ─────
 /// <summary>
@@ -536,7 +526,7 @@ app.MapGet("/readiness", async (UkuuHrDbContext db) =>
         return Results.Json(new { status = "not_ready", timestamp = DateTime.UtcNow, db = "unreachable" },
             statusCode: 503);
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         // P2/M-4: Return generic error to client — don't leak exception details
         return Results.Json(new { status = "not_ready", timestamp = DateTime.UtcNow, db = "error" },
@@ -1990,7 +1980,7 @@ app.MapPost("/api/devices/save", async (
     var idStr = form["Id"].ToString();
     var isEdit = int.TryParse(idStr, out var deviceId) && deviceId > 0;
 
-    AttendanceDevice device;
+    AttendanceDevice? device;
     if (isEdit)
     {
         device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == deviceId && d.OrganizationId == org.Id);
@@ -2094,7 +2084,7 @@ app.MapGet("/api/hikvision/{id:int}/info", async (int id, UkuuHrDbContext db, IL
         var caps = await client.GetCapabilitiesAsync();
         return Results.Ok(new { info, caps });
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
@@ -2117,7 +2107,7 @@ app.MapGet("/api/hikvision/{id:int}/health", async (int id, UkuuHrDbContext db, 
         var health = await client.GetHealthAsync();
         return Results.Ok(health);
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
@@ -2140,7 +2130,7 @@ app.MapGet("/api/hikvision/{id:int}/doors", async (int id, UkuuHrDbContext db, I
         var doors = await client.GetDoorStatusAsync();
         return Results.Ok(doors);
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
@@ -2163,7 +2153,7 @@ app.MapPost("/api/hikvision/{id:int}/unlock/{doorId:int}", async (int id, int do
         var success = await client.UnlockDoorAsync(doorId);
         return Results.Ok(new { success, doorId });
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
@@ -2195,7 +2185,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-persons", async (int id, UkuuHrDbConte
 
         return Results.Ok(new { total = persons.Count, success = successCount, failed = failCount, results });
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
@@ -2268,7 +2258,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext 
         var success = await client.SyncTimeAsync();
         return Results.Ok(new { success });
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
@@ -2291,7 +2281,7 @@ app.MapPost("/api/hikvision/{id:int}/reboot", async (int id, UkuuHrDbContext db,
         var success = await client.RebootAsync();
         return Results.Ok(new { success });
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return Results.Json(new { error = "Device communication error. Please try again." }, statusCode: 502); // P2/M-4
     }
@@ -2590,7 +2580,7 @@ app.MapPost("/api/employees/save", async (
     var org = await db.Organizations.FirstOrDefaultAsync();
     if (org == null) return Results.BadRequest(new { error = "No organization found" });
 
-    Employee emp;
+    Employee? emp;
     if (isEdit && int.TryParse(empIdStr, out var eid) && eid > 0)
     {
         emp = await svc.GetAsync(org.Id, eid);
@@ -3069,7 +3059,7 @@ app.MapPost("/api/attendance/import-from-device", async (
     // ── 1. Parse + validate the request body ────────────────────────────────
     ImportFromDeviceRequest? body;
     try { body = await ctx.Request.ReadFromJsonAsync<ImportFromDeviceRequest>(); }
-    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); } // P2/M-4
+    catch (Exception) { return Results.BadRequest(new { error = "Invalid request body." }); } // P2/M-4
     if (body == null) return Results.BadRequest(new { error = "Empty request body." });
 
     if (string.IsNullOrWhiteSpace(body.IpAddress))
@@ -3318,7 +3308,7 @@ app.MapPost("/api/attendance/save-imported", async (
 {
     SaveImportedRequest? body;
     try { body = await ctx.Request.ReadFromJsonAsync<SaveImportedRequest>(); }
-    catch (Exception ex) { return Results.BadRequest(new { error = "Invalid request body." }); } // P2/M-4
+    catch (Exception) { return Results.BadRequest(new { error = "Invalid request body." }); } // P2/M-4
     if (body == null || body.Events == null) return Results.BadRequest(new { error = "No events in request body." });
 
     var org = await db.Organizations.FirstOrDefaultAsync();
