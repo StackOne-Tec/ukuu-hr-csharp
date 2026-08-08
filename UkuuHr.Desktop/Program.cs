@@ -483,15 +483,22 @@ class Program
         WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connecting to device at {baseUrl}...");
 
         // ── Step 1: Get device info (validates connection) ───────────────────
+        // Uses a shorter timeout (10s) for the probe to avoid long waits on
+        // misconfigured HTTPS→HTTP connections. Falls back to HTTP if HTTPS
+        // times out on a standard HTTP port (80/8080).
         string deviceName = "Unknown", deviceModel = "Unknown";
         try
         {
-            var infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", ct);
+            // Use a shorter timeout for the initial probe to detect misconfig faster
+            using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            probeCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", probeCts.Token);
             if (!infoResp.IsSuccessStatusCode)
             {
                 // Try with auth header
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
-                infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", ct);
+                infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", probeCts.Token);
             }
             if (infoResp.IsSuccessStatusCode)
             {
@@ -503,6 +510,49 @@ class Program
             else
             {
                 WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Could not get device info (HTTP {(int)infoResp.StatusCode}). Continuing with event fetch...");
+            }
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Probe timed out (10s) but app wasn't cancelled — likely HTTPS on an HTTP-only port
+            if (scheme == "https" && (settings.DevicePort == 80 || settings.DevicePort == 8080))
+            {
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTPS probe timed out on port {settings.DevicePort}. Most Hikvision devices use HTTP on this port.");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Falling back to HTTP... (Set useHttps=false in settings.json to fix this permanently)");
+
+                // Retry with HTTP
+                scheme = "http";
+                baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
+                try
+                {
+                    using var retryCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    retryCts.CancelAfter(TimeSpan.FromSeconds(10));
+                    var retryResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", retryCts.Token);
+                    if (!retryResp.IsSuccessStatusCode)
+                    {
+                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
+                        retryResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", retryCts.Token);
+                    }
+                    if (retryResp.IsSuccessStatusCode)
+                    {
+                        var xml = await retryResp.Content.ReadAsStringAsync(ct);
+                        deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
+                        deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
+                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connected via HTTP: {deviceName} ({deviceModel})");
+                    }
+                    else
+                    {
+                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTP fallback also failed (HTTP {(int)retryResp.StatusCode}). Continuing...");
+                    }
+                }
+                catch (Exception retryEx)
+                {
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTP fallback probe failed: {retryEx.Message}. Continuing...");
+                }
+            }
+            else
+            {
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Device info probe timed out after 10s. Check device IP and network connectivity. Continuing...");
             }
         }
         catch (Exception ex)
