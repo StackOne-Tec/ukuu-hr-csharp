@@ -557,30 +557,32 @@ class Program
         }
 
         // ── Step 2: Fetch attendance events via AcsEvent ─────────────────────
+        // Hikvision ISAPI requires XML request body even when requesting JSON
+        // response format via ?format=json. The Web app's HikvisionIsapiClient
+        // uses the same approach (BuildAcsEventSearchXml).
         var fromTime = lastSync == DateTime.MinValue
             ? DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-ddTHH:mm:ssZ")
             : lastSync.ToString("yyyy-MM-ddTHH:mm:ssZ");
         var toTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var searchId = $"AcsEventSearch_{Guid.NewGuid():N}";
 
-        var searchBody = JsonSerializer.Serialize(new
-        {
-            AcsEventSearchDescription = new
-            {
-                searchID = $"sync_{DateTime.UtcNow:yyyyMMddHHmmss}",
-                searchResultPosition = 0,
-                maxResults = 1000,
-                major = 0,
-                minor = 0,
-                startTime = fromTime,
-                endTime = toTime
-            }
-        });
+        var searchXml = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<AcsEventSearchDescription>
+    <searchID>{searchId}</searchID>
+    <searchResultPosition>0</searchResultPosition>
+    <maxResults>1000</maxResults>
+    <major>1</major>
+    <minor>0</minor>
+    <startTime>{fromTime}</startTime>
+    <endTime>{toTime}</endTime>
+</AcsEventSearchDescription>";
 
         List<ImportedPunch> events = new();
         try
         {
             // Auth handled automatically by HttpClientHandler (digest auth)
-            var content = new StringContent(searchBody, Encoding.UTF8, "application/json");
+            // Send XML body, request JSON response via ?format=json
+            var content = new StringContent(searchXml, Encoding.UTF8, "application/xml");
             var eventResp = await _httpClient.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content, ct);
 
             if (!eventResp.IsSuccessStatusCode)
