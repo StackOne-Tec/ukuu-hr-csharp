@@ -578,8 +578,8 @@
                                 <span class="material-icons-round" style="font-size:14px;">edit</span>
                             </a>
                             <form method="post" action="/api/devices/delete/@d.Id" style="display:inline;"
-                            <AntiforgeryToken />
                                   onsubmit="return confirm('Delete device @d.Name?');">
+                            <AntiforgeryToken />
                                 <button type="submit" class="dv-action-btn del">
                                     <span class="material-icons-round" style="font-size:14px;">delete</span>
                                 </button>
