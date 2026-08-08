@@ -25,7 +25,13 @@ namespace UkuuHr.Sync;
 /// </summary>
 class Program
 {
-    private static readonly HttpClient _httpClient = new()
+    private static readonly HttpClient _httpClient = new(new HttpClientHandler
+    {
+        // Biometric devices (Hikvision, ZKTeco, etc.) use self-signed certificates.
+        // Bypass validation so HTTPS connections work without installing root CAs.
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+        SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+    })
     {
         Timeout = TimeSpan.FromSeconds(30)
     };
@@ -103,7 +109,7 @@ class Program
             return 1;
         }
 
-        var scheme = settings.UseHttps.GetValueOrDefault(true) ? "https" : "http";
+        var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         WriteLog($"\n  Device:   {scheme}://{settings.DeviceIp}:{settings.DevicePort}");
         WriteLog($"  Username: {settings.DeviceUsername}");
         WriteLog($"  Cloud:    {settings.CloudUrl}");
@@ -168,7 +174,7 @@ class Program
     // ═══════════════════════════════════════════════════════════════════════
     static async Task RunSync(SyncSettings settings, DateTime lastSync, CancellationToken ct)
     {
-        var scheme = settings.UseHttps.GetValueOrDefault(true) ? "https" : "http";
+        var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         var baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
         var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.DeviceUsername}:{settings.DevicePassword}"));
 
