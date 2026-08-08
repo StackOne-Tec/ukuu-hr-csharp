@@ -2,12 +2,8 @@
 @layout UkuuHr.Components.Layout.PublicLayout
 @attribute [AllowAnonymous]
 @using System.Text.RegularExpressions
-@using Microsoft.EntityFrameworkCore
 @inject NavigationManager Nav
-@inject UkuuHrDbContext Db
-@inject AuditService AuditSvc
 @inject ISnackbar Snackbar
-@inject UkuuHr.Services.AutoLoginTokenService AutoLoginTokenSvc
 
 <div class="bk-auth">
     @* ─────────── LEFT: Visual panel ─────────── *@
@@ -251,28 +247,30 @@
                         workspace will be set up immediately upon registration.
                     </span>
                 </label>
-                @if (_showTermsError)
-                {
-                    <small style="color:var(--bk-error);font-size:11px;display:block;margin-top:4px;">
-                        <span class="material-icons-round" style="font-size:12px;vertical-align:middle;">error</span>
-                        You must agree to the terms to continue
-                    </small>
-                }
+                @* Terms validation handled by HTML5 'required' on checkbox *@
 
-                @* Submit button *@
+                @* Submit button — loading state managed by JS below *@
                 <button type="submit" class="bk-auth-submit" style="margin-top:20px;">
-                    @if (_isSubmitting)
-                    {
-                        <span class="material-icons-round" style="font-size:18px;animation:bk-spin 1s linear infinite;">sync</span>
-                        <span>Creating your workspace…</span>
-                    }
-                    else
-                    {
-                        <span>Create your workspace</span>
-                        <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
-                    }
+                    <span>Create your workspace</span>
+                    <span class="material-icons-round" style="font-size:18px;">arrow_forward</span>
                 </button>
             </form>
+
+<script>
+    // Show loading state on form submission
+    (function() {
+        var form = document.querySelector('form[action="/auth/signup"]');
+        if (form) {
+            form.addEventListener('submit', function() {
+                var btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="material-icons-round" style="font-size:18px;animation:bk-spin 1s linear infinite;">sync</span> <span>Creating your workspace…</span>';
+                }
+            });
+        }
+    })();
+</script>
 
             @* Divider *@
             <div class="bk-divider"><span>or continue with</span></div>
@@ -421,10 +419,8 @@
 </style>
 
 @code {
+    // SignUpForm kept for password strength meter (used by inline JS interop)
     private SignUpForm _form = new();
-    private bool _agreed;
-    private bool _showTermsError;
-    private bool _isSubmitting;
     private bool _showPassword;
     private string _error = "";
 
@@ -483,7 +479,7 @@
 
     protected override void OnInitialized()
     {
-        // Check if user came from a successful registration
+        // Check if user came from a successful registration but couldn't be auto-signed-in
         var uri = new Uri(Nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
         if (query["registered"] == "1")
@@ -493,105 +489,10 @@
         }
     }
 
-    private async Task HandleSignUp()
-    {
-        _error = "";
-
-        if (!_agreed)
-        {
-            _showTermsError = true;
-            return;
-        }
-        _showTermsError = false;
-
-        if (_form.Password != _form.ConfirmPassword)
-        {
-            _error = "Passwords do not match.";
-            return;
-        }
-
-        if (_form.Password.Length < 8)
-        {
-            _error = "Password must be at least 8 characters.";
-            return;
-        }
-
-        _isSubmitting = true;
-
-        try
-        {
-            // Check if email is already registered
-            var existingUser = await Db.UserAccounts.FirstOrDefaultAsync(u => u.Email.ToLower() == _form.Email.Trim().ToLower());
-            if (existingUser != null)
-            {
-                _error = "An account with this email already exists. Please sign in instead.";
-                _isSubmitting = false;
-                return;
-            }
-
-            // 1. Create the Organization
-            var org = new Organization
-            {
-                Name = _form.OrganizationName.Trim(),
-                Country = _form.Country,
-                Currency = _form.Country switch
-                {
-                    "Tanzania" => "TZS",
-                    "Malawi" => "MWK",
-                    _ => "ZMW"
-                },
-                Industry = string.IsNullOrWhiteSpace(_form.Industry) ? null : _form.Industry.Trim(),
-                OwnerUserId = "pending",
-                PayrollConfigJson = "{}",
-                CreatedAt = DateTime.UtcNow
-            };
-            Db.Organizations.Add(org);
-            await Db.SaveChangesAsync();
-
-            // 2. Create the UserAccount with BCrypt-hashed password
-            var passwordHash = AuthService.HashPassword(_form.Password);
-            var userAccount = new UserAccount
-            {
-                OrganizationId = org.Id,
-                AuthUid = passwordHash,
-                Email = _form.Email.Trim(),
-                FirstName = _form.FirstName.Trim(),
-                LastName = _form.LastName.Trim(),
-                Role = UserRole.SuperAdmin,
-                UserType = "owner",
-                Status = AccountStatus.Active,
-                IsFirstLogin = false,
-                CreatedAt = DateTime.UtcNow,
-                LastActivatedAt = DateTime.UtcNow
-            };
-            Db.UserAccounts.Add(userAccount);
-
-            // 3. Update org OwnerUserId to the real user account ID
-            org.OwnerUserId = userAccount.Id.ToString();
-            await Db.SaveChangesAsync();
-
-            // 4. Audit log
-            await AuditSvc.LogAsync(org.Id, AuditAction.UserCreated, _form.Email.Trim(),
-                details: $"Self-registration: {_form.FirstName} {_form.LastName} created organization '{_form.OrganizationName}'");
-
-            // 5. Redirect to a traditional HTTP endpoint that signs the user in.
-            // We can't call Auth.SignInAsync() directly from a Blazor Server event
-            // handler because HttpContext is null during WebSocket events.
-            // P0/C-1: Use one-time token instead of credentials in URL.
-            // The token is stored server-side and exchanged for the session on POST.
-            var token = AutoLoginTokenSvc.CreateToken(_form.Email.Trim(), _form.Password);
-            var returnUrl = Uri.EscapeDataString("/dashboard");
-            Nav.NavigateTo($"/auth/auto-login?token={Uri.EscapeDataString(token)}&returnUrl={returnUrl}", forceLoad: true);
-        }
-        catch (Exception ex)
-        {
-            _error = $"Registration failed: {ex.Message}";
-        }
-        finally
-        {
-            _isSubmitting = false;
-        }
-    }
+    // NOTE: Form submission is handled by the HTML <form method="post" action="/auth/signup">
+    // which POSTs to the server-side endpoint. The endpoint creates the account, signs in
+    // the user, and redirects to /dashboard. This is the correct approach for Blazor Server
+    // because HttpContext is available during traditional HTTP POSTs (not during WebSocket events).
 
     public class SignUpForm
     {

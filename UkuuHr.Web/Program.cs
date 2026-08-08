@@ -175,6 +175,9 @@ builder.Services.AddRazorComponents()
 // P0/C-1: One-time token service for POST-based auto-login (replaces credentials-in-URL)
 builder.Services.AddSingleton<AutoLoginTokenService>();
 
+// Phase 13.3: API key rate limit tracker (must be registered before Build())
+builder.Services.AddSingleton<ApiKeyRateLimitTracker>();
+
 builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight;
@@ -425,8 +428,8 @@ app.UseAntiforgery();
 // Rate limiting: Per-key rate limits are tracked in-memory via ApiKeyRateLimitTracker.
 // The tracker is registered as a singleton and cleaned up every 5 minutes.
 
-var _rateLimitTracker = new ApiKeyRateLimitTracker();
-builder.Services.AddSingleton(_rateLimitTracker);
+// Resolve the pre-registered singleton (registered before builder.Build())
+var _rateLimitTracker = app.Services.GetRequiredService<ApiKeyRateLimitTracker>();
 
 // Background cleanup for rate limit tracker
 _ = Task.Run(async () =>
