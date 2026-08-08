@@ -585,34 +585,63 @@ class Program
         List<ImportedPunch> events = new();
         try
         {
-            // Auth handled automatically by HttpClientHandler (digest auth)
-            // Send XML body, request JSON response via ?format=json
-            var content = new StringContent(searchXml, Encoding.UTF8, "application/xml");
-            var eventResp = await _httpClient.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content, ct);
+            // ── Fallback chain: AcsEvent JSON → AcsEvent XML → AuditLog XML ──
+            // Some Hikvision models (e.g. DS-K1T343EFWX) don't support ?format=json
+            // on AcsEvent and return HTTP 400. Others may not support AuditLog at all.
+            // We try each format and log the device's error body for diagnostics.
 
-            if (!eventResp.IsSuccessStatusCode)
+            // Attempt 1: AcsEvent with JSON response (?format=json)
+            var content1 = new StringContent(searchXml, Encoding.UTF8, "application/xml");
+            var resp1 = await _httpClient.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content1, ct);
+
+            if (resp1.IsSuccessStatusCode)
             {
-                // Fallback: try AuditLog XML endpoint
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent returned HTTP {(int)eventResp.StatusCode}, trying AuditLog...");
-                // Use searchID=1 (matching the Web client's working implementation).
-                // Omit maxResults from the URL — it's not a valid query param for
-                // AuditLog/search and causes HTTP 404 on some Hikvision models.
-                var auditUrl = $"{baseUrl}/ISAPI/AccessControl/AuditLog/search?searchID=1&startTime={Uri.EscapeDataString(fromTime)}&endTime={Uri.EscapeDataString(toTime)}";
-                var auditResp = await _httpClient.GetAsync(auditUrl, ct);
-                if (auditResp.IsSuccessStatusCode)
-                {
-                    var auditXml = await auditResp.Content.ReadAsStringAsync(ct);
-                    events = HikvisionParser.ParseAuditLogXml(auditXml);
-                }
-                else
-                {
-                    throw new Exception($"Both AcsEvent (HTTP {(int)eventResp.StatusCode}) and AuditLog (HTTP {(int)auditResp.StatusCode}) failed.");
-                }
+                var json = await resp1.Content.ReadAsStringAsync(ct);
+                events = HikvisionParser.ParseAcsEventJson(json);
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (JSON) OK — {events.Count} events parsed.");
             }
             else
             {
-                var json = await eventResp.Content.ReadAsStringAsync(ct);
-                events = HikvisionParser.ParseAcsEventJson(json);
+                var errBody1 = await resp1.Content.ReadAsStringAsync(ct);
+                var errSnippet1 = errBody1.Length > 300 ? errBody1[..300] : errBody1;
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (JSON) returned HTTP {(int)resp1.StatusCode}: {errSnippet1}");
+
+                // Attempt 2: AcsEvent without ?format=json (XML response)
+                var content2 = new StringContent(searchXml, Encoding.UTF8, "application/xml");
+                var resp2 = await _httpClient.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent", content2, ct);
+
+                if (resp2.IsSuccessStatusCode)
+                {
+                    var xml = await resp2.Content.ReadAsStringAsync(ct);
+                    events = HikvisionParser.ParseAcsEventXml(xml);
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (XML) OK — {events.Count} events parsed.");
+                }
+                else
+                {
+                    var errBody2 = await resp2.Content.ReadAsStringAsync(ct);
+                    var errSnippet2 = errBody2.Length > 300 ? errBody2[..300] : errBody2;
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (XML) returned HTTP {(int)resp2.StatusCode}: {errSnippet2}");
+
+                    // Attempt 3: AuditLog (XML) fallback
+                    var auditUrl = $"{baseUrl}/ISAPI/AccessControl/AuditLog/search?searchID=1&startTime={Uri.EscapeDataString(fromTime)}&endTime={Uri.EscapeDataString(toTime)}";
+                    var resp3 = await _httpClient.GetAsync(auditUrl, ct);
+
+                    if (resp3.IsSuccessStatusCode)
+                    {
+                        var auditXml = await resp3.Content.ReadAsStringAsync(ct);
+                        events = HikvisionParser.ParseAuditLogXml(auditXml);
+                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] AuditLog (XML) OK — {events.Count} events parsed.");
+                    }
+                    else
+                    {
+                        var errBody3 = await resp3.Content.ReadAsStringAsync(ct);
+                        var errSnippet3 = errBody3.Length > 300 ? errBody3[..300] : errBody3;
+                        throw new Exception($"All event endpoints failed:\n" +
+                            $"  AcsEvent JSON: HTTP {(int)resp1.StatusCode} ({errSnippet1})\n" +
+                            $"  AcsEvent XML:  HTTP {(int)resp2.StatusCode} ({errSnippet2})\n" +
+                            $"  AuditLog XML:  HTTP {(int)resp3.StatusCode} ({errSnippet3})");
+                    }
+                }
             }
         }
         catch (Exception ex)

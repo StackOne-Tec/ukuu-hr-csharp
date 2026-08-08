@@ -99,6 +99,62 @@ public static class HikvisionParser
         return "";
     }
 
+    /// <summary>Parse an ISAPI AcsEvent XML response into attendance events.</summary>
+    /// <remarks>
+    /// Some Hikvision models (e.g. DS-K1T343EFWX) don't support ?format=json
+    /// and return XML instead. The XML structure mirrors the JSON:
+    ///   &lt;AcsEvent&gt;&lt;InfoList&gt;&lt;Info employeeNo="..." time="..." minor="75"/&gt;...&lt;/InfoList&gt;&lt;/AcsEvent&gt;
+    /// or with child elements instead of attributes.
+    /// </remarks>
+    public static List<ImportedPunch> ParseAcsEventXml(string xml)
+    {
+        var events = new List<ImportedPunch>();
+        try
+        {
+            var doc = XDocument.Parse(xml);
+
+            // Find <Info> elements — they may be inside <AcsEvent>/<InfoList> or at root.
+            foreach (var info in doc.Descendants().Where(e => e.Name.LocalName == "Info"))
+            {
+                try
+                {
+                    // Try attributes first (e.g. <Info employeeNo="001" time="..." minor="75"/>)
+                    var empNo = info.Attribute("employeeNo")?.Value
+                             ?? info.Attribute("EmployeeNo")?.Value
+                             ?? ChildLocalValue(info, "employeeNo")
+                             ?? ChildLocalValue(info, "EmployeeNo")
+                             ?? "";
+                    var time = info.Attribute("time")?.Value
+                           ?? info.Attribute("eventTime")?.Value
+                           ?? ChildLocalValue(info, "time")
+                           ?? ChildLocalValue(info, "eventTime")
+                           ?? "";
+                    if (string.IsNullOrEmpty(empNo) || string.IsNullOrEmpty(time)) continue;
+
+                    var minorStr = info.Attribute("minor")?.Value
+                               ?? ChildLocalValue(info, "minor")
+                               ?? "75";
+                    var minor = int.TryParse(minorStr, out var m) ? m : 75;
+
+                    events.Add(new ImportedPunch
+                    {
+                        EmployeeNo = empNo,
+                        Time = time,
+                        EventType = ClassifyEventType(minor),
+                        Major = 1,
+                        Minor = minor
+                    });
+                }
+                catch { /* skip malformed Info element */ }
+            }
+        }
+        catch
+        {
+            // The payload isn't valid XML — no events, no crash.
+        }
+        return events;
+    }
+
     /// <summary>Parse an ISAPI AuditLog XML response into attendance events.</summary>
     public static List<ImportedPunch> ParseAuditLogXml(string xml)
     {
