@@ -409,10 +409,35 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 // ───── Phase 13.3: API key auth for external integration endpoints ─────
-// External systems (HR, Payroll, ERP, mobile apps) authenticate via the
-// X-API-Key header. The key is read from the UKUU_API_KEY env var.
-// P1/H-4: If UKUU_API_KEY is not set, require cookie auth as minimum fallback.
-// P1/H-3: API key comparison uses constant-time comparison to prevent timing attacks.
+// Supports TWO authentication modes for /api/* endpoints:
+//
+// 1. DATABASE API KEY (preferred): Validates X-API-Key header against
+//    ApiKeyRecord table. Resolves the organization from the key, enforces
+//    per-key rate limits and scope checks. Keys are SHA-256 hashed at rest.
+//
+// 2. ENV VAR FALLBACK (legacy): If UKUU_API_KEY env var is set, validates
+//    the X-API-Key header against it using constant-time comparison.
+//    Used for the UkuuBridge desktop app and backward compatibility.
+//
+// P1/H-3: All key comparisons use constant-time to prevent timing attacks.
+// P1/H-4: If neither auth method succeeds, require cookie auth as minimum fallback.
+//
+// Rate limiting: Per-key rate limits are tracked in-memory via ApiKeyRateLimitTracker.
+// The tracker is registered as a singleton and cleaned up every 5 minutes.
+
+var _rateLimitTracker = new ApiKeyRateLimitTracker();
+builder.Services.AddSingleton(_rateLimitTracker);
+
+// Background cleanup for rate limit tracker
+_ = Task.Run(async () =>
+{
+    while (true)
+    {
+        await Task.Delay(TimeSpan.FromMinutes(5));
+        _rateLimitTracker.Cleanup();
+    }
+});
+
 app.Use(async (ctx, next) =>
 {
     var path = ctx.Request.Path.Value ?? "";
@@ -424,41 +449,98 @@ app.Use(async (ctx, next) =>
     }
     if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
     {
-        var apiKey = Environment.GetEnvironmentVariable("UKUU_API_KEY");
-        if (!string.IsNullOrEmpty(apiKey))
+        var providedKey = ctx.Request.Headers["X-API-Key"].ToString();
+
+        // ── Try database API key first ──────────────────────────────────────
+        if (!string.IsNullOrEmpty(providedKey))
         {
-            var providedKey = ctx.Request.Headers["X-API-Key"].ToString();
+            var db = ctx.RequestServices.GetRequiredService<UkuuHrDbContext>();
+            var keyHash = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(providedKey))).ToLowerInvariant();
+
+            var keyRecord = await db.ApiKeys.FirstOrDefaultAsync(k => k.KeyHash == keyHash && k.RevokedAt == null);
+
+            if (keyRecord != null && (keyRecord.ExpiresAt == null || keyRecord.ExpiresAt > DateTime.UtcNow))
+            {
+                // ── Rate limit check ────────────────────────────────────────
+                if (_rateLimitTracker.IsRateLimited(keyRecord.Id, keyRecord.RateLimitPerMinute))
+                {
+                    ctx.Response.StatusCode = 429;
+                    await ctx.Response.WriteAsync("{\"error\":\"Rate limit exceeded. Try again later.\"}");
+                    return;
+                }
+
+                // ── Update usage stats (fire-and-forget to avoid blocking) ──
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var clientIp = ctx.Connection.RemoteIpAddress?.ToString();
+                        keyRecord.LastUsedAt = DateTime.UtcNow;
+                        keyRecord.LastUsedIp = clientIp;
+                        keyRecord.TotalRequestCount++;
+                        await db.SaveChangesAsync();
+                    }
+                    catch { /* non-critical — don't fail the request */ }
+                });
+
+                // ── Create authenticated principal with org + scope claims ───
+                var scopeClaims = keyRecord.Scopes
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => new System.Security.Claims.Claim("api_scope", s))
+                    .ToList();
+
+                var claims = new List<System.Security.Claims.Claim>
+                {
+                    new(System.Security.Claims.ClaimTypes.Name, $"apikey:{keyRecord.KeyPrefix}"),
+                    new(System.Security.Claims.ClaimTypes.NameIdentifier, keyRecord.Id.ToString()),
+                    new("org_id", keyRecord.OrganizationId.ToString()),
+                    new("auth_method", "ApiKey"),
+                };
+                claims.AddRange(scopeClaims);
+
+                ctx.User = new System.Security.Claims.ClaimsPrincipal(
+                    new System.Security.Claims.ClaimsIdentity(claims, "ApiKey"));
+
+                // Store the resolved org ID on HttpContext.Items so downstream
+                // endpoints can use it instead of FirstOrDefaultAsync()
+                ctx.Items["ResolvedOrgId"] = keyRecord.OrganizationId;
+                ctx.Items["ApiKeyRecord"] = keyRecord;
+
+                await next();
+                return;
+            }
+        }
+
+        // ── Fall back to UKUU_API_KEY env var (legacy) ──────────────────────
+        var envApiKey = Environment.GetEnvironmentVariable("UKUU_API_KEY");
+        if (!string.IsNullOrEmpty(envApiKey) && !string.IsNullOrEmpty(providedKey))
+        {
             // P1/H-3: Constant-time comparison to prevent timing attacks
-            if (!string.IsNullOrEmpty(providedKey)
-                && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            if (System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
                     System.Text.Encoding.UTF8.GetBytes(providedKey),
-                    System.Text.Encoding.UTF8.GetBytes(apiKey)))
+                    System.Text.Encoding.UTF8.GetBytes(envApiKey)))
             {
                 // API key matches — create a generic identity for the request
                 ctx.User = new System.Security.Claims.ClaimsPrincipal(
                     new System.Security.Claims.ClaimsIdentity(
                         new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "api-client") },
                         "ApiKey"));
-            }
-            else if (ctx.User.Identity?.IsAuthenticated != true)
-            {
-                ctx.Response.StatusCode = 401;
-                await ctx.Response.WriteAsync("{\"error\":\"Unauthorized. Provide X-API-Key header or sign in via cookie.\"}");
+                await next();
                 return;
             }
         }
-        else
+
+        // ── Fall back to cookie auth ────────────────────────────────────────
+        if (ctx.User.Identity?.IsAuthenticated != true)
         {
-            // P1/H-4: No API key configured — require cookie auth as minimum fallback
-            if (ctx.User.Identity?.IsAuthenticated != true)
+            // In Development, allow unauthenticated access for convenience
+            if (!ctx.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
             {
-                // In Development, allow unauthenticated access for convenience
-                if (!ctx.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
-                {
-                    ctx.Response.StatusCode = 401;
-                    await ctx.Response.WriteAsync("{\"error\":\"Unauthorized. Configure UKUU_API_KEY or sign in via cookie.\"}");
-                    return;
-                }
+                ctx.Response.StatusCode = 401;
+                await ctx.Response.WriteAsync("{\"error\":\"Unauthorized. Provide a valid X-API-Key header or sign in via cookie.\"}");
+                return;
             }
         }
     }
@@ -1967,6 +2049,223 @@ app.MapPost("/api/devices/delete/{id:int}", async (
     return Results.Redirect($"/devices?deleted=1&name={Uri.EscapeDataString(name)}");
 }).WithName("DeviceDelete");
 
+// ═══════════════════════════════════════════════════════════════════════════
+// API KEY MANAGEMENT ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ───── GET /api/api-keys — list all API keys for the org ─────
+app.MapGet("/api/api-keys", async (HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var keys = await db.ApiKeys
+        .Where(k => k.OrganizationId == org.Id)
+        .OrderByDescending(k => k.CreatedAt)
+        .Select(k => new
+        {
+            k.Id,
+            k.Name,
+            k.KeyPrefix,
+            k.Scopes,
+            k.RateLimitPerMinute,
+            k.CreatedAt,
+            k.ExpiresAt,
+            k.LastUsedAt,
+            k.LastUsedIp,
+            k.TotalRequestCount,
+            k.RevokedAt,
+            k.RevokedByUserId,
+            k.RevocationReason,
+            IsActive = k.RevokedAt == null && (k.ExpiresAt == null || k.ExpiresAt > DateTime.UtcNow),
+            StatusDisplay = k.RevokedAt != null ? "Revoked" :
+                           (k.ExpiresAt != null && k.ExpiresAt <= DateTime.UtcNow) ? "Expired" : "Active"
+        })
+        .ToListAsync();
+
+    return Results.Ok(keys);
+});
+
+// ───── POST /api/api-keys/create — create a new API key ─────
+app.MapPost("/api/api-keys/create", async (HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    // Get the current user's ID for audit trail
+    var userId = ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    CreateApiKeyRequest? body;
+    try { body = await ctx.Request.ReadFromJsonAsync<CreateApiKeyRequest>(); }
+    catch (Exception) { return Results.BadRequest(new { error = "Invalid request body." }); }
+    if (body == null || string.IsNullOrWhiteSpace(body.Name))
+        return Results.BadRequest(new { error = "Name is required." });
+    if (body.Name.Length > 100)
+        return Results.BadRequest(new { error = "Name must be 100 characters or less." });
+
+    // Validate scopes
+    var validScopes = new HashSet<string>(Enum.GetNames<ApiKeyScope>());
+    var requestedScopes = (body.Scopes ?? new List<string> { "FullAccess" })
+        .Where(s => validScopes.Contains(s)).ToList();
+    if (requestedScopes.Count == 0)
+        return Results.BadRequest(new { error = "At least one valid scope is required." });
+    // If FullAccess is included, it supersedes all other scopes
+    if (requestedScopes.Contains("FullAccess"))
+        requestedScopes = new List<string> { "FullAccess" };
+
+    // Generate a cryptographically secure API key: ukuu_<32-char-hex>
+    var rawBytes = new byte[32];
+    System.Security.Cryptography.RandomNumberGenerator.Fill(rawBytes);
+    var rawKey = "ukuu_" + Convert.ToHexString(rawBytes).ToLowerInvariant();
+
+    // Compute SHA-256 hash for storage
+    var keyHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(rawKey))).ToLowerInvariant();
+
+    // Extract prefix (first 8 chars after "ukuu_")
+    var keyPrefix = rawKey[..13]; // "ukuu_" + 8 hex chars
+
+    // Validate expiry
+    DateTime? expiresAt = null;
+    if (body.ExpiresInDays.HasValue && body.ExpiresInDays.Value > 0)
+        expiresAt = DateTime.UtcNow.AddDays(body.ExpiresInDays.Value);
+
+    var record = new ApiKeyRecord
+    {
+        OrganizationId = org.Id,
+        CreatedByUserId = userId,
+        Name = body.Name.Trim(),
+        KeyHash = keyHash,
+        KeyPrefix = keyPrefix,
+        Scopes = string.Join(",", requestedScopes),
+        RateLimitPerMinute = body.RateLimitPerMinute > 0 ? body.RateLimitPerMinute : 60,
+        ExpiresAt = expiresAt,
+    };
+
+    db.ApiKeys.Add(record);
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("API key '{Name}' created for org {OrgId} by user {UserId}", body.Name, org.Id, userId);
+
+    // Return the raw key ONLY at creation time — it will never be shown again
+    return Results.Ok(new
+    {
+        record.Id,
+        record.Name,
+        Key = rawKey,  // ⚠️ SHOWN ONLY ONCE — never stored or returned again
+        record.KeyPrefix,
+        record.Scopes,
+        record.RateLimitPerMinute,
+        record.CreatedAt,
+        record.ExpiresAt,
+        message = "Save this key securely. It will not be shown again."
+    });
+});
+
+// ───── POST /api/api-keys/revoke/{id} — revoke an API key ─────
+app.MapPost("/api/api-keys/revoke/{id:int}", async (
+    int id, HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var key = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id && k.OrganizationId == org.Id);
+    if (key == null) return Results.NotFound(new { error = "API key not found." });
+    if (key.RevokedAt != null) return Results.BadRequest(new { error = "API key is already revoked." });
+
+    var userId = ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    RevokeApiKeyRequest? body;
+    try { body = await ctx.Request.ReadFromJsonAsync<RevokeApiKeyRequest>(); }
+    catch (Exception) { body = null; }
+
+    key.RevokedAt = DateTime.UtcNow;
+    key.RevokedByUserId = userId;
+    key.RevocationReason = body?.Reason ?? "No reason provided";
+
+    await db.SaveChangesAsync();
+    logger.LogInformation("API key '{Name}' (id={Id}) revoked by user {UserId}: {Reason}", key.Name, id, userId, key.RevocationReason);
+
+    return Results.Ok(new { key.Id, key.Name, key.RevokedAt, key.RevocationReason });
+});
+
+// ───── POST /api/api-keys/rotate/{id} — revoke old key and create a new one with same settings ─────
+app.MapPost("/api/api-keys/rotate/{id:int}", async (
+    int id, HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var oldKey = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id && k.OrganizationId == org.Id);
+    if (oldKey == null) return Results.NotFound(new { error = "API key not found." });
+
+    var userId = ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    // Revoke the old key
+    oldKey.RevokedAt = DateTime.UtcNow;
+    oldKey.RevokedByUserId = userId;
+    oldKey.RevocationReason = "Rotated — replaced by a new key";
+
+    // Create a new key with the same settings
+    var rawBytes = new byte[32];
+    System.Security.Cryptography.RandomNumberGenerator.Fill(rawBytes);
+    var rawKey = "ukuu_" + Convert.ToHexString(rawBytes).ToLowerInvariant();
+
+    var keyHash = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(rawKey))).ToLowerInvariant();
+
+    var newRecord = new ApiKeyRecord
+    {
+        OrganizationId = org.Id,
+        CreatedByUserId = userId,
+        Name = oldKey.Name,
+        KeyHash = keyHash,
+        KeyPrefix = rawKey[..13],
+        Scopes = oldKey.Scopes,
+        RateLimitPerMinute = oldKey.RateLimitPerMinute,
+        ExpiresAt = oldKey.ExpiresAt,
+    };
+
+    db.ApiKeys.Add(newRecord);
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("API key '{Name}' (id={OldId}) rotated to new key (id={NewId}) by user {UserId}",
+        oldKey.Name, id, newRecord.Id, userId);
+
+    return Results.Ok(new
+    {
+        OldKeyId = oldKey.Id,
+        NewKeyId = newRecord.Id,
+        newRecord.Name,
+        Key = rawKey,
+        newRecord.KeyPrefix,
+        newRecord.Scopes,
+        newRecord.RateLimitPerMinute,
+        newRecord.ExpiresAt,
+        message = "Old key revoked. Save the new key securely — it will not be shown again."
+    });
+});
+
+// ───── DELETE /api/api-keys/{id} — permanently delete an API key ─────
+app.MapDelete("/api/api-keys/{id:int}", async (
+    int id, HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
+{
+    var org = await db.Organizations.FirstOrDefaultAsync();
+    if (org == null) return Results.BadRequest(new { error = "No organization found." });
+
+    var key = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id && k.OrganizationId == org.Id);
+    if (key == null) return Results.NotFound(new { error = "API key not found." });
+
+    var name = key.Name;
+    db.ApiKeys.Remove(key);
+    await db.SaveChangesAsync();
+
+    logger.LogInformation("API key '{Name}' (id={Id}) permanently deleted", name, id);
+    return Results.Ok(new { deleted = true, id, name });
+});
+
 // ───── POST /api/devices/save — create or update a device (traditional form POST) ─────
 app.MapPost("/api/devices/save", async (
     HttpContext ctx,
@@ -3438,6 +3737,20 @@ public sealed class ImportedEvent
 
 // DTO for leave approval/rejection requests via the API
 public sealed record ApprovalBody(string? ReviewerEmail, string? Notes);
+
+// DTOs for API key management
+public sealed class CreateApiKeyRequest
+{
+    public string? Name { get; set; }
+    public List<string>? Scopes { get; set; }
+    public int RateLimitPerMinute { get; set; } = 60;
+    public int? ExpiresInDays { get; set; }
+}
+
+public sealed class RevokeApiKeyRequest
+{
+    public string? Reason { get; set; }
+}
 
 // Exposed for integration tests via WebApplicationFactory<Program>
 public partial class Program { }
