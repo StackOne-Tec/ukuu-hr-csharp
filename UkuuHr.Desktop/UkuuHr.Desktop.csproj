@@ -23,4 +23,8 @@
     <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="UkuuHr.Tests" />
+  </ItemGroup>
+
 </Project>

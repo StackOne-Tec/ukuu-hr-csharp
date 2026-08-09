@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -19,27 +18,14 @@ namespace UkuuHr.Sync;
 ///   UkuuHrSync --once             — single sync, then exit
 ///   UkuuHrSync --config=settings.json  — use a config file
 ///   UkuuHrSync --headless         — non-interactive mode (requires settings.json)
-///   UkuuHrSync --stop             — signal a running headless instance to stop
-///   UkuuHrSync --status           — check if a headless instance is running
 /// 
 /// The app reads/writes settings.json in the same directory for persistence.
 /// When launched as a macOS .app bundle (no TTY), it runs in headless mode
 /// automatically and creates a default settings.json if none exists.
-/// 
-/// Session lifecycle:
-///   - A PID file (ukuu-sync.pid) is written on start and removed on clean exit.
-///   - A stop-signal file (ukuu-sync.stop) is checked every sync cycle; writing
-///     this file causes the running instance to end its connection session gracefully.
-///   - On macOS, AppDomain.ProcessExit handles SIGTERM (Dock → Quit) so the
-///     bridge shuts down cleanly even without a TTY.
-///   - The shared HttpClient is disposed on shutdown to release TCP connections.
 /// </summary>
 class Program
 {
     private static HttpClient? _httpClient;
-    private static readonly string _pidPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.pid");
-    private static readonly string _stopSignalPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.stop");
-    private static readonly string _logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.log");
 
     /// <summary>
     /// Detects whether stdin is connected to a terminal (TTY).
@@ -62,18 +48,6 @@ class Program
 
     static async Task<int> Main(string[] args)
     {
-        // ── Handle --stop: signal a running headless instance to end its session ──
-        if (args.Contains("--stop"))
-        {
-            return HandleStopCommand();
-        }
-
-        // ── Handle --status: check if a headless instance is running ──────────
-        if (args.Contains("--status"))
-        {
-            return HandleStatusCommand();
-        }
-
         // ── Top-level exception handler — prevents SIGABRT on unhandled exceptions ──
         try
         {
@@ -82,10 +56,10 @@ class Program
         catch (Exception ex)
         {
             // Last-resort catch: log to file and console, then exit cleanly
-            var errorLogPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync-error.log");
+            var logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync-error.log");
             try
             {
-                await File.WriteAllTextAsync(errorLogPath,
+                await File.WriteAllTextAsync(logPath,
                     $"[{DateTime.UtcNow:O}] FATAL: {ex}\n");
             }
             catch { /* give up */ }
@@ -95,200 +69,6 @@ class Program
 
             return 2;
         }
-        finally
-        {
-            // ── Always clean up: dispose HttpClient, remove PID file ──────────
-            CleanupOnExit();
-        }
-    }
-
-    /// <summary>
-    /// Handles the --stop command: writes a stop-signal file that the running
-    /// headless instance checks on every cycle, then attempts to signal via
-    /// PID if the signal file isn't picked up within a timeout.
-    /// </summary>
-    static int HandleStopCommand()
-    {
-        // Check if a running instance exists
-        if (!File.Exists(_pidPath))
-        {
-            try { Console.WriteLine("No running UkuuHrSync instance found (PID file does not exist)."); }
-            catch { }
-            return 1;
-        }
-
-        int pid;
-        try { pid = int.Parse(File.ReadAllText(_pidPath).Trim()); }
-        catch
-        {
-            try { Console.WriteLine("Could not read PID file. The instance may have exited uncleanly."); }
-            catch { }
-            // Remove stale PID file
-            try { File.Delete(_pidPath); } catch { }
-            return 1;
-        }
-
-        // Write the stop-signal file — the running instance checks this
-        try
-        {
-            File.WriteAllText(_stopSignalPath, $"[{DateTime.UtcNow:O}] Stop requested by --stop command (PID {pid})");
-            try { Console.WriteLine($"Stop signal written. Waiting for instance (PID {pid}) to end session..."); }
-            catch { }
-        }
-        catch (Exception ex)
-        {
-            try { Console.WriteLine($"Could not write stop signal: {ex.Message}"); }
-            catch { }
-            return 1;
-        }
-
-        // Wait up to 15 seconds for the instance to exit
-        for (int i = 0; i < 30; i++)
-        {
-            Thread.Sleep(500);
-            if (!File.Exists(_pidPath))
-            {
-                try { Console.WriteLine("Instance stopped successfully."); } catch { }
-                // Clean up stop-signal file
-                try { File.Delete(_stopSignalPath); } catch { }
-                return 0;
-            }
-        }
-
-        // Instance didn't stop gracefully — try sending SIGTERM on Unix
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            try
-            {
-                var process = System.Diagnostics.Process.GetProcessById(pid);
-                process.Kill(); // Sends SIGKILL on Unix
-                try { Console.WriteLine($"Instance (PID {pid}) did not stop gracefully — force killed."); } catch { }
-                try { File.Delete(_pidPath); } catch { }
-                try { File.Delete(_stopSignalPath); } catch { }
-                return 0;
-            }
-            catch
-            {
-                try { Console.WriteLine($"Could not kill process {pid}. It may have already exited."); } catch { }
-                try { File.Delete(_pidPath); } catch { }
-                return 1;
-            }
-        }
-
-        try { Console.WriteLine("Timeout waiting for instance to stop. Try closing it manually."); } catch { }
-        return 1;
-    }
-
-    /// <summary>
-    /// Handles the --status command: checks PID file and verifies the process
-    /// is still alive.
-    /// </summary>
-    static int HandleStatusCommand()
-    {
-        if (!File.Exists(_pidPath))
-        {
-            try { Console.WriteLine("No running UkuuHrSync instance found."); } catch { }
-            return 1;
-        }
-
-        try
-        {
-            var pid = int.Parse(File.ReadAllText(_pidPath).Trim());
-            var process = System.Diagnostics.Process.GetProcessById(pid);
-            try
-            {
-                Console.WriteLine($"UkuuHrSync is running (PID {pid}, started: {process.StartTime:yyyy-MM-dd HH:mm:ss})");
-                Console.WriteLine($"Log file: {_logPath}");
-            }
-            catch { }
-            return 0;
-        }
-        catch
-        {
-            try { Console.WriteLine("PID file exists but process is not running (stale PID file)."); } catch { }
-            try { File.Delete(_pidPath); } catch { }
-            return 1;
-        }
-    }
-
-    /// <summary>
-    /// Writes the PID file on startup. Prevents duplicate instances.
-    /// Returns false if another instance is already running.
-    /// </summary>
-    static bool WritePidFile()
-    {
-        // Check for existing PID file from a previous instance
-        if (File.Exists(_pidPath))
-        {
-            try
-            {
-                var existingPid = int.Parse(File.ReadAllText(_pidPath).Trim());
-                var existingProcess = System.Diagnostics.Process.GetProcessById(existingPid);
-                // Process still alive — don't start a second instance
-                WriteLog($"Another UkuuHrSync instance is already running (PID {existingPid}). Stopping.");
-                return false;
-            }
-            catch
-            {
-                // Process is gone — stale PID file, safe to remove
-                try { File.Delete(_pidPath); } catch { }
-            }
-        }
-
-        try
-        {
-            File.WriteAllText(_pidPath, Environment.ProcessId.ToString());
-            return true;
-        }
-        catch (Exception ex)
-        {
-            WriteLog($"WARNING: Could not write PID file: {ex.Message}");
-            return true; // Non-fatal — continue without PID file
-        }
-    }
-
-    /// <summary>
-    /// Checks if a stop-signal file exists (written by --stop command).
-    /// If found, deletes it and returns true to indicate the session should end.
-    /// </summary>
-    static bool CheckStopSignal()
-    {
-        if (!File.Exists(_stopSignalPath)) return false;
-
-        try
-        {
-            File.Delete(_stopSignalPath);
-            WriteLog("Stop signal received (ukuu-sync.stop). Ending connection session...");
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Cleanup on exit: dispose HttpClient to close TCP connections, remove PID file.
-    /// </summary>
-    static void CleanupOnExit()
-    {
-        // Dispose the shared HttpClient — releases any lingering TCP connections
-        // to the Hikvision device and the cloud API, preventing CLOSE_WAIT sockets.
-        try { _httpClient?.Dispose(); _httpClient = null; } catch { }
-
-        // Remove PID file so --status no longer reports this instance
-        try { File.Delete(_pidPath); } catch { }
-
-        // Remove stop-signal file (in case it wasn't consumed)
-        try { File.Delete(_stopSignalPath); } catch { }
-
-        // Write shutdown marker to log
-        try
-        {
-            File.AppendAllText(_logPath,
-                $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] === UkuuHrSync shutdown complete (PID {Environment.ProcessId}) ===\n");
-        }
-        catch { }
     }
 
     static async Task<int> RunApp(string[] args)
@@ -308,12 +88,6 @@ class Program
             WriteLog("Running in headless mode (no TTY detected — likely launched from Finder/Dock).");
         }
 
-        // ── Prevent duplicate instances ──────────────────────────────────────
-        if (!onceMode && !WritePidFile())
-        {
-            return 1;
-        }
-
         PrintBanner();
 
         // ── Load or create settings ──────────────────────────────────────────
@@ -326,7 +100,7 @@ class Program
             return 1;
         }
 
-        // ── Initialize the shared HttpClient with digest auth support ──────────
+        // ── Initialize HttpClient with digest auth support ────────────────────
         // Hikvision devices default to digest authentication (RFC 7616).
         // Setting PreAuthenticate=true + Credentials enables .NET's built-in
         // digest auth handler: on 401 with WWW-Authenticate: Digest challenge,
@@ -347,8 +121,8 @@ class Program
 
         // Hikvision ISAPI devices require Accept headers to know which response
         // formats the client supports. Without these, some endpoints return HTTP 400.
-        _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/xml"));
-        _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
+        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         WriteLog($"\n  Device:   {scheme}://{settings.DeviceIp}:{settings.DevicePort}");
@@ -373,75 +147,18 @@ class Program
             }
         }
 
-        // ── Sync loop with graceful shutdown ────────────────────────────────
+        // ── Sync loop ────────────────────────────────────────────────────────
         var lastSync = DateTime.MinValue;
         var cts = new CancellationTokenSource();
-
-        // Handle Ctrl+C (SIGINT) — works when TTY is attached
-        Console.CancelKeyPress += (s, e) =>
-        {
-            e.Cancel = true; // Don't kill the process — let the loop exit gracefully
-            WriteLog("Ctrl+C received — ending connection session...");
-            cts.Cancel();
-        };
-
-        // Handle SIGTERM / ProcessExit — critical for macOS Dock → Quit and
-        // Windows Task Manager "End Task". On Unix, AppDomain.ProcessExit fires
-        // for SIGTERM; on Windows it fires for normal process shutdown.
-        AppDomain.CurrentDomain.ProcessExit += (s, e) =>
-        {
-            if (!cts.IsCancellationRequested)
-            {
-                WriteLog("Process exit signal received — ending connection session...");
-                cts.Cancel();
-            }
-        };
-
-        // On Unix (macOS/Linux), also register a POSIX signal handler for SIGTERM
-        // for more reliable shutdown when the .app bundle is quit from the Dock.
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            try
-            {
-                // .NET 7+ POSIX signal handling
-                System.Runtime.InteropServices.NativeLibrary.TryLoad("libc", out var _);
-                var sigterm = PosixSignal.SIGTERM;
-                PosixSignalRegistration.Create(sigterm, sig =>
-                {
-                    if (!cts.IsCancellationRequested)
-                    {
-                        WriteLog("SIGTERM received — ending connection session...");
-                        cts.Cancel();
-                    }
-                });
-            }
-            catch
-            {
-                // POSIX signal handling not available (older .NET or Windows) — 
-                // ProcessExit handler above will catch SIGTERM on most runtimes
-            }
-        }
-
-        WriteLog($"  Bridge started (PID {Environment.ProcessId}). Session active.\n");
+        Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
 
         while (!cts.Token.IsCancellationRequested)
         {
-            // ── Check for external stop signal (from --stop command) ──────────
-            if (CheckStopSignal())
-            {
-                cts.Cancel();
-                break;
-            }
-
             try
             {
                 await RunSync(settings, lastSync, cts.Token);
                 lastSync = DateTime.UtcNow;
                 WriteLog($"  [{DateTime.Now:HH:mm:ss}] Sync complete. Next sync in {settings.SyncIntervalMinutes} min.\n");
-            }
-            catch (OperationCanceledException)
-            {
-                break; // CTS cancelled — exit the loop
             }
             catch (Exception ex)
             {
@@ -454,7 +171,7 @@ class Program
             catch (TaskCanceledException) { break; }
         }
 
-        WriteLog("  Ukuu HR Sync Bridge stopped. Connection session ended.");
+        WriteLog("  Ukuu HR Sync Bridge stopped.");
         return 0;
     }
 
@@ -482,30 +199,22 @@ class Program
     // ═══════════════════════════════════════════════════════════════════════
     static async Task RunSync(SyncSettings settings, DateTime lastSync, CancellationToken ct)
     {
-        if (_httpClient == null)
-        {
-            WriteLog("  ERROR: HttpClient not initialized. Cannot sync.");
-            return;
-        }
-
+        // ── Protocol probe with HTTPS→HTTP fallback ─────────────────────────
+        // Hikvision devices on port 80/8080 typically don't serve TLS.
+        // If HTTPS fails (timeout/TLS error), fall back to HTTP automatically.
         var scheme = settings.UseHttps.GetValueOrDefault() ? "https" : "http";
         var baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
 
         WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connecting to device at {baseUrl}...");
 
         // ── Step 1: Get device info (validates connection) ───────────────────
-        // Digest auth is handled automatically by HttpClientHandler (PreAuthenticate + Credentials).
-        // Uses a shorter timeout (10s) for the probe to avoid long waits on
-        // misconfigured HTTPS→HTTP connections. Falls back to HTTP if HTTPS
-        // times out on a standard HTTP port (80/8080).
         string deviceName = "Unknown", deviceModel = "Unknown";
         try
         {
-            // Use a shorter timeout for the initial probe to detect misconfig faster
-            using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            probeCts.CancelAfter(TimeSpan.FromSeconds(10));
+            using var ctsProbe = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            ctsProbe.CancelAfter(TimeSpan.FromSeconds(10)); // 10s probe timeout
 
-            var infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", probeCts.Token);
+            var infoResp = await _httpClient!.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", ctsProbe.Token);
             if (infoResp.IsSuccessStatusCode)
             {
                 var xml = await infoResp.Content.ReadAsStringAsync(ct);
@@ -515,40 +224,61 @@ class Program
             }
             else
             {
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Could not get device info (HTTP {(int)infoResp.StatusCode}). Continuing with event fetch...");
-            }
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            // Probe timed out (10s) but app wasn't cancelled — likely HTTPS on an HTTP-only port
-            if (scheme == "https" && (settings.DevicePort == 80 || settings.DevicePort == 8080))
-            {
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTPS probe timed out on port {settings.DevicePort}. Most Hikvision devices use HTTP on this port.");
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Falling back to HTTP... (Set useHttps=false in settings.json to fix this permanently)");
-
-                // Retry with HTTP
-                scheme = "http";
-                baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
-                try
+                // If HTTPS failed, try HTTP fallback for common non-TLS ports
+                if (scheme == "https" && (settings.DevicePort == 80 || settings.DevicePort == 8080))
                 {
-                    using var retryCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    retryCts.CancelAfter(TimeSpan.FromSeconds(10));
-                    var retryResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", retryCts.Token);
-                    if (retryResp.IsSuccessStatusCode)
+                    var httpUrl = $"http://{settings.DeviceIp}:{settings.DevicePort}";
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] HTTPS failed (HTTP {(int)infoResp.StatusCode}), trying HTTP fallback...");
+                    using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts2.CancelAfter(TimeSpan.FromSeconds(10));
+                    var infoResp2 = await _httpClient.GetAsync($"{httpUrl}/ISAPI/System/deviceInfo", cts2.Token);
+                    if (infoResp2.IsSuccessStatusCode)
                     {
-                        var xml = await retryResp.Content.ReadAsStringAsync(ct);
-                        deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
-                        deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
-                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connected via HTTP: {deviceName} ({deviceModel})");
+                        var xml2 = await infoResp2.Content.ReadAsStringAsync(ct);
+                        deviceName = HikvisionParser.ExtractXmlValue(xml2, "deviceName") ?? "Unknown";
+                        deviceModel = HikvisionParser.ExtractXmlValue(xml2, "model") ?? "Unknown";
+                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connected (HTTP): {deviceName} ({deviceModel})");
+                        baseUrl = httpUrl; // Use HTTP for subsequent requests
                     }
                     else
                     {
-                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTP fallback also failed (HTTP {(int)retryResp.StatusCode}). Continuing...");
+                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Both HTTPS and HTTP failed. Continuing with event fetch...");
                     }
                 }
-                catch (Exception retryEx)
+                else
                 {
-                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTP fallback probe failed: {retryEx.Message}. Continuing...");
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Could not get device info (HTTP {(int)infoResp.StatusCode}). Continuing with event fetch...");
+                }
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // Probe timed out — likely wrong protocol or unreachable device
+            if (scheme == "https" && (settings.DevicePort == 80 || settings.DevicePort == 8080))
+            {
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] HTTPS probe timed out (10s), trying HTTP fallback...");
+                var httpUrl = $"http://{settings.DeviceIp}:{settings.DevicePort}";
+                try
+                {
+                    using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts2.CancelAfter(TimeSpan.FromSeconds(10));
+                    var infoResp = await _httpClient!.GetAsync($"{httpUrl}/ISAPI/System/deviceInfo", cts2.Token);
+                    if (infoResp.IsSuccessStatusCode)
+                    {
+                        var xml = await infoResp.Content.ReadAsStringAsync(ct);
+                        deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
+                        deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
+                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connected (HTTP): {deviceName} ({deviceModel})");
+                        baseUrl = httpUrl;
+                    }
+                    else
+                    {
+                        WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTP fallback also failed (HTTP {(int)infoResp.StatusCode}). Continuing...");
+                    }
+                }
+                catch (Exception ex2)
+                {
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: HTTP fallback also failed: {ex2.Message}. Continuing...");
                 }
             }
             else
@@ -592,7 +322,7 @@ class Program
 
             // Attempt 1: AcsEvent with JSON response (?format=json)
             var content1 = new StringContent(searchXml, Encoding.UTF8, "application/xml");
-            var resp1 = await _httpClient.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content1, ct);
+            var resp1 = await _httpClient!.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content1, ct);
 
             if (resp1.IsSuccessStatusCode)
             {
@@ -890,7 +620,7 @@ class Program
         {
             "",
             "  ╔═══════════════════════════════════════════════╗",
-            "  ║         UKUU HR — SYNC BRIDGE v1.3.1          ║",
+            "  ║         UKUU HR — SYNC BRIDGE v1.3.4          ║",
             "  ╠═══════════════════════════════════════════════╣",
             "  ║  Connects Hikvision devices to Ukuu HR cloud  ║",
             "  ╚═══════════════════════════════════════════════╝",
