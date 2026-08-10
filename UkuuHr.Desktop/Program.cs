@@ -6,11 +6,12 @@ using System.Diagnostics;
 namespace UkuuHr.Sync;
 
 /// <summary>
-/// Ukuu HR Sync Bridge v2.0 — Terminal CLI
+/// Ukuu HR Sync Bridge v2.1 — Terminal CLI
 ///
 /// A cross-platform CLI that connects to Hikvision biometric terminals via ISAPI.
 ///
 /// Commands:
+///   connect      Connect to device, verify connection, and pull attendance records
 ///   sync         Fetch attendance events and push to Ukuu HR cloud (continuous or --once)
 ///   attendance   Pull attendance records from device and display locally
 ///   probe        Probe all ISAPI endpoints and report which ones the device supports
@@ -30,6 +31,8 @@ namespace UkuuHr.Sync;
 ///   --timeout=N     HTTP timeout in seconds (default: 15)
 ///
 /// Examples:
+///   UkuuHrSync connect
+///   UkuuHrSync connect --days=30
 ///   UkuuHrSync sync --once
 ///   UkuuHrSync attendance
 ///   UkuuHrSync attendance --days=30
@@ -101,6 +104,7 @@ class Program
         // ── Route to command ────────────────────────────────────────────────
         return command switch
         {
+            "connect"     => await CmdConnect(settings, args, jsonOutput, timeout),
             "sync"        => await CmdSync(settings, once, timeout),
             "attendance"  => await CmdAttendance(settings, args, jsonOutput, timeout),
             "probe"       => await CmdProbe(settings, jsonOutput, timeout),
@@ -112,6 +116,177 @@ class Program
             "help"        => CmdHelp(),
             _             => CmdHelp()
         };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // COMMAND: connect — verify device connection and pull attendance
+    // ═══════════════════════════════════════════════════════════════════════
+    static async Task<int> CmdConnect(SyncSettings settings, string[] args, bool jsonOutput, int timeout)
+    {
+        PrintBanner("CONNECT");
+
+        var (baseUrl, auth) = GetConnection(settings);
+        var scheme = settings.UseHttps.GetValueOrDefault(false) ? "https" : "http";
+
+        WriteLog($"{Cyan}  Device:    {scheme}://{settings.DeviceIp}:{settings.DevicePort}{Reset}");
+        WriteLog($"{Cyan}  Username:  {settings.DeviceUsername}{Reset}");
+        WriteLog($"{Cyan}  Cloud:     {settings.CloudUrl}{Reset}");
+        WriteLog("");
+
+        WriteLog($"  Connecting to {Bold}{baseUrl}{Reset} ...");
+
+        using var client = CreateHttpClient(settings, auth, timeout);
+
+        try
+        {
+            var infoResp = await client.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo");
+
+            if (!infoResp.IsSuccessStatusCode)
+            {
+                var errBody = await ReadErrorBody(infoResp);
+                WriteErr($"  Connection failed: HTTP {(int)infoResp.StatusCode}");
+                if (!string.IsNullOrEmpty(errBody))
+                    WriteLog($"  {Dim}{Truncate(errBody, 300)}{Reset}");
+
+                WriteLog($"");
+                WriteLog($"  {Yellow}Troubleshooting:{Reset}");
+                WriteLog($"    1. Verify the device IP and port are correct");
+                WriteLog($"    2. Ensure the device is powered on and reachable on the network");
+                WriteLog($"    3. Confirm username and password are correct");
+                WriteLog($"    4. Run 'UkuuHrSync probe' to test all ISAPI endpoints");
+                return 1;
+            }
+
+            var xml = await infoResp.Content.ReadAsStringAsync(ct: default);
+            var deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
+            var deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
+            var serial = HikvisionParser.ExtractXmlValue(xml, "serialNumber") ?? "N/A";
+            var firmware = HikvisionParser.ExtractXmlValue(xml, "firmwareVersion") ?? "N/A";
+
+            WriteLog($"");
+            WriteLog($"  {Green}{Bold}CONNECTED{Reset} to {Bold}{deviceName}{Reset} ({deviceModel})");
+            WriteLog($"  {Cyan}Serial:{Reset}     {serial}");
+            WriteLog($"  {Cyan}Firmware:{Reset}  {firmware}");
+            WriteLog($"");
+
+            // ── Auto-pull attendance records after connection ──
+            WriteLog($"  {Bold}Pulling attendance records...{Reset}");
+
+            var days = int.TryParse(Args.GetValue(args, "--days"), out var d) ? d : 7;
+            var savePath = Args.GetValue(args, "--save");
+            var fromTime = DateTime.UtcNow.AddDays(-days);
+            var toTime = DateTime.UtcNow;
+
+            WriteLog($"  Date range: {fromTime:yyyy-MM-dd HH:mm} to {toTime:yyyy-MM-dd HH:mm} ({days} days)");
+            WriteLog($"");
+
+            List<ImportedPunch> events = await FetchAttendanceEvents(client, baseUrl, fromTime, toTime);
+
+            if (events.Count == 0)
+            {
+                WriteLog($"  {Yellow}No attendance records found in the last {days} days.{Reset}");
+                WriteLog($"  {Dim}Try: UkuuHrSync attendance --days=30{Reset}");
+            }
+            else
+            {
+                WriteLog($"");
+                WriteLog($"  {Green}{Bold}ATTENDANCE RECORDS{Reset}  ({events.Count} total)");
+                WriteLog($"");
+
+                // Group by date
+                var byDate = events
+                    .GroupBy(e => DateTime.TryParse(e.Time, out var t) ? t.ToString("yyyy-MM-dd") : "unknown")
+                    .OrderByDescending(g => g.Key);
+
+                foreach (var dateGroup in byDate)
+                {
+                    var dateEvents = dateGroup.OrderBy(e => e.Time).ToList();
+                    var checkIns = dateEvents.Count(e => e.EventType == "check_in");
+                    var checkOuts = dateEvents.Count(e => e.EventType == "check_out");
+
+                    WriteLog($"  {Magenta}{Bold}{dateGroup.Key}{Reset}  " +
+                        $"{Green}{checkIns} check-ins{Reset}  " +
+                        $"{Cyan}{checkOuts} check-outs{Reset}  " +
+                        $"{Dim}{dateEvents.Count} total{Reset}");
+
+                    WriteLog($"  {new string('─', 70)}");
+                    WriteLog($"  {Dim}{"Employee",-12}{Reset} {Dim}{"Time",-10}{Reset} {Dim}{"Type",-12}{Reset} {Dim}{"Minor"}{Reset}");
+
+                    foreach (var e in dateEvents)
+                    {
+                        var timeOnly = DateTime.TryParse(e.Time, out var parsedTime)
+                            ? parsedTime.ToString("HH:mm:ss") : e.Time?[Math.Max(0, e.Time.Length - 8)..] ?? "?";
+                        var typeColor = e.EventType == "check_in" ? Green : Cyan;
+                        var typeLabel = e.EventType == "check_in" ? "CHECK IN" : "CHECK OUT";
+
+                        WriteLog($"  {e.EmployeeNo,-12} {timeOnly,-10} {typeColor}{typeLabel,-12}{Reset} {Dim}{e.Minor}{Reset}");
+                    }
+                    WriteLog($"");
+                }
+
+                // Employee summary
+                WriteLog($"  {Bold}EMPLOYEE SUMMARY{Reset}");
+                WriteLog($"  {new string('─', 50)}");
+
+                var byEmployee = events
+                    .GroupBy(e => e.EmployeeNo)
+                    .OrderByDescending(g => g.Count())
+                    .ToList();
+
+                WriteLog($"  {Dim}{"Employee",-12}{Reset} {Dim}{"Total",-8}{Reset} {Dim}{"Check-ins",-12}{Reset} {Dim}{"Check-outs"}{Reset}");
+                foreach (var emp in byEmployee)
+                {
+                    var ins = emp.Count(e => e.EventType == "check_in");
+                    var outs = emp.Count(e => e.EventType == "check_out");
+                    WriteLog($"  {emp.Key,-12} {emp.Count(),-8} {Green}{ins,-12}{Reset} {Cyan}{outs}{Reset}");
+                }
+                WriteLog($"  {new string('─', 50)}");
+                WriteLog($"  {Bold}{byEmployee.Count} unique employees{Reset}, {events.Count} total records");
+
+                // Save to file if --save
+                if (!string.IsNullOrEmpty(savePath))
+                {
+                    var json = JsonSerializer.Serialize(new
+                    {
+                        device = new { name = deviceName, model = deviceModel, ip = settings.DeviceIp },
+                        range = new { from = fromTime, to = toTime, days },
+                        totalEvents = events.Count,
+                        events = events
+                    }, new JsonSerializerOptions { WriteIndented = true });
+                    await File.WriteAllTextAsync(savePath, json);
+                    WriteLog($"");
+                    WriteLog($"  {Green}Saved to: {savePath}{Reset}");
+                }
+            }
+
+            WriteLog($"");
+            WriteLog($"  {Green}{Bold}Connection established!{Reset}");
+            WriteLog($"  Next steps:");
+            WriteLog($"    {Cyan}UkuuHrSync attendance{Reset}     — Pull attendance records again");
+            WriteLog($"    {Cyan}UkuuHrSync sync --once{Reset}   — One-shot sync to cloud");
+            WriteLog($"    {Cyan}UkuuHrSync sync{Reset}         — Continuous cloud sync");
+            WriteLog($"    {Cyan}UkuuHrSync probe{Reset}        — Discover all device endpoints");
+            WriteLog($"    {Cyan}UkuuHrSync health{Reset}       — Check device health");
+
+            return 0;
+        }
+        catch (HttpRequestException ex)
+        {
+            WriteErr($"  Connection failed: {ex.Message}");
+            WriteLog($"");
+            WriteLog($"  {Yellow}Troubleshooting:{Reset}");
+            WriteLog($"    1. Verify the device IP and port are correct");
+            WriteLog($"    2. Ensure the device is powered on and reachable on the network");
+            WriteLog($"    3. If using HTTPS, try HTTP (port 80) instead");
+            WriteLog($"    4. Run 'UkuuHrSync config' to update settings");
+            return 1;
+        }
+        catch (TaskCanceledException)
+        {
+            WriteErr($"  Connection timed out after {timeout}s");
+            WriteLog($"  {Dim}Increase timeout: UkuuHrSync connect --timeout=30{Reset}");
+            return 1;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -392,57 +567,41 @@ class Program
         List<ImportedPunch> events = new();
         string? tier1Error = null, tier2Error = null, tier3Error = null;
 
-        // Tier 1: AcsEvent JSON (?format=json)
+        // Tier 1: AcsEvent JSON (?format=json) — with pagination
         try
         {
-            var searchXml = BuildAcsEventSearchXml(fromTime, toTime);
-            var content = new StringContent(searchXml, Encoding.UTF8, "application/xml");
-            var resp = await client.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content);
-
-            if (resp.IsSuccessStatusCode)
-            {
-                var body = await resp.Content.ReadAsStringAsync(ct: default);
-                events = body.TrimStart().StartsWith("{") || body.TrimStart().StartsWith("[")
-                    ? HikvisionParser.ParseAcsEventJson(body)
-                    : HikvisionParser.ParseAcsEventXml(body);
+            events = await FetchAcsEventWithPagination(client, baseUrl, fromTime, toTime, jsonFormat: true);
+            if (events.Count > 0)
                 WriteLog($"  {Green}AcsEvent (JSON){Reset}: {events.Count} records");
-            }
             else
-            {
-                var errBody = await ReadErrorBody(resp);
-                tier1Error = $"HTTP {(int)resp.StatusCode} — {errBody}";
-                WriteLog($"  {Yellow}AcsEvent (JSON){Reset}: HTTP {(int)resp.StatusCode} — {errBody}");
-            }
+                tier1Error = "No records returned";
         }
-        catch (Exception ex) { tier1Error = ex.Message; }
+        catch (Exception ex)
+        {
+            tier1Error = ex.Message;
+            WriteLog($"  {Yellow}AcsEvent (JSON){Reset}: {ex.Message}");
+        }
 
-        // Tier 2: AcsEvent XML (no ?format=json)
-        if (events.Count == 0 && tier1Error != null)
+        // Tier 2: AcsEvent XML (no ?format=json) — with pagination
+        if (events.Count == 0)
         {
             try
             {
-                var searchXml = BuildAcsEventSearchXml(fromTime, toTime);
-                var content = new StringContent(searchXml, Encoding.UTF8, "application/xml");
-                var resp = await client.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent", content);
-
-                if (resp.IsSuccessStatusCode)
-                {
-                    var body = await resp.Content.ReadAsStringAsync(ct: default);
-                    events = HikvisionParser.ParseAcsEventXml(body);
+                events = await FetchAcsEventWithPagination(client, baseUrl, fromTime, toTime, jsonFormat: false);
+                if (events.Count > 0)
                     WriteLog($"  {Green}AcsEvent (XML){Reset}: {events.Count} records");
-                }
                 else
-                {
-                    var errBody = await ReadErrorBody(resp);
-                    tier2Error = $"HTTP {(int)resp.StatusCode} — {errBody}";
-                    WriteLog($"  {Yellow}AcsEvent (XML){Reset}: HTTP {(int)resp.StatusCode}");
-                }
+                    tier2Error = "No records returned";
             }
-            catch (Exception ex) { tier2Error = ex.Message; }
+            catch (Exception ex)
+            {
+                tier2Error = ex.Message;
+                WriteLog($"  {Yellow}AcsEvent (XML){Reset}: {ex.Message}");
+            }
         }
 
         // Tier 3: AuditLog
-        if (events.Count == 0 && tier2Error != null)
+        if (events.Count == 0)
         {
             try
             {
@@ -478,6 +637,56 @@ class Program
         }
 
         return events;
+    }
+
+    /// <summary>
+    /// Fetch AcsEvent with pagination support.
+    /// Many Hikvision devices limit maxResults to 50-500 per page.
+    /// This method automatically paginates through all available records.
+    /// </summary>
+    static async Task<List<ImportedPunch>> FetchAcsEventWithPagination(HttpClient client, string baseUrl, DateTime fromTime, DateTime toTime, bool jsonFormat)
+    {
+        var allEvents = new List<ImportedPunch>();
+        const int pageSize = 200;
+        const int maxPages = 50; // Safety limit: 50 pages × 200 = 10,000 max records
+        var endpoint = jsonFormat
+            ? $"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json"
+            : $"{baseUrl}/ISAPI/AccessControl/AcsEvent";
+
+        for (int page = 0; page < maxPages; page++)
+        {
+            var searchXml = BuildAcsEventSearchXml(fromTime, toTime, maxResults: pageSize, position: page * pageSize, searchId: "1");
+            var content = new StringContent(searchXml, Encoding.UTF8, "application/xml");
+            var resp = await client.PostAsync(endpoint, content);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var errBody = await ReadErrorBody(resp);
+                if (page == 0)
+                {
+                    // First page failed — report the error
+                    WriteLog($"  {Yellow}AcsEvent {(jsonFormat ? "(JSON)" : "(XML)")}{Reset}: HTTP {(int)resp.StatusCode} — {errBody}");
+                }
+                break; // Stop paginating on error
+            }
+
+            var body = await resp.Content.ReadAsStringAsync(ct: default);
+            List<ImportedPunch> pageEvents;
+
+            if (jsonFormat && (body.TrimStart().StartsWith("{") || body.TrimStart().StartsWith("[")))
+                pageEvents = HikvisionParser.ParseAcsEventJson(body);
+            else
+                pageEvents = HikvisionParser.ParseAcsEventXml(body);
+
+            allEvents.AddRange(pageEvents);
+
+            // If we got fewer than pageSize, we've reached the last page
+            if (pageEvents.Count < pageSize) break;
+
+            WriteLog($"  {Dim}  Page {page + 1}: {pageEvents.Count} records (total: {allEvents.Count}){Reset}");
+        }
+
+        return allEvents;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -836,6 +1045,7 @@ class Program
             UkuuHrSync <command> [options]
 
           {Bold}COMMANDS{Reset}
+            {Cyan}connect{Reset}      Connect to device, verify connection, and pull attendance records
             {Cyan}sync{Reset}         Fetch attendance events and push to cloud (continuous or --once)
             {Cyan}attendance{Reset}   Pull attendance records from device and display locally
             {Cyan}probe{Reset}        Probe all ISAPI endpoints — discover what your device supports
@@ -856,6 +1066,8 @@ class Program
             {Cyan}--timeout=N{Reset}     HTTP timeout in seconds (default: 15)
 
           {Bold}EXAMPLES{Reset}
+            UkuuHrSync connect                     # Connect and pull attendance (default)
+            UkuuHrSync connect --days=30           # Connect with 30-day range
             UkuuHrSync sync --once
             UkuuHrSync attendance
             UkuuHrSync attendance --days=30
@@ -889,7 +1101,7 @@ class Program
     {
         var now = DateTime.UtcNow;
         var yesterday = now.AddDays(-1);
-        var searchXml = BuildAcsEventSearchXml(yesterday, now);
+        var searchXml = BuildAcsEventSearchXml(yesterday, now, maxResults: 5, searchId: "probe_test");
         var fromStr = Uri.EscapeDataString(yesterday.ToString("yyyy-MM-ddTHH:mm:ssZ"));
         var toStr = Uri.EscapeDataString(now.ToString("yyyy-MM-ddTHH:mm:ssZ"));
 
@@ -1002,7 +1214,8 @@ class Program
         {
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
             PreAuthenticate = true,
-            Credentials = new System.Net.NetworkCredential(settings.DeviceUsername, settings.DevicePassword)
+            Credentials = new System.Net.NetworkCredential(settings.DeviceUsername, settings.DevicePassword),
+            AllowAutoRedirect = true
         };
 
         var client = new HttpClient(handler)
@@ -1010,9 +1223,14 @@ class Program
             Timeout = TimeSpan.FromSeconds(timeout)
         };
 
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
+        // Send both Accept headers so device can respond in its preferred format
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        // NOTE: Do NOT set a Basic Authorization header here.
+        // Hikvision uses HTTP Digest auth. Setting a Basic header causes the
+        // device to reject the request before it sends the 401 challenge.
+        // .NET's PreAuthenticate + Credentials will handle the Digest handshake.
 
         return client;
     }
@@ -1027,13 +1245,13 @@ class Program
         catch { return ""; }
     }
 
-    static string BuildAcsEventSearchXml(DateTime from, DateTime to)
+    static string BuildAcsEventSearchXml(DateTime from, DateTime to, int maxResults = 500, int position = 0, string searchId = "1")
     {
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <AcsEventSearchDescription>
-    <searchID>probe_test</searchID>
-    <searchResultPosition>0</searchResultPosition>
-    <maxResults>5</maxResults>
+    <searchID>{searchId}</searchID>
+    <searchResultPosition>{position}</searchResultPosition>
+    <maxResults>{maxResults}</maxResults>
     <major>1</major>
     <minor>0</minor>
     <startTime>{from:yyyy-MM-ddTHH:mm:ssZ}</startTime>
@@ -1181,7 +1399,7 @@ class Program
         {
             "",
             $"  {Magenta}{Bold}╔═══════════════════════════════════════════════╗{Reset}",
-            $"  {Magenta}{Bold}║{Reset}     {White}{Bold}UKUU HR — SYNC BRIDGE v2.0{Reset}          {Magenta}{Bold}║{Reset}",
+            $"  {Magenta}{Bold}║{Reset}     {White}{Bold}UKUU HR — SYNC BRIDGE v2.1{Reset}          {Magenta}{Bold}║{Reset}",
             $"  {Magenta}{Bold}╠═══════════════════════════════════════════════╣{Reset}",
             $"  {Magenta}{Bold}║{Reset}  {Cyan}{subtitle}{Reset}                {Magenta}{Bold}║{Reset}",
             $"  {Magenta}{Bold}╚═══════════════════════════════════════════════╝{Reset}",
@@ -1235,12 +1453,12 @@ static class Args
 {
     public static string? GetCommand(string[] args)
     {
-        var commands = new[] { "sync", "attendance", "probe", "device-info", "health", "curl", "test", "config", "help" };
+        var commands = new[] { "connect", "sync", "attendance", "probe", "device-info", "health", "curl", "test", "config", "help" };
         foreach (var arg in args)
         {
             if (commands.Contains(arg)) return arg;
         }
-        return "sync"; // default command
+        return "connect"; // default command — connect and pull attendance
     }
 
     public static string? GetValue(string[] args, string prefix)
