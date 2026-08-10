@@ -56,6 +56,7 @@
                 </div>
                 <div class="bk-admin-card-content">
                     <form method="post" action="/api/overtime/@_record.Id/edit" id="overtime-edit-form">
+                    <AntiforgeryToken />
                         @* Employee (read-only) *@
                         <div class="bk-field">
                             <label class="bk-label">Employee</label>

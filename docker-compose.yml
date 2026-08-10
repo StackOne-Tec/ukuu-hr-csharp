@@ -48,12 +48,26 @@ services:
       # ── Encryption master key (AES-256-CBC) ──
       - UKUU_ENCRYPTION_KEY=${UKUU_ENCRYPTION_KEY:-}
 
+      # ── Admin password for first-run setup ──
+      # Sets the password for admin@ukuuhr.demo. If unset, a random password
+      # is generated and logged once. Must be set in production.
+      - UKUU_ADMIN_PASSWORD=${UKUU_ADMIN_PASSWORD:-}
+
       # ── Port override (for Render / cloud platforms) ──
       - PORT=${PORT:-8080}
     volumes:
       # Persist SQLite database if using SQLite fallback
       - ukuu-data:/app/data
     restart: unless-stopped
+    # Resource limits — prevent runaway process from consuming all host resources
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

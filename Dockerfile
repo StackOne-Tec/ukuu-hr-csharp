@@ -54,6 +54,20 @@ RUN dotnet publish ./UkuuHr.Desktop/UkuuHr.Desktop.csproj \
     -o /desktop/osx-arm64 && \
     cp /desktop/osx-arm64/UkuuHrSync /app/publish/wwwroot/downloads/UkuuHr-macOS-arm64
 
+# macOS Intel (x64)
+RUN dotnet publish ./UkuuHr.Desktop/UkuuHr.Desktop.csproj \
+    -c Release -r osx-x64 --self-contained true \
+    -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
+    -o /desktop/osx-x64 && \
+    cp /desktop/osx-x64/UkuuHrSync /app/publish/wwwroot/downloads/UkuuHr-macOS-x64
+
+# Linux x64
+RUN dotnet publish ./UkuuHr.Desktop/UkuuHr.Desktop.csproj \
+    -c Release -r linux-x64 --self-contained true \
+    -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
+    -o /desktop/linux-x64 && \
+    cp /desktop/linux-x64/UkuuHrSync /app/publish/wwwroot/downloads/UkuuHr-Linux-x64
+
 # ───────────── Runtime stage ─────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
