@@ -208,6 +208,54 @@ public static class HikvisionParser
 
     /// <summary>Map a Hikvision AcsEvent minor code to a Ukuu HR event type.</summary>
     public static string ClassifyEventType(int minor) => minor == 76 ? "check_out" : "check_in";
+
+    /// <summary>
+    /// Parse an ISAPI AcsEvent XML response into attendance events.
+    /// Some Hikvision devices (e.g. DS-K1T343EFWX) return AcsEvent as XML
+    /// rather than JSON, especially when ?format=json is not supported.
+    /// Handles both attribute format and child-element format.
+    /// </summary>
+    public static List<ImportedPunch> ParseAcsEventXml(string xml)
+    {
+        var events = new List<ImportedPunch>();
+        try
+        {
+            var doc = XDocument.Parse(xml);
+
+            // AcsEvent XML uses <Info> elements (not <LogItem> like AuditLog)
+            foreach (var info in doc.Descendants().Where(e => e.Name.LocalName == "Info"))
+            {
+                try
+                {
+                    // Try attribute format first: <Info employeeNo="001" time="..." minor="75"/>
+                    var empNo = info.Attribute("employeeNo")?.Value
+                        ?? ChildLocalValue(info, "employeeNo") ?? "";
+                    var time = info.Attribute("time")?.Value
+                        ?? ChildLocalValue(info, "time") ?? "";
+                    if (string.IsNullOrEmpty(empNo) || string.IsNullOrEmpty(time)) continue;
+
+                    var minorStr = info.Attribute("minor")?.Value
+                        ?? ChildLocalValue(info, "minor") ?? "75";
+                    var minor = int.TryParse(minorStr, out var m) ? m : 75;
+
+                    events.Add(new ImportedPunch
+                    {
+                        EmployeeNo = empNo,
+                        Time = time,
+                        EventType = ClassifyEventType(minor),
+                        Major = 1,
+                        Minor = minor
+                    });
+                }
+                catch { /* skip malformed Info element */ }
+            }
+        }
+        catch
+        {
+            // Not valid XML — no events, no crash.
+        }
+        return events;
+    }
 }
 
 /// <summary>

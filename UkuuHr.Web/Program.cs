@@ -279,6 +279,7 @@ builder.Services.AddScoped<UkuuHr.Services.Hikvision.HikvisionIsapiClient>(sp =>
     return new UkuuHr.Services.Hikvision.HikvisionIsapiClient(config, logger);
 });
 builder.Services.AddScoped<UkuuHr.Services.Hikvision.HikvisionEventProcessor>();
+builder.Services.AddScoped<UkuuHr.Services.Hikvision.HikvisionDiagnosticService>();
 builder.Services.AddHostedService<UkuuHr.Services.Hikvision.HikvisionBackgroundService>();
 
 // ───── Phase 4: FR-009 Attendance Search + FR-010 Reporting ─────

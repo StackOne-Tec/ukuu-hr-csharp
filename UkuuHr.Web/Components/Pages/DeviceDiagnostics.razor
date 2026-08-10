@@ -1,0 +1,458 @@
+@page "/devices/diagnostics"
+@attribute [Authorize(Policy = "HrOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@using UkuuHr.Services.Hikvision
+@using UkuuHr.Services.Devices
+@inject HikvisionDiagnosticService DiagService
+@inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Device Diagnostics · @_devices.Count devices</div>
+            <h1 class="bk-admin-h1">ISAPI Endpoint Diagnostics</h1>
+            <p class="bk-admin-sub">
+                Probe Hikvision ISAPI endpoints to discover exactly which URLs your device supports.
+                Each test shows the raw HTTP response and an equivalent <code style="background:rgba(167,139,250,0.15);padding:1px 6px;border-radius:4px;font-family:var(--ukuu-font-mono);font-size:12px;">curl</code>
+                command you can run from the terminal to verify independently.
+            </p>
+        </div>
+    </div>
+
+    @if (!_loaded)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">science</span>
+            <h3 style="margin-top:16px;">Loading devices…</h3>
+        </div>
+    }
+    else if (_devices.Count == 0)
+    {
+        <div class="bk-admin-card" style="text-align:center;padding:48px 24px;">
+            <span class="material-icons-round" style="font-size:48px;color:var(--bk-ink-3);opacity:0.5;">fingerprint</span>
+            <h3 style="margin-top:16px;">No Hikvision devices configured</h3>
+            <p style="color:var(--bk-ink-3);margin:8px 0 20px;">Add a Hikvision device first, then run diagnostics.</p>
+            <a href="/devices/add" class="bk-btn bk-btn-primary" style="text-decoration:none;">
+                <span class="material-icons-round" style="font-size:16px;">add</span>
+                Add Device
+            </a>
+        </div>
+    }
+    else
+    {
+        @* ───── Device selector ───── *@
+        <div class="bk-admin-card" style="margin-bottom:20px;">
+            <div class="bk-admin-card-header">
+                <h3><span class="material-icons-round" style="font-size:20px;vertical-align:middle;margin-right:8px;">devices</span> Select Device</h3>
+                <p>Choose a Hikvision device to probe its ISAPI endpoints.</p>
+            </div>
+            <div class="bk-admin-card-content">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;">
+                    @foreach (var d in _devices)
+                    {
+                        var isSelected = _selectedDeviceId == d.Id;
+                        var isProbing = _probingDeviceId == d.Id;
+                        <div class="bk-admin-card-hover" style="padding:16px;border-radius:10px;border:2px solid @(isSelected ? "var(--bk-accent)" : "var(--bk-line)");cursor:pointer;background:@(isSelected ? "rgba(167,139,250,0.06)" : "transparent");transition:all 0.15s;" @onclick="() => SelectDevice(d.Id)">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:@(d.VendorColor);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0;">HK</div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:14px;font-weight:700;color:var(--bk-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@d.Name</div>
+                                    <div style="font-size:11px;color:var(--bk-ink-3);font-family:var(--ukuu-font-mono);">@d.ConnectionUrl</div>
+                                </div>
+                                @if (d.LastSuccessfulSyncAt.HasValue)
+                                {
+                                    <span class="bk-admin-pill approved" style="font-size:9px;">ONLINE</span>
+                                }
+                                else if (d.LastErrorAt.HasValue)
+                                {
+                                    <span class="bk-admin-pill rejected" style="font-size:9px;">ERROR</span>
+                                }
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button class="bk-btn @(isSelected ? "bk-btn-primary" : "bk-btn-secondary")" style="font-size:11px;padding:6px 12px;" @onclick:stopPropagation="true" @onclick="() => RunProbe(d.Id)" disabled="@isProbing">
+                                    @if (isProbing)
+                                    {
+                                        <span class="material-icons-round" style="font-size:14px;animation:spin 1s linear infinite;">autorenew</span>
+                                        <span>Probing…</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="material-icons-round" style="font-size:14px;">science</span>
+                                        <span>Probe Device</span>
+                                    }
+                                </button>
+                                @if (_reports.TryGetValue(d.Id, out var existingReport))
+                                {
+                                    <span style="font-size:11px;color:var(--bk-ink-3);display:flex;align-items:center;gap:4px;">
+                                        <span class="material-icons-round" style="font-size:12px;color:var(--bk-success);">check</span>
+                                        @(existingReport.SuccessCount)/@(existingReport.TotalProbes) OK
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* ───── Probe All button ───── *@
+        <div style="margin-bottom:20px;display:flex;gap:10px;align-items:center;">
+            <button class="bk-btn bk-btn-primary" @onclick="RunAllProbes" disabled="@_probingAll">
+                @if (_probingAll)
+                {
+                    <span class="material-icons-round" style="font-size:16px;animation:spin 1s linear infinite;">autorenew</span>
+                    <span>Probing All Devices…</span>
+                }
+                else
+                {
+                    <span class="material-icons-round" style="font-size:16px;">science</span>
+                    <span>Probe All Devices</span>
+                }
+            </button>
+            <span style="font-size:12px;color:var(--bk-ink-3);">Runs full ISAPI endpoint discovery on every Hikvision device</span>
+        </div>
+
+        @* ───── Diagnostic reports ───── *@
+        @foreach (var kvp in _reports.OrderByDescending(r => r.Value.ProbedAt))
+        {
+            var report = kvp.Value;
+            <div class="bk-admin-card" style="margin-bottom:20px;">
+                <div class="bk-admin-card-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                    <div>
+                        <h3 style="display:flex;align-items:center;gap:8px;">
+                            <span class="material-icons-round" style="font-size:20px;color:var(--bk-accent);">science</span>
+                            @report.DeviceName
+                            @if (!string.IsNullOrEmpty(report.DeviceModel))
+                            {
+                                <span style="font-size:12px;font-weight:400;color:var(--bk-ink-3);font-family:var(--ukuu-font-mono);">(@report.DeviceModel)</span>
+                            }
+                        </h3>
+                        <p style="font-size:12px;color:var(--bk-ink-3);margin-top:4px;">
+                            <span style="font-family:var(--ukuu-font-mono);">@report.BaseUrl</span>
+                            · Probed @report.ProbedAt.ToString("dd MMM HH:mm:ss")
+                        </p>
+                    </div>
+                    <div style="display:flex;gap:16px;align-items:center;">
+                        <div style="text-align:center;">
+                            <div style="font-size:20px;font-weight:700;color:var(--bk-success);">@report.SuccessCount</div>
+                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;">OK</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:20px;font-weight:700;color:var(--bk-error);">@report.FailedCount</div>
+                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;">Failed</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:20px;font-weight:700;color:var(--bk-warning);">@report.UnsupportedCount</div>
+                            <div style="font-size:10px;color:var(--bk-ink-3);text-transform:uppercase;">Unsupported</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bk-admin-card-content" style="padding-top:0;">
+                    @* ───── Group probes by category ───── *@
+                    @foreach (var group in report.Probes.GroupBy(p => p.Category))
+                    {
+                        <div style="margin-top:20px;">
+                            <h4 style="font-size:13px;font-weight:700;color:var(--bk-ink);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                                <span class="material-icons-round" style="font-size:16px;color:var(--bk-accent);">folder</span>
+                                @group.Key
+                            </h4>
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                                    <thead>
+                                        <tr style="border-bottom:2px solid var(--bk-line);">
+                                            <th style="text-align:left;padding:8px 12px;color:var(--bk-ink-3);font-weight:600;font-size:11px;">Endpoint</th>
+                                            <th style="text-align:left;padding:8px 12px;color:var(--bk-ink-3);font-weight:600;font-size:11px;">Method</th>
+                                            <th style="text-align:left;padding:8px 12px;color:var(--bk-ink-3);font-weight:600;font-size:11px;">Status</th>
+                                            <th style="text-align:left;padding:8px 12px;color:var(--bk-ink-3);font-weight:600;font-size:11px;">Time</th>
+                                            <th style="text-align:center;padding:8px 12px;color:var(--bk-ink-3);font-weight:600;font-size:11px;">Curl</th>
+                                            <th style="text-align:center;padding:8px 12px;color:var(--bk-ink-3);font-weight:600;font-size:11px;">Response</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var probe in group)
+                                        {
+                                            <tr style="border-bottom:1px solid var(--bk-line);" @onclick="() => ToggleProbeDetail(probe)">
+                                                <td style="padding:8px 12px;vertical-align:top;">
+                                                    <div style="font-weight:600;color:var(--bk-ink);">@probe.Name</div>
+                                                    <div style="font-size:10px;color:var(--bk-ink-3);font-family:var(--ukuu-font-mono);margin-top:2px;word-break:break-all;max-width:400px;">@probe.Path</div>
+                                                </td>
+                                                <td style="padding:8px 12px;vertical-align:top;">
+                                                    <span style="font-family:var(--ukuu-font-mono);font-weight:600;color:@(probe.Method == "POST" ? "var(--bk-warning)" : "var(--bk-info)");">@probe.Method</span>
+                                                </td>
+                                                <td style="padding:8px 12px;vertical-align:top;">
+                                                    <div style="display:flex;align-items:center;gap:6px;">
+                                                        <span class="material-icons-round" style="font-size:16px;color:@probe.StatusColor;">@probe.StatusIcon</span>
+                                                        <span style="font-weight:700;color:@probe.StatusColor;">@probe.StatusBadge</span>
+                                                    </div>
+                                                    @if (!string.IsNullOrEmpty(probe.ErrorMessage))
+                                                    {
+                                                        <div style="font-size:10px;color:var(--bk-error);margin-top:4px;max-width:200px;word-break:break-word;">@probe.ErrorMessage</div>
+                                                    }
+                                                </td>
+                                                <td style="padding:8px 12px;vertical-align:top;font-family:var(--ukuu-font-mono);color:var(--bk-ink-3);">
+                                                    @probe.ElapsedMs ms
+                                                </td>
+                                                <td style="padding:8px 12px;text-align:center;vertical-align:top;">
+                                                    <button class="bk-btn bk-btn-secondary" style="font-size:10px;padding:4px 8px;" @onclick:stopPropagation="true" @onclick="() => CopyCurl(probe.CurlCommand)" title="Copy curl command to clipboard">
+                                                        <span class="material-icons-round" style="font-size:12px;">content_copy</span>
+                                                        curl
+                                                    </button>
+                                                </td>
+                                                <td style="padding:8px 12px;text-align:center;vertical-align:top;">
+                                                    @if (!string.IsNullOrEmpty(probe.ResponseBody))
+                                                    {
+                                                        <button class="bk-btn bk-btn-secondary" style="font-size:10px;padding:4px 8px;" @onclick:stopPropagation="true" @onclick="() => ToggleProbeDetail(probe)" title="View raw response">
+                                                            <span class="material-icons-round" style="font-size:12px;">@(_expandedProbes.Contains(probe.Name + probe.Path) ? "expand_less" : "expand_more")</span>
+                                                            body
+                                                        </button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                            @if (_expandedProbes.Contains(probe.Name + probe.Path))
+                                            {
+                                                <tr>
+                                                    <td colspan="6" style="padding:0;">
+                                                        <div style="background:rgba(13,7,30,0.03);border-top:1px solid var(--bk-line);border-bottom:1px solid var(--bk-line);">
+                                                            @* Curl command section *@
+                                                            <div style="padding:12px 16px;border-bottom:1px solid var(--bk-line);">
+                                                                <div style="font-size:11px;font-weight:700;color:var(--bk-ink);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                                                                    <span class="material-icons-round" style="font-size:14px;">terminal</span>
+                                                                    Terminal Command (curl)
+                                                                </div>
+                                                                <div style="position:relative;">
+                                                                    <pre style="background:rgba(0,0,0,0.06);padding:10px 14px;border-radius:6px;font-size:11px;font-family:var(--ukuu-font-mono);color:var(--bk-ink);white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto;margin:0;line-height:1.5;">@probe.CurlCommand</pre>
+                                                                    <button style="position:absolute;top:6px;right:6px;background:var(--bk-ink);color:white;border:none;border-radius:4px;padding:3px 6px;font-size:10px;cursor:pointer;" @onclick="() => CopyCurl(probe.CurlCommand)">
+                                                                        <span class="material-icons-round" style="font-size:12px;">content_copy</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            @* Response body section *@
+                                                            @if (!string.IsNullOrEmpty(probe.ResponseBody))
+                                                            {
+                                                                <div style="padding:12px 16px;">
+                                                                    <div style="font-size:11px;font-weight:700;color:var(--bk-ink);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                                                                        <span class="material-icons-round" style="font-size:14px;">code</span>
+                                                                        Raw Response Body
+                                                                    </div>
+                                                                    <pre style="background:rgba(0,0,0,0.06);padding:10px 14px;border-radius:6px;font-size:11px;font-family:var(--ukuu-font-mono);color:var(--bk-ink);white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;margin:0;line-height:1.4;">@probe.ResponseBody</pre>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+
+                    @* ───── Quick Reference: All curl commands ───── *@
+                    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--bk-line);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                            <h4 style="font-size:13px;font-weight:700;color:var(--bk-ink);display:flex;align-items:center;gap:6px;margin:0;">
+                                <span class="material-icons-round" style="font-size:16px;color:var(--bk-accent);">terminal</span>
+                                All Terminal Commands
+                            </h4>
+                            <button class="bk-btn bk-btn-secondary" style="font-size:10px;padding:4px 10px;" @onclick="() => CopyAllCurls(report)">
+                                <span class="material-icons-round" style="font-size:12px;">content_copy</span>
+                                Copy All curl Commands
+                            </button>
+                        </div>
+                        <p style="font-size:11px;color:var(--bk-ink-3);margin-bottom:10px;">
+                            Run these commands from any terminal on the same network as the device.
+                            Successful commands (<span style="color:var(--bk-success);font-weight:600;">200 OK</span>)
+                            confirm the device supports that endpoint; failures indicate the endpoint
+                            is unsupported or the URL needs adjustment.
+                        </p>
+                        <pre style="background:rgba(0,0,0,0.06);padding:14px;border-radius:8px;font-size:10px;font-family:var(--ukuu-font-mono);color:var(--bk-ink);white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;line-height:1.5;">@GetAllCurlsText(report)</pre>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    @@keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+@code {
+    private List<AttendanceDevice> _devices = new();
+    private bool _loaded;
+    private int? _selectedDeviceId;
+    private int? _probingDeviceId;
+    private bool _probingAll;
+    private Dictionary<int, IsapiDiagnosticReport> _reports = new();
+    private HashSet<string> _expandedProbes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var org = await Db.Organizations.FirstOrDefaultAsync();
+            if (org == null)
+            {
+                _loaded = true;
+                return;
+            }
+            _devices = await Db.AttendanceDevices
+                .Where(d => d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision && d.IsActive)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[DeviceDiagnostics] Failed to load: {ex.Message}");
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+
+    private void SelectDevice(int deviceId)
+    {
+        _selectedDeviceId = deviceId;
+    }
+
+    private async Task RunProbe(int deviceId)
+    {
+        var device = _devices.FirstOrDefault(d => d.Id == deviceId);
+        if (device == null || string.IsNullOrEmpty(device.IpAddress)) return;
+
+        _probingDeviceId = deviceId;
+        StateHasChanged();
+
+        try
+        {
+            var report = await DiagService.ProbeDeviceAsync(
+                device.IpAddress,
+                device.Port ?? (device.UseHttps ? 443 : 80),
+                device.Username ?? "admin",
+                device.Password ?? "",
+                device.UseHttps,
+                timeoutSeconds: 15);
+
+            report.DeviceId = device.Id;
+            report.DeviceName = device.Name;
+            _reports[deviceId] = report;
+            _selectedDeviceId = deviceId;
+
+            Snackbar.Add($"Probed {device.Name}: {report.SuccessCount}/{report.TotalProbes} endpoints OK", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Probe failed for {device.Name}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _probingDeviceId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RunAllProbes()
+    {
+        _probingAll = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var device in _devices.Where(d => !string.IsNullOrEmpty(d.IpAddress)))
+            {
+                _probingDeviceId = device.Id;
+                StateHasChanged();
+
+                try
+                {
+                    var report = await DiagService.ProbeDeviceAsync(
+                        device.IpAddress,
+                        device.Port ?? (device.UseHttps ? 443 : 80),
+                        device.Username ?? "admin",
+                        device.Password ?? "",
+                        device.UseHttps,
+                        timeoutSeconds: 15);
+
+                    report.DeviceId = device.Id;
+                    report.DeviceName = device.Name;
+                    _reports[device.Id] = report;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[DeviceDiagnostics] Probe failed for {device.Name}: {ex.Message}");
+                }
+            }
+
+            Snackbar.Add($"Probed {_devices.Count} devices", Severity.Success);
+        }
+        finally
+        {
+            _probingAll = false;
+            _probingDeviceId = null;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleProbeDetail(IsapiProbeResult probe)
+    {
+        var key = probe.Name + probe.Path;
+        if (_expandedProbes.Contains(key))
+            _expandedProbes.Remove(key);
+        else
+            _expandedProbes.Add(key);
+    }
+
+    private async Task CopyCurl(string curlCommand)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", curlCommand);
+            Snackbar.Add("Copied curl command to clipboard", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not copy to clipboard", Severity.Warning);
+        }
+    }
+
+    private async Task CopyAllCurls(IsapiDiagnosticReport report)
+    {
+        var text = GetAllCurlsText(report);
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Snackbar.Add("Copied all curl commands to clipboard", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not copy to clipboard", Severity.Warning);
+        }
+    }
+
+    private string GetAllCurlsText(IsapiDiagnosticReport report)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# ISAPI Endpoint Probe Commands for {report.DeviceName}");
+        sb.AppendLine($"# Device: {report.BaseUrl}");
+        sb.AppendLine($"# Probed: {report.ProbedAt:yyyy-MM-dd HH:mm:ss} UTC");
+        sb.AppendLine();
+
+        foreach (var probe in report.Probes)
+        {
+            var status = probe.IsSuccess ? "OK" : $"FAIL({probe.StatusBadge})";
+            sb.AppendLine($"# {probe.Name} [{status}] ({probe.Method} {probe.Path})");
+            sb.AppendLine(probe.CurlCommand);
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
+    }
+}
