@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>UkuuHr.Sync</RootNamespace>
     <AssemblyName>UkuuHrSync</AssemblyName>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <Company>Ukuu HR</Company>
     <Product>Ukuu HR Sync Bridge</Product>
     <Description>Ukuu HR Sync Bridge — connects to Hikvision devices via ISAPI and syncs attendance to the cloud</Description>
