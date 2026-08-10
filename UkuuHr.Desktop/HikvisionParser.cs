@@ -69,7 +69,11 @@ public static class HikvisionParser
     {
         if (item.ValueKind != JsonValueKind.Object) return;
 
-        var empNo = TryGetString(item, "employeeNo", "EmployeeNo");
+        // Hikvision devices use multiple field names for employee number:
+        //   "employeeNoString" — face recognition terminals (DS-K1T343, etc.)
+        //   "employeeNo"       — access controllers, older firmware
+        //   "EmployeeNo"       — some firmware casing variants
+        var empNo = TryGetString(item, "employeeNoString", "employeeNo", "EmployeeNo");
         var time = TryGetString(item, "time", "eventTime");
         if (string.IsNullOrEmpty(empNo) || string.IsNullOrEmpty(time)) return;
 
@@ -101,6 +105,75 @@ public static class HikvisionParser
                 return value.GetString() ?? "";
         }
         return "";
+    }
+
+    /// <summary>Parse an ISAPI AcsEvent XML response into access events.</summary>
+    public static List<ImportedPunch> ParseAcsEventXml(string xml)
+    {
+        var events = new List<ImportedPunch>();
+        try
+        {
+            var doc = XDocument.Parse(xml);
+
+            // AcsEvent XML uses <Info> elements with attributes or child elements:
+            //   <Info employeeNo="001" time="2026-08-11T08:00:00Z" minor="75"/>
+            //   <Info><employeeNo>001</employeeNo><time>2026-08-11T08:00:00Z</time><minor>75</minor></Info>
+            foreach (var item in doc.Descendants().Where(e => e.Name.LocalName == "Info"))
+            {
+                try
+                {
+                    // Try attribute form first (case-insensitive match)
+                    var empNo = AttrIgnoreCase(item, "employeeNoString", "employeeNo", "EmployeeNo")
+                        ?? ChildLocalValue(item, "employeeNoString")
+                        ?? ChildLocalValue(item, "employeeNo")
+                        ?? "";
+                    var time = AttrIgnoreCase(item, "time", "eventTime")
+                        ?? ChildLocalValue(item, "time")
+                        ?? ChildLocalValue(item, "eventTime")
+                        ?? "";
+
+                    if (string.IsNullOrEmpty(empNo) || string.IsNullOrEmpty(time)) continue;
+
+                    var minorStr = AttrIgnoreCase(item, "minor")
+                        ?? ChildLocalValue(item, "minor")
+                        ?? "75";
+                    var minor = int.TryParse(minorStr, out var m) ? m : 75;
+
+                    events.Add(new ImportedPunch
+                    {
+                        EmployeeNo = empNo,
+                        Time = time,
+                        EventType = ClassifyEventType(minor),
+                        Major = 1,
+                        Minor = minor
+                    });
+                }
+                catch { /* skip malformed item */ }
+            }
+        }
+        catch
+        {
+            // Invalid XML — no events, no crash.
+        }
+        return events;
+    }
+
+    /// <summary>Get an attribute value by name, case-insensitive.</summary>
+    private static string? AttrIgnoreCase(XElement item, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var attr = item.Attribute(name);
+            if (attr != null) return (string?)attr;
+        }
+        // Fallback: scan all attributes case-insensitively
+        foreach (var name in names)
+        {
+            var attr = item.Attributes().FirstOrDefault(a =>
+                string.Equals(a.Name.LocalName, name, StringComparison.OrdinalIgnoreCase));
+            if (attr != null) return (string?)attr;
+        }
+        return null;
     }
 
     /// <summary>Parse an ISAPI AuditLog XML response into access events.</summary>

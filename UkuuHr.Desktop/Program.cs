@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -5,105 +6,85 @@ using System.Text.Json;
 namespace UkuuHr.Sync;
 
 /// <summary>
-/// Ukuu HR Sync Bridge
+/// Ukuu HR Access Sync Bridge v2.4.0
 /// 
 /// A cross-platform desktop application that:
-/// 1. Connects to a Hikvision biometric terminal via ISAPI (on the local network)
+/// 1. Connects to a Hikvision biometric/access terminal via ISAPI (local network)
 /// 2. Fetches access events (door/terminal access records — universal for all device types)
 /// 3. Pushes them to the Ukuu HR cloud API (ukuuhr.com)
 /// 4. Auto-syncs on a configurable interval (default: every 5 minutes)
 /// 
-/// Usage:
-///   UkuuHrSync                    — interactive setup, then continuous sync
-///   UkuuHrSync --once             — single sync, then exit
-///   UkuuHrSync --config=settings.json  — use a config file
-///   UkuuHrSync --headless         — non-interactive mode (requires settings.json)
+/// ISAPI 3-Tier Fallback:
+///   Tier 1: AcsEvent JSON  — POST /ISAPI/AccessControl/AcsEvent?format=json
+///   Tier 2: AcsEvent XML   — POST /ISAPI/AccessControl/AcsEvent (XML body)
+///   Tier 3: AuditLog XML   — POST /ISAPI/System/AuditLog (legacy devices only)
 /// 
-/// The app reads/writes settings.json in the same directory for persistence.
-/// When launched as a macOS .app bundle (no TTY), it runs in headless mode
-/// automatically and creates a default settings.json if none exists.
+/// Auth: HTTP Digest (required by Hikvision firmware V4.x+)
 /// </summary>
 class Program
 {
-    private static readonly HttpClient _httpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+    // .NET's HttpClientHandler with Credentials automatically handles HTTP Digest
+    // auth (RFC 2617, qop=auth, MD5) when the device returns 401 + WWW-Authenticate: Digest.
+    // PreAuthenticate=true sends credentials on the first request to avoid extra round-trips.
+    private static HttpClient _httpClient = CreateDigestClient("admin", "");
 
-    /// <summary>
-    /// Detects whether stdin is connected to a terminal (TTY).
-    /// On macOS, when the .app is launched from Finder, no TTY is attached
-    /// and Console.ReadLine() / Console.ReadKey() throw IOException.
-    /// </summary>
+    private static HttpClient CreateDigestClient(string username, string password)
+    {
+        var handler = new HttpClientHandler
+        {
+            Credentials = new NetworkCredential(username, password),
+            PreAuthenticate = true
+        };
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+    }
+
     private static bool HasTty()
     {
-        try
-        {
-            // On Unix/macOS, try to check if stdin is a terminal
-            if (Console.IsInputRedirected) return false;
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        try { return !Console.IsInputRedirected; }
+        catch { return false; }
     }
 
     static async Task<int> Main(string[] args)
     {
-        // ── Top-level exception handler — prevents SIGABRT on unhandled exceptions ──
-        try
-        {
-            return await RunApp(args);
-        }
+        try { return await RunApp(args); }
         catch (Exception ex)
         {
-            // Last-resort catch: log to file and console, then exit cleanly
             var logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync-error.log");
-            try
-            {
-                await File.WriteAllTextAsync(logPath,
-                    $"[{DateTime.UtcNow:O}] FATAL: {ex}\n");
-            }
-            catch { /* give up */ }
-
-            try { Console.Error.WriteLine($"FATAL: {ex.Message}"); }
-            catch { /* no console */ }
-
+            try { await File.WriteAllTextAsync(logPath, $"[{DateTime.UtcNow:O}] FATAL: {ex}\n"); } catch { }
+            try { Console.Error.WriteLine($"FATAL: {ex.Message}"); } catch { }
             return 2;
         }
     }
 
     static async Task<int> RunApp(string[] args)
     {
-        try { Console.OutputEncoding = Encoding.UTF8; }
-        catch { /* no console — headless mode */ }
+        try { Console.OutputEncoding = Encoding.UTF8; } catch { }
 
         bool onceMode = args.Contains("--once");
         bool headlessMode = args.Contains("--headless");
         string? configPath = args.FirstOrDefault(a => a.StartsWith("--config="))?["--config=".Length..];
         configPath ??= Path.Combine(AppContext.BaseDirectory, "settings.json");
 
-        // ── Auto-detect headless mode (no TTY = launched from Finder) ───────
         if (!headlessMode && !HasTty())
         {
             headlessMode = true;
-            WriteLog("Running in headless mode (no TTY detected — likely launched from Finder/Dock).");
+            WriteLog("Running in headless mode (no TTY detected).");
         }
 
         PrintBanner();
 
-        // ── Load or create settings ──────────────────────────────────────────
         var settings = LoadOrCreateSettings(configPath, headlessMode);
         if (settings == null)
         {
             WriteLog($"No settings found at: {configPath}");
             WriteLog("Run from Terminal with: ./UkuuHrSync");
-            WriteLog("Or create settings.json manually. See README for format.");
             return 1;
         }
 
-        var scheme = settings.UseHttps.GetValueOrDefault(true) ? "https" : "http";
+        // Create HttpClient with Digest auth for this device
+        _httpClient = CreateDigestClient(settings.DeviceUsername, settings.DevicePassword);
+
+        var scheme = settings.UseHttps.GetValueOrDefault(false) ? "https" : "http";
         WriteLog($"\n  Device:   {scheme}://{settings.DeviceIp}:{settings.DevicePort}");
         WriteLog($"  Username: {settings.DeviceUsername}");
         WriteLog($"  Cloud:    {settings.CloudUrl}");
@@ -111,12 +92,8 @@ class Program
         WriteLog("");
 
         if (!onceMode)
-        {
-            WriteLog("  Press Ctrl+C to stop. The bridge will auto-sync every " +
-                $"{settings.SyncIntervalMinutes} minutes.\n");
-        }
+            WriteLog("  Press Ctrl+C to stop. Auto-sync every " + $"{settings.SyncIntervalMinutes} minutes.\n");
 
-        // ── Sync loop ────────────────────────────────────────────────────────
         var lastSync = DateTime.MinValue;
         var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (s, e) => { e.Cancel = true; cts.Cancel(); };
@@ -135,32 +112,23 @@ class Program
             }
 
             if (onceMode) break;
-
             try { await Task.Delay(settings.SyncIntervalMinutes * 60 * 1000, cts.Token); }
             catch (TaskCanceledException) { break; }
         }
 
-        WriteLog("  Ukuu HR Sync Bridge stopped.");
+        WriteLog("  Ukuu HR Access Sync Bridge stopped.");
         return 0;
     }
 
-    /// <summary>
-    /// Write a log line to both the console (if available) and a persistent log file.
-    /// This ensures messages are visible even in headless / no-TTY mode.
-    /// </summary>
     static void WriteLog(string message)
     {
-        // Write to console if possible
-        try { Console.WriteLine(message); }
-        catch { /* no console — ignore */ }
-
-        // Always append to log file for headless debugging
+        try { Console.WriteLine(message); } catch { }
         try
         {
             var logPath = Path.Combine(AppContext.BaseDirectory, "ukuu-sync.log");
             File.AppendAllText(logPath, $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {message}\n");
         }
-        catch { /* can't write log — nothing more we can do */ }
+        catch { }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -168,118 +136,198 @@ class Program
     // ═══════════════════════════════════════════════════════════════════════
     static async Task RunSync(SyncSettings settings, DateTime lastSync, CancellationToken ct)
     {
-        var scheme = settings.UseHttps.GetValueOrDefault(true) ? "https" : "http";
+        var scheme = settings.UseHttps.GetValueOrDefault(false) ? "https" : "http";
         var baseUrl = $"{scheme}://{settings.DeviceIp}:{settings.DevicePort}";
-        var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.DeviceUsername}:{settings.DevicePassword}"));
 
         WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connecting to device at {baseUrl}...");
 
-        // ── Step 1: Get device info (validates connection) ───────────────────
-        string deviceName = "Unknown", deviceModel = "Unknown";
+        // ── Step 1: Get device info (validates connection + Digest auth) ─────
+        string deviceName = "Unknown", deviceModel = "Unknown", serialNo = "";
         try
         {
             var infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", ct);
-            if (!infoResp.IsSuccessStatusCode)
-            {
-                // Try with auth header
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
-                infoResp = await _httpClient.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo", ct);
-            }
             if (infoResp.IsSuccessStatusCode)
             {
                 var xml = await infoResp.Content.ReadAsStringAsync(ct);
                 deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
                 deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Connected: {deviceName} ({deviceModel})");
+                serialNo = HikvisionParser.ExtractXmlValue(xml, "serialNo") ?? "";
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] CONNECTED to {deviceName} ({deviceModel})");
+                if (!string.IsNullOrEmpty(serialNo))
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] Serial: {serialNo}");
             }
             else
             {
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Could not get device info (HTTP {(int)infoResp.StatusCode}). Continuing with event fetch...");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Device info HTTP {(int)infoResp.StatusCode}. Continuing...");
             }
         }
         catch (Exception ex)
         {
-            WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Device info probe failed: {ex.Message}. Continuing...");
+            WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Device info failed: {ex.Message}. Continuing...");
         }
 
-        // ── Step 2: Fetch access events via AcsEvent ─────────────────────
-        var fromTime = lastSync == DateTime.MinValue
-            ? DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-ddTHH:mm:ssZ")
-            : lastSync.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        var toTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        // ── Step 2: Fetch access events via 3-tier ISAPI fallback ──────────
+        var fromTime = lastSync == DateTime.MinValue ? DateTime.UtcNow.AddDays(-7) : lastSync;
+        var toTime = DateTime.UtcNow;
+        var fromStr = fromTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var toStr = toTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
-        var searchBody = JsonSerializer.Serialize(new
-        {
-            AcsEventSearchDescription = new
-            {
-                searchID = $"sync_{DateTime.UtcNow:yyyyMMddHHmmss}",
-                searchResultPosition = 0,
-                maxResults = 1000,
-                major = 0,
-                minor = 0,
-                startTime = fromTime,
-                endTime = toTime
-            }
-        });
+        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Pulling access records...");
+        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Date range: {fromTime:yyyy-MM-dd HH:mm} to {toTime:yyyy-MM-dd HH:mm} ({(toTime - fromTime).Days} days)\n");
 
         List<ImportedPunch> events = new();
+        var tier1Status = "";
+        var tier2Status = "";
+        var tier3Status = "";
+
+        // ── Tier 1: AcsEvent JSON ──────────────────────────────────────────
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", auth);
-            var content = new StringContent(searchBody, Encoding.UTF8, "application/json");
-            var eventResp = await _httpClient.PostAsync($"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json", content, ct);
-
-            if (!eventResp.IsSuccessStatusCode)
+            var searchBody = JsonSerializer.Serialize(new
             {
-                // Fallback: try AuditLog XML endpoint
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent returned HTTP {(int)eventResp.StatusCode}, trying AuditLog...");
-                var auditUrl = $"{baseUrl}/ISAPI/AccessControl/AuditLog/search?searchID=sync_{DateTime.UtcNow:yyyyMMddHHmmss}&startTime={Uri.EscapeDataString(fromTime)}&endTime={Uri.EscapeDataString(toTime)}&maxResults=1000";
-                var auditResp = await _httpClient.GetAsync(auditUrl, ct);
-                if (auditResp.IsSuccessStatusCode)
+                AcsEventCond = new  // CORRECT wrapper (not AcsEventSearchDescription)
                 {
-                    var auditXml = await auditResp.Content.ReadAsStringAsync(ct);
-                    events = HikvisionParser.ParseAuditLogXml(auditXml);
+                    searchID = "1",  // Must be STRING, not number
+                    searchResultPosition = 0,
+                    maxResults = 200,
+                    major = 0,
+                    minor = 0,
+                    startTime = fromStr,
+                    endTime = toStr
+                }
+            });
+
+            var resp = await _httpClient.PostAsync(
+                $"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json",
+                new StringContent(searchBody, Encoding.UTF8, "application/json"), ct);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var json = await resp.Content.ReadAsStringAsync(ct);
+                events = HikvisionParser.ParseAcsEventJson(json);
+                tier1Status = $"OK — {events.Count} records";
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (JSON): {events.Count} records fetched");
+            }
+            else
+            {
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                var summary = Truncate(body, 120);
+                tier1Status = $"HTTP {(int)resp.StatusCode} — {summary}";
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (JSON): HTTP {(int)resp.StatusCode} — {summary}");
+            }
+        }
+        catch (Exception ex)
+        {
+            tier1Status = $"Error — {ex.Message}";
+            WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (JSON): {ex.Message}");
+        }
+
+        // ── Tier 2: AcsEvent XML ───────────────────────────────────────────
+        if (events.Count == 0)
+        {
+            try
+            {
+                var xmlBody = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                    "<AcsEventCond version=\"2.0\" xmlns=\"http://www.isapi.org/ver20/XMLSchema\">" +
+                    "<searchID>1</searchID>" +
+                    "<searchResultPosition>0</searchResultPosition>" +
+                    "<maxResults>200</maxResults>" +
+                    "<major>0</major><minor>0</minor>" +
+                    $"<startTime>{fromStr}</startTime>" +
+                    $"<endTime>{toStr}</endTime>" +
+                    "</AcsEventCond>";
+
+                var resp = await _httpClient.PostAsync(
+                    $"{baseUrl}/ISAPI/AccessControl/AcsEvent",
+                    new StringContent(xmlBody, Encoding.UTF8, "application/xml"), ct);
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    var xml = await resp.Content.ReadAsStringAsync(ct);
+                    events = HikvisionParser.ParseAcsEventXml(xml);
+                    tier2Status = $"OK — {events.Count} records";
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (XML): {events.Count} records fetched");
                 }
                 else
                 {
-                    throw new Exception($"Both AcsEvent (HTTP {(int)eventResp.StatusCode}) and AuditLog (HTTP {(int)auditResp.StatusCode}) failed.");
+                    var body = await resp.Content.ReadAsStringAsync(ct);
+                    tier2Status = $"HTTP {(int)resp.StatusCode} — {Truncate(body, 120)}";
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (XML): HTTP {(int)resp.StatusCode} — {Truncate(body, 120)}");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                var json = await eventResp.Content.ReadAsStringAsync(ct);
-                events = HikvisionParser.ParseAcsEventJson(json);
+                tier2Status = $"Error — {ex.Message}";
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AcsEvent (XML): {ex.Message}");
             }
         }
-        catch (Exception ex)
-        {
-            WriteLog($"  [{DateTime.Now:HH:mm:ss}] ERROR fetching events: {ex.Message}");
-            return;
-        }
 
+        // ── Tier 3: AuditLog XML (legacy devices only) ─────────────────────
         if (events.Count == 0)
         {
-            WriteLog($"  [{DateTime.Now:HH:mm:ss}] No new access events found (range: {fromTime} to {toTime}).");
+            try
+            {
+                var xmlBody = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                    "<AuditLogCond version=\"2.0\" xmlns=\"http://www.isapi.org/ver20/XMLSchema\">" +
+                    "<searchID>1</searchID>" +
+                    "<searchResultPosition>0</searchResultPosition>" +
+                    "<maxResults>200</maxResults>" +
+                    "<major>0</major><minor>0</minor>" +
+                    $"<startTime>{fromStr}</startTime>" +
+                    $"<endTime>{toStr}</endTime>" +
+                    "</AuditLogCond>";
+
+                var resp = await _httpClient.PostAsync(
+                    $"{baseUrl}/ISAPI/System/AuditLog",
+                    new StringContent(xmlBody, Encoding.UTF8, "application/xml"), ct);
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    var xml = await resp.Content.ReadAsStringAsync(ct);
+                    events = HikvisionParser.ParseAuditLogXml(xml);
+                    tier3Status = $"OK — {events.Count} records";
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] AuditLog: {events.Count} records fetched");
+                }
+                else
+                {
+                    tier3Status = $"HTTP {(int)resp.StatusCode}";
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] AuditLog: HTTP {(int)resp.StatusCode} (not supported)");
+                }
+            }
+            catch (Exception ex)
+            {
+                tier3Status = $"Error — {ex.Message}";
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] AuditLog: {ex.Message}");
+            }
+        }
+
+        // ── Summary ─────────────────────────────────────────────────────────
+        if (events.Count == 0)
+        {
+            WriteLog($"\n  All event endpoints attempted:");
+            WriteLog($"    AcsEvent JSON: {tier1Status}");
+            WriteLog($"    AcsEvent XML:  {tier2Status}");
+            WriteLog($"    AuditLog:      {tier3Status}");
+            WriteLog($"\n  No access records found in the last {(toTime - fromTime).Days} days.");
             return;
         }
 
-        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Fetched {events.Count} access events. Pushing to cloud...");
+        WriteLog($"\n  [{DateTime.Now:HH:mm:ss}] Fetched {events.Count} access records. Pushing to cloud...");
 
         // ── Step 3: Push events to the cloud API ────────────────────────────
         var payload = JsonSerializer.Serialize(new
         {
             events = events,
-            deviceInfo = new { name = deviceName, model = deviceModel, serial = "" },
-            faceRecognition = (object?)null
+            deviceInfo = new { name = deviceName, model = deviceModel, serial = serialNo }
         });
 
         try
         {
-            var cloudContent = new StringContent(payload, Encoding.UTF8, "application/json");
             var cloudUrl = settings.CloudUrl!.TrimEnd('/') + "/api/access/save-imported";
-
-            // Add API key header if configured
-            var request = new HttpRequestMessage(HttpMethod.Post, cloudUrl) { Content = cloudContent };
+            var request = new HttpRequestMessage(HttpMethod.Post, cloudUrl)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
             if (!string.IsNullOrEmpty(settings.ApiKey))
                 request.Headers.Add("X-API-Key", settings.ApiKey);
 
@@ -288,12 +336,10 @@ class Program
 
             if (cloudResp.IsSuccessStatusCode)
             {
-                // ── Parse cloud response safely — never crash on unexpected JSON ──
                 try
                 {
                     using var doc = JsonDocument.Parse(cloudJson);
                     var root = doc.RootElement;
-
                     int fetched = 0, matched = 0, imported = 0;
                     if (root.TryGetProperty("eventsFetched", out var ef) && ef.ValueKind == JsonValueKind.Number)
                         fetched = ef.GetInt32();
@@ -301,20 +347,16 @@ class Program
                         matched = em.GetInt32();
                     if (root.TryGetProperty("recordsImported", out var ri) && ri.ValueKind == JsonValueKind.Number)
                         imported = ri.GetInt32();
-
-                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud sync complete: " +
-                        $"{fetched} events, {matched} matched, {imported} imported.");
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud sync: {fetched} events, {matched} matched, {imported} imported.");
                 }
-                catch (JsonException jex)
+                catch (JsonException)
                 {
-                    // API returned 200 but unexpected JSON body — log but don't crash
-                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud sync OK (response: {cloudJson[..Math.Min(cloudJson.Length, 200)]})");
-                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] NOTE: Could not parse cloud response details: {jex.Message}");
+                    WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud sync OK (response: {Truncate(cloudJson, 200)})");
                 }
             }
             else
             {
-                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud API error (HTTP {(int)cloudResp.StatusCode}): {cloudJson[..Math.Min(cloudJson.Length, 200)]}");
+                WriteLog($"  [{DateTime.Now:HH:mm:ss}] Cloud API error (HTTP {(int)cloudResp.StatusCode}): {Truncate(cloudJson, 200)}");
             }
         }
         catch (Exception ex)
@@ -323,10 +365,7 @@ class Program
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ISAPI event parsers — extracted to HikvisionParser.cs (unit-tested with
-    // 1000+ cases; hardened against malformed payloads).
-    // ═══════════════════════════════════════════════════════════════════════
+    static string Truncate(string s, int max) => s.Length <= max ? s : s[..max] + "...";
 
     // ═══════════════════════════════════════════════════════════════════════
     // Settings
@@ -338,19 +377,13 @@ class Program
             try
             {
                 var json = File.ReadAllText(path);
-                var loaded = JsonSerializer.Deserialize<SyncSettings>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                var loaded = JsonSerializer.Deserialize<SyncSettings>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (loaded != null && loaded.IsValid())
                 {
                     WriteLog($"  Loaded settings from: {path}");
                     return loaded;
                 }
-                else
-                {
-                    WriteLog($"  WARNING: settings.json at {path} is invalid. Falling back to defaults.");
-                }
+                WriteLog($"  WARNING: settings.json invalid. Using defaults.");
             }
             catch (Exception ex)
             {
@@ -358,31 +391,20 @@ class Program
             }
         }
 
-        // ── Headless mode: create default settings.json and return it ────────
-        // When launched from Finder (no TTY), we can't do interactive setup.
-        // Write a default config that the user can edit manually.
         if (headlessMode || !HasTty())
         {
             var defaults = new SyncSettings();
             try
             {
-                var json = JsonSerializer.Serialize(defaults, new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                });
+                var json = JsonSerializer.Serialize(defaults, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
                 File.WriteAllText(path, json);
                 WriteLog($"\n  No settings.json found. Created default at: {path}");
                 WriteLog("  Edit this file with your Hikvision device details, then restart.");
             }
-            catch (Exception ex)
-            {
-                WriteLog($"\n  WARNING: Could not save default settings: {ex.Message}");
-            }
+            catch (Exception ex) { WriteLog($"\n  WARNING: Could not save default settings: {ex.Message}"); }
             return defaults;
         }
 
-        // ── Interactive setup (TTY available) ───────────────────────────────
         Console.WriteLine("  First-time setup — enter your Hikvision device details:\n");
 
         Console.Write("  Device IP Address [192.168.1.137]: ");
@@ -416,39 +438,22 @@ class Program
 
         var settings = new SyncSettings
         {
-            DeviceIp = ip,
-            DevicePort = port,
-            UseHttps = https,
-            DeviceUsername = user,
-            DevicePassword = pass,
-            CloudUrl = cloudUrl,
-            ApiKey = apiKey,
-            SyncIntervalMinutes = interval
+            DeviceIp = ip, DevicePort = port, UseHttps = https,
+            DeviceUsername = user, DevicePassword = pass,
+            CloudUrl = cloudUrl, ApiKey = apiKey, SyncIntervalMinutes = interval
         };
 
-        // Save settings
         try
         {
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
+            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             File.WriteAllText(path, json);
             Console.WriteLine($"\n  Settings saved to: {path}");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"\n  WARNING: Could not save settings: {ex.Message}");
-        }
+        catch (Exception ex) { Console.WriteLine($"\n  WARNING: Could not save settings: {ex.Message}"); }
 
         return settings;
     }
 
-    /// <summary>
-    /// Safe wrapper for Console.ReadLine() — returns null instead of throwing
-    /// when no TTY is attached (macOS .app bundle launched from Finder).
-    /// </summary>
     static string? ReadLineSafe()
     {
         try { return Console.ReadLine(); }
@@ -463,17 +468,8 @@ class Program
         {
             ConsoleKeyInfo key;
             try { key = Console.ReadKey(true); }
-            catch (IOException)
-            {
-                // No TTY — can't read password interactively, return empty
-                Console.WriteLine();
-                return "";
-            }
-            catch (InvalidOperationException)
-            {
-                Console.WriteLine();
-                return "";
-            }
+            catch (IOException) { Console.WriteLine(); return ""; }
+            catch (InvalidOperationException) { Console.WriteLine(); return ""; }
 
             if (key.Key == ConsoleKey.Enter) break;
             if (key.Key == ConsoleKey.Backspace && pass.Length > 0)
@@ -497,7 +493,7 @@ class Program
         {
             "",
             "  ╔═══════════════════════════════════════════════╗",
-            "  ║       UKUU HR — ACCESS SYNC BRIDGE v2.3.0     ║",
+            "  ║       UKUU HR — ACCESS SYNC BRIDGE v2.4.0     ║",
             "  ╠═══════════════════════════════════════════════╣",
             "  ║  Syncs Hikvision access data to Ukuu HR cloud  ║",
             "  ╚═══════════════════════════════════════════════╝",
@@ -505,17 +501,12 @@ class Program
         };
         foreach (var line in lines)
         {
-            try { Console.WriteLine(line); }
-            catch { /* no console */ }
+            try { Console.WriteLine(line); } catch { }
         }
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// Data models
-// ═══════════════════════════════════════════════════════════════════════
-
-class SyncSettings
+public class SyncSettings
 {
     public string DeviceIp { get; set; } = "192.168.1.137";
     public int DevicePort { get; set; } = 80;
