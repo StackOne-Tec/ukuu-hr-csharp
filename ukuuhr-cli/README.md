@@ -4,8 +4,25 @@
 
 ## Install
 
+### From GitHub Packages
+
+First, configure npm to use GitHub Packages for the `@stackone-tec` scope. Create or edit `~/.npmrc`:
+
+```
+@stackone-tec:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+Then install:
+
 ```bash
-npm install -g ukuuhr
+npm install -g @stackone-tec/ukuuhr
+```
+
+### Without Global Install (npx)
+
+```bash
+npx @stackone-tec/ukuuhr connect
 ```
 
 ## Quick Start
@@ -28,7 +45,7 @@ ukuuhr probe
 
 | Command | Description |
 |---------|-------------|
-| `connect` | Connect to a Hikvision device and verify connection |
+| `connect` | Connect to a Hikvision device, verify connection, and pull attendance records |
 | `sync` | Fetch attendance events and push to Ukuu HR cloud (continuous or `--once`) |
 | `attendance` | Pull attendance records from device and display locally |
 | `probe` | Probe all ISAPI endpoints — discover what your device supports |
@@ -54,14 +71,17 @@ ukuuhr probe
 ## Examples
 
 ```bash
-# Connect to device
+# Connect to device (default command)
 ukuuhr connect
+
+# Connect with 30-day attendance range
+ukuuhr connect --days=30
 
 # Show attendance for last 7 days
 ukuuhr attendance
 
 # Show attendance for last 30 days
-ukuuuhr attendance --days=30
+ukuuhr attendance --days=30
 
 # Export attendance as JSON
 ukuuhr attendance --json --save=records.json
@@ -129,6 +149,7 @@ Run `ukuuhr probe` to discover which endpoints your specific device supports.
 - Node.js 18+
 - Network access to your Hikvision device
 - Device credentials (username/password)
+- GitHub personal access token (for package install from GitHub Packages)
 
 ## License
 
