@@ -1,0 +1,34 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="UkuuHr.Sync.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+    <Application.Resources>
+        <!-- Brand Colors -->
+        <Color x:Key="UkuuPrimary">#3B82F6</Color>
+        <Color x:Key="UkuuPrimaryDark">#2563EB</Color>
+        <Color x:Key="UkuuAccent">#F59E0B</Color>
+        <Color x:Key="UkuuSuccess">#10B981</Color>
+        <Color x:Key="UkuuError">#EF4444</Color>
+        <Color x:Key="UkuuWarning">#F59E0B</Color>
+        <Color x:Key="UkuuSurface">#1E293B</Color>
+        <Color x:Key="UkuuSurfaceLight">#334155</Color>
+        <Color x:Key="UkuuTextPrimary">#F8FAFC</Color>
+        <Color x:Key="UkuuTextSecondary">#94A3B8</Color>
+        <Color x:Key="UkuuBorder">#475569</Color>
+
+        <SolidColorBrush x:Key="UkuuPrimaryBrush" Color="{StaticResource UkuuPrimary}"/>
+        <SolidColorBrush x:Key="UkuuPrimaryDarkBrush" Color="{StaticResource UkuuPrimaryDark}"/>
+        <SolidColorBrush x:Key="UkuuAccentBrush" Color="{StaticResource UkuuAccent}"/>
+        <SolidColorBrush x:Key="UkuuSuccessBrush" Color="{StaticResource UkuuSuccess}"/>
+        <SolidColorBrush x:Key="UkuuErrorBrush" Color="{StaticResource UkuuError}"/>
+        <SolidColorBrush x:Key="UkuuWarningBrush" Color="{StaticResource UkuuWarning}"/>
+        <SolidColorBrush x:Key="UkuuSurfaceBrush" Color="{StaticResource UkuuSurface}"/>
+        <SolidColorBrush x:Key="UkuuSurfaceLightBrush" Color="{StaticResource UkuuSurfaceLight}"/>
+        <SolidColorBrush x:Key="UkuuTextPrimaryBrush" Color="{StaticResource UkuuTextPrimary}"/>
+        <SolidColorBrush x:Key="UkuuTextSecondaryBrush" Color="{StaticResource UkuuTextSecondary}"/>
+        <SolidColorBrush x:Key="UkuuBorderBrush" Color="{StaticResource UkuuBorder}"/>
+    </Application.Resources>
+</Application>

@@ -1,26 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>UkuuHr.Sync</RootNamespace>
     <AssemblyName>UkuuHrSync</AssemblyName>
-    <Version>2.4.0</Version>
+    <Version>3.0.0</Version>
     <Company>Ukuu HR</Company>
-    <Product>Ukuu HR Sync Bridge</Product>
+    <Product>Ukuu HR Access Sync Bridge</Product>
     <Description>Ukuu HR Access Sync Bridge — connects to Hikvision devices via ISAPI and syncs access data to the cloud</Description>
 
-    <!-- Windows app icon — the Ukuu brand mark (PNG-compressed multi-size .ico) -->
     <ApplicationIcon>Ukuu_brand_mark.ico</ApplicationIcon>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 
-    <!-- Single-file publish, self-contained (no .NET runtime needed on target machine) -->
+    <!-- Self-contained single-file publish for distribution -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
 
 </Project>
