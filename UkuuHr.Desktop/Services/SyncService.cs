@@ -182,6 +182,7 @@ public class SyncService : IDisposable
             }
 
             result.RecordsFetched = events.Count;
+            result.Records = events;
 
             if (events.Count == 0)
             {
@@ -277,41 +278,77 @@ public class SyncService : IDisposable
     // ISAPI Tier Implementations
     // ═══════════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Fetch ALL AcsEvent records via paginated JSON requests.
+    /// Pages through 200 records at a time until the device returns
+    /// fewer records than maxResults (last page) or we hit 50 pages (10,000 records).
+    /// </summary>
     private async Task<(List<ImportedPunch> Events, string Message)> TryAcsEventJson(
         string baseUrl, string fromStr, string toStr, CancellationToken ct)
     {
+        var allEvents = new List<ImportedPunch>();
+        const int pageSize = 200;
+        const int maxPages = 50;
+        int position = 0;
+        int page = 0;
+        bool morePages = true;
+
         try
         {
-            var searchBody = JsonSerializer.Serialize(new
+            while (morePages && page < maxPages)
             {
-                AcsEventCond = new
+                var searchBody = JsonSerializer.Serialize(new
                 {
-                    searchID = "1",
-                    searchResultPosition = 0,
-                    maxResults = 200,
-                    major = 0,
-                    minor = 0,
-                    startTime = fromStr,
-                    endTime = toStr
+                    AcsEventCond = new
+                    {
+                        searchID = "1",
+                        searchResultPosition = position,
+                        maxResults = pageSize,
+                        major = 0,
+                        minor = 0,
+                        startTime = fromStr,
+                        endTime = toStr
+                    }
+                });
+
+                var resp = await _httpClient!.PostAsync(
+                    $"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json",
+                    new StringContent(searchBody, Encoding.UTF8, "application/json"), ct);
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    var json = await resp.Content.ReadAsStringAsync(ct);
+                    var pageEvents = HikvisionParser.ParseAcsEventJson(json);
+                    allEvents.AddRange(pageEvents);
+                    page++;
+
+                    if (pageEvents.Count < pageSize)
+                        morePages = false;
+                    else
+                        position += pageSize;
+
+                    if (page > 1 && pageEvents.Count > 0)
+                        AddLog(LogLevel.Info, $"  Page {page}: {pageEvents.Count} records (total: {allEvents.Count})");
                 }
-            });
-
-            var resp = await _httpClient!.PostAsync(
-                $"{baseUrl}/ISAPI/AccessControl/AcsEvent?format=json",
-                new StringContent(searchBody, Encoding.UTF8, "application/json"), ct);
-
-            if (resp.IsSuccessStatusCode)
-            {
-                var json = await resp.Content.ReadAsStringAsync(ct);
-                var events = HikvisionParser.ParseAcsEventJson(json);
-                return (events, $"{events.Count} records");
+                else
+                {
+                    if (page == 0)
+                    {
+                        var body = await resp.Content.ReadAsStringAsync(ct);
+                        return (new List<ImportedPunch>(), $"HTTP {(int)resp.StatusCode} — {Truncate(body, 100)}");
+                    }
+                    AddLog(LogLevel.Warning, $"  Page {page + 1} returned HTTP {(int)resp.StatusCode}. Stopping pagination.");
+                    morePages = false;
+                }
             }
 
-            var body = await resp.Content.ReadAsStringAsync(ct);
-            return (new List<ImportedPunch>(), $"HTTP {(int)resp.StatusCode} — {Truncate(body, 100)}");
+            var paginationNote = page > 1 ? $" across {page} pages" : "";
+            return (allEvents, $"{allEvents.Count} records{paginationNote}");
         }
         catch (Exception ex)
         {
+            if (allEvents.Count > 0)
+                return (allEvents, $"{allEvents.Count} records (pagination interrupted: {Truncate(ex.Message, 60)})");
             return (new List<ImportedPunch>(), $"Error: {ex.Message}");
         }
     }
@@ -553,6 +590,7 @@ public class SyncResult
 
     // Records
     public int RecordsFetched { get; set; }
+    public List<ImportedPunch> Records { get; set; } = new();
     public int EmployeesMatched { get; set; }
     public int RecordsImported { get; set; }
 

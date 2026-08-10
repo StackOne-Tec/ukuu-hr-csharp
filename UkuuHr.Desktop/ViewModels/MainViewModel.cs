@@ -129,6 +129,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _latestLogMessage = "Ready";
     [ObservableProperty] private LogLevel _latestLogLevel = LogLevel.Info;
 
+    // ── Fetched Records Table ─────────────────────────────────────────────────
+    public ObservableCollection<ImportedPunch> FetchedRecords { get; } = new();
+    [ObservableProperty] private int _fetchedRecordCount;
+
     // ── Status ───────────────────────────────────────────────────────────────
     [ObservableProperty] private string _statusMessage = "Ready";
     [ObservableProperty] private string _connectionStatus = "Not connected";
@@ -284,6 +288,15 @@ public partial class MainViewModel : ObservableObject
         LastSyncResult = result;
         LastSyncTime = DateTime.Now;
         TotalRecordsSynced = _syncService.TotalRecordsSynced;
+
+        // Update fetched records table
+        FetchedRecords.Clear();
+        if (result.Records != null)
+        {
+            foreach (var record in result.Records)
+                FetchedRecords.Add(record);
+        }
+        FetchedRecordCount = result.RecordsFetched;
 
         if (result.Success)
         {

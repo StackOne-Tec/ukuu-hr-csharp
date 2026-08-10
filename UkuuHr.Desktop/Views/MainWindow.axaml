@@ -84,6 +84,44 @@
                             </Border>
                         </UniformGrid>
 
+                        <!-- Fetched Records Table -->
+                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="ACCESS RECORDS" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                        <Border Background="#334155" CornerRadius="4" Padding="6,2">
+                                            <TextBlock Text="{Binding FetchedRecordCount}" FontSize="11" Foreground="#3B82F6" FontWeight="Bold"/>
+                                        </Border>
+                                        <TextBlock Text="records" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                                <DataGrid ItemsSource="{Binding FetchedRecords}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          SelectionMode="Extended"
+                                          GridLinesVisibility="Horizontal"
+                                          HeadersVisibility="Column"
+                                          Background="#0F172A"
+                                          RowBackground="#1E293B"
+                                          BorderThickness="0"
+                                          MaxHeight="350"
+                                          FontSize="12">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Employee No" Binding="{Binding EmployeeNo}" Width="*">
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="2*">
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="Event" Binding="{Binding EventType}" Width="90">
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="Minor" Binding="{Binding Minor}" Width="60">
+                                        </DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Border>
+
                         <!-- Sync Result -->
                         <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
                             <StackPanel Spacing="6">
