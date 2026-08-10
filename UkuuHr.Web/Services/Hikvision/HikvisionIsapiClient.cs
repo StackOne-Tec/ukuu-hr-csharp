@@ -146,6 +146,7 @@ public class HikvisionIsapiClient : IDisposable
         var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+            SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13,
             PreAuthenticate = true,
             Credentials = new System.Net.NetworkCredential(config.Username, config.Password)
         };

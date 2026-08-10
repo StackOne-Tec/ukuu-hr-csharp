@@ -10,8 +10,11 @@ namespace UkuuHr.Data;
 ///
 /// Set the SEED_DEMO_DATA env var to "false" (or "0") to skip all demo seeding —
 /// only the schema is created via EnsureCreatedAsync. This is the production mode:
-/// a clean database with zero phantom/demo rows. Login still works via the
-/// hardcoded admin fallback in AuthService (admin@ukuuhr.demo / Admin@2025).
+/// a clean database with zero phantom/demo rows.
+///
+/// P0/C-2: Admin password is read from UKUU_ADMIN_PASSWORD env var.
+/// If not set, a random password is generated and logged once.
+/// P3/L-1: Demo device passwords are randomized (not hardcoded).
 /// </summary>
 public static class DbSeeder
 {
@@ -486,13 +489,18 @@ public static class DbSeeder
         await db.SaveChangesAsync();
 
         // ───── User accounts (for PostgreSQL-backed authentication) ─────
-        // The admin account (admin@ukuuhr.demo / Admin@2025) is what the login form checks against.
-        // AuthUid="demo-admin" marks these as demo accounts with the known Admin@2025 password.
+        // P0/C-2: Admin password from UKUU_ADMIN_PASSWORD env var or auto-generated.
+        // AuthUid contains the BCrypt hash for password verification.
+        var adminPwd = Environment.GetEnvironmentVariable("UKUU_ADMIN_PASSWORD")
+            ?? System.Security.Cryptography.RandomNumberGenerator.GetHexString(24);
+        if (Environment.GetEnvironmentVariable("UKUU_ADMIN_PASSWORD") == null)
+            Console.WriteLine($"[DbSeeder] Generated random admin password: {adminPwd} — set UKUU_ADMIN_PASSWORD to override.");
+        var adminHash = AuthService.HashPassword(adminPwd);
         db.UserAccounts.AddRange(
             new UserAccount
             {
                 OrganizationId = org.Id,
-                AuthUid = "demo-admin",
+                AuthUid = adminHash,
                 Email = "admin@ukuuhr.demo",
                 FirstName = "Chungu",
                 LastName = "Chama",
@@ -507,7 +515,7 @@ public static class DbSeeder
             new UserAccount
             {
                 OrganizationId = org.Id,
-                AuthUid = "demo-admin",
+                AuthUid = adminHash,
                 Email = "thandiwe.banda@ukuuhr.demo",
                 FirstName = "Thandiwe",
                 LastName = "Banda",
@@ -521,7 +529,7 @@ public static class DbSeeder
             new UserAccount
             {
                 OrganizationId = org.Id,
-                AuthUid = "demo-admin",
+                AuthUid = adminHash,
                 Email = "grace.mwape@ukuuhr.demo",
                 FirstName = "Grace",
                 LastName = "Mwape",
@@ -589,7 +597,7 @@ public static class DbSeeder
             IpAddress = "192.168.1.100",
             Port = 80,
             Username = "admin",
-            Password = "hikvision123",
+            Password = "demo-" + System.Security.Cryptography.RandomNumberGenerator.GetHexString(12),
             DeviceSerial = "DS-K1T80420231215AA001",
             Location = "Ground Floor — Main Entrance",
             IsActive = true,
@@ -605,7 +613,7 @@ public static class DbSeeder
             IpAddress = "192.168.1.101",
             Port = 80,
             Username = "admin",
-            Password = "hikvision456",
+            Password = "demo-" + System.Security.Cryptography.RandomNumberGenerator.GetHexString(12),
             DeviceSerial = "DS-K1T80420231215AA002",
             Location = "Engineering Block — Side Gate",
             IsActive = true,

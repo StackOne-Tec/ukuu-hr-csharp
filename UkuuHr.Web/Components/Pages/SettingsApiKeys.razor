@@ -1,0 +1,696 @@
+@page "/settings/api-keys"
+@attribute [Authorize(Policy = "UserManagement")]
+@using System.Net.Http
+@using System.Net.Http.Json
+@using UkuuHr.Models
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   UKUU HR — Settings · API Keys · World-Class Design
+   Premium design language matching Settings.razor
+   ═══════════════════════════════════════════════════════════════ */
+
+@@keyframes akFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes akSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@@keyframes akPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(20,163,127,0.25); }
+    50%      { box-shadow: 0 0 0 6px rgba(20,163,127,0); }
+}
+@@keyframes akCopyFlash {
+    0%   { background: rgba(20,163,127,0.2); }
+    100% { background: transparent; }
+}
+
+.ak-page { animation: akFadeIn 0.4s ease-out both; }
+
+/* ─── Breadcrumb ─── */
+.ak-breadcrumb {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+    font-size: 13px; color: var(--bk-ink-3);
+    animation: akSlideUp 0.4s ease-out 0.1s both;
+}
+.ak-breadcrumb a { color: var(--bk-accent); text-decoration: none; }
+.ak-breadcrumb a:hover { text-decoration: underline; }
+
+/* ─── Header ─── */
+.ak-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 28px; gap: 20px; flex-wrap: wrap;
+    animation: akSlideUp 0.5s ease-out 0.15s both;
+}
+.ak-header h1 {
+    font-size: clamp(24px, 3vw, 32px); font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 4px;
+}
+.ak-header-sub { font-size: 14px; color: var(--bk-ink-3); line-height: 1.5; max-width: 500px; }
+
+/* ─── Buttons ─── */
+.ak-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all 0.2s ease; font-family: inherit;
+}
+.ak-btn .material-icons-round { font-size: 18px; }
+.ak-btn-primary {
+    background: linear-gradient(135deg, #14a37f, #0d8061); color: #fff;
+    box-shadow: 0 4px 16px rgba(20,163,127,0.25);
+}
+.ak-btn-primary:hover {
+    transform: translateY(-1px); box-shadow: 0 8px 24px rgba(20,163,127,0.35);
+}
+.ak-btn-danger {
+    background: rgba(220,38,38,0.08); color: #DC2626; border: 1px solid rgba(220,38,38,0.2);
+}
+.ak-btn-danger:hover { background: rgba(220,38,38,0.15); }
+.ak-btn-ghost {
+    background: transparent; color: var(--bk-ink-3); border: 1px solid var(--bk-line);
+}
+.ak-btn-ghost:hover { background: var(--bk-muted); color: var(--bk-ink); }
+
+/* ─── Stats Row ─── */
+.ak-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 28px; animation: akSlideUp 0.5s ease-out 0.2s both;
+}
+.ak-stat {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 20px 24px; display: flex; align-items: center; gap: 16px;
+    transition: all 0.25s ease;
+}
+.ak-stat:hover { border-color: rgba(20,163,127,0.2); transform: translateY(-2px); }
+.ak-stat-icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.ak-stat-icon.teal   { background: rgba(20,163,127,0.1); color: #14a37f; }
+.ak-stat-icon.purple { background: rgba(123,47,190,0.1); color: #7B2FBE; }
+.ak-stat-icon.gold   { background: rgba(216,156,17,0.1); color: #D89C11; }
+.ak-stat-icon.red    { background: rgba(220,38,38,0.1); color: #DC2626; }
+.ak-stat-value { font-size: 28px; font-weight: 800; color: var(--bk-ink); letter-spacing: -0.03em; }
+.ak-stat-label { font-size: 12px; font-weight: 600; color: var(--bk-ink-3); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+
+/* ─── Key Cards ─── */
+.ak-keys { animation: akSlideUp 0.5s ease-out 0.3s both; }
+.ak-key-card {
+    background: var(--bk-bg); border: 1px solid var(--bk-line); border-radius: 16px;
+    padding: 24px; margin-bottom: 16px; transition: all 0.25s ease;
+}
+.ak-key-card:hover { border-color: rgba(20,163,127,0.15); }
+.ak-key-card.revoked { opacity: 0.6; border-style: dashed; }
+.ak-key-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; margin-bottom: 16px;
+}
+.ak-key-name { font-size: 16px; font-weight: 700; color: var(--bk-ink); letter-spacing: -0.01em; }
+.ak-key-prefix {
+    font-family: 'Courier New', monospace; font-size: 13px;
+    background: var(--bk-muted); padding: 2px 10px; border-radius: 8px;
+    color: var(--bk-ink-3); margin-left: 10px;
+}
+.ak-key-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 4px 12px; border-radius: 100px;
+}
+.ak-key-badge.active  { background: rgba(20,163,127,0.1); color: #14a37f; }
+.ak-key-badge.revoked { background: rgba(220,38,38,0.1); color: #DC2626; }
+.ak-key-badge.expired { background: rgba(216,156,17,0.1); color: #D89C11; }
+.ak-key-badge.active::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%; background: #14a37f;
+    animation: akPulse 2s ease-in-out infinite;
+}
+
+.ak-key-meta {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px 20px; margin-bottom: 16px;
+}
+.ak-meta-item { display: flex; flex-direction: column; gap: 2px; }
+.ak-meta-label { font-size: 11px; font-weight: 600; color: var(--bk-ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+.ak-meta-value { font-size: 13px; color: var(--bk-ink); }
+.ak-meta-value.mono { font-family: 'Courier New', monospace; font-size: 12px; }
+
+.ak-key-scopes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.ak-scope-chip {
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 8px;
+    background: rgba(37,99,235,0.08); color: #2563EB; letter-spacing: 0.02em;
+}
+.ak-scope-chip.full { background: rgba(20,163,127,0.1); color: #14a37f; }
+
+.ak-key-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ─── Create Dialog ─── */
+.ak-dialog-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    animation: akFadeIn 0.2s ease-out both;
+}
+.ak-dialog {
+    background: var(--bk-bg); border-radius: 20px; padding: 32px;
+    width: min(560px, 90vw); max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.15);
+    animation: akSlideUp 0.3s ease-out 0.1s both;
+}
+.ak-dialog h2 {
+    font-size: 20px; font-weight: 800; color: var(--bk-ink);
+    letter-spacing: -0.02em; margin: 0 0 4px;
+}
+.ak-dialog-sub { font-size: 13px; color: var(--bk-ink-3); margin-bottom: 24px; }
+.ak-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.ak-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--bk-ink-3);
+}
+.ak-input, .ak-select {
+    width: 100%; height: 44px; border: 1px solid var(--bk-line); border-radius: 12px;
+    background: var(--bk-muted); padding: 0 16px; font-family: inherit;
+    font-size: 13px; color: var(--bk-ink); outline: none; transition: all 0.2s ease;
+}
+.ak-input:focus, .ak-select:focus {
+    border-color: #14a37f; background: #fff;
+    box-shadow: 0 0 0 3px rgba(20,163,127,0.12);
+}
+.ak-select {
+    appearance: none; cursor: pointer; padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2314a37f'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+}
+
+/* ─── Scope Checkboxes ─── */
+.ak-scope-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+}
+.ak-scope-opt {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border: 1px solid var(--bk-line); border-radius: 10px;
+    cursor: pointer; transition: all 0.2s ease; font-size: 13px; color: var(--bk-ink);
+}
+.ak-scope-opt:hover { border-color: rgba(20,163,127,0.3); background: rgba(20,163,127,0.03); }
+.ak-scope-opt.selected { border-color: #14a37f; background: rgba(20,163,127,0.06); }
+.ak-scope-opt input[type="checkbox"] { accent-color: #14a37f; }
+
+.ak-dialog-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+    margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--bk-line);
+}
+
+/* ─── New Key Banner ─── */
+.ak-new-key-banner {
+    background: linear-gradient(135deg, rgba(20,163,127,0.08), rgba(37,99,235,0.05));
+    border: 1px solid rgba(20,163,127,0.3); border-radius: 14px;
+    padding: 20px 24px; margin-bottom: 20px;
+}
+.ak-new-key-banner h3 { font-size: 14px; font-weight: 700; color: #14a37f; margin: 0 0 8px; }
+.ak-new-key-value {
+    font-family: 'Courier New', monospace; font-size: 14px;
+    background: var(--bk-muted); padding: 10px 16px; border-radius: 10px;
+    word-break: break-all; display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; animation: akCopyFlash 0.5s ease-out;
+}
+.ak-new-key-value .material-icons-round { cursor: pointer; color: #14a37f; font-size: 20px; }
+.ak-new-key-warn { font-size: 12px; color: #DC2626; font-weight: 600; margin-top: 8px; }
+
+/* ─── Empty State ─── */
+.ak-empty {
+    text-align: center; padding: 60px 20px; color: var(--bk-ink-3);
+}
+.ak-empty-icon { font-size: 64px; margin-bottom: 16px; opacity: 0.3; }
+.ak-empty h3 { font-size: 18px; font-weight: 700; color: var(--bk-ink); margin: 0 0 8px; }
+.ak-empty p { font-size: 14px; max-width: 400px; margin: 0 auto 20px; }
+
+/* ─── Responsive ─── */
+@@media (max-width: 900px) {
+    .ak-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@@media (max-width: 600px) {
+    .ak-header h1 { font-size: 22px; }
+    .ak-stats { grid-template-columns: 1fr 1fr; }
+    .ak-key-meta { grid-template-columns: 1fr 1fr; }
+    .ak-scope-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="ak-page">
+
+    @* ─── Breadcrumb ───── *@
+    <div class="ak-breadcrumb">
+        <a href="/settings">Settings</a>
+        <span class="material-icons-round" style="font-size:16px;">chevron_right</span>
+        <span>API Keys</span>
+    </div>
+
+    @* ─── Header ───── *@
+    <div class="ak-header">
+        <div>
+            <h1>API Keys</h1>
+            <p class="ak-header-sub">Manage API keys for external integrations — UkuuBridge, payroll exports, HR systems, and more. Keys are SHA-256 hashed at rest and shown only once at creation.</p>
+        </div>
+        <button class="ak-btn ak-btn-primary" @onclick="ShowCreateDialog">
+            <span class="material-icons-round">add</span>
+            Create Key
+        </button>
+    </div>
+
+    @* ─── Stats ───── *@
+    <div class="ak-stats">
+        <div class="ak-stat">
+            <div class="ak-stat-icon teal"><span class="material-icons-round">vpn_key</span></div>
+            <div>
+                <div class="ak-stat-value">@_keys.Count</div>
+                <div class="ak-stat-label">Total Keys</div>
+            </div>
+        </div>
+        <div class="ak-stat">
+            <div class="ak-stat-icon purple"><span class="material-icons-round">check_circle</span></div>
+            <div>
+                <div class="ak-stat-value">@_keys.Count(k => k.IsActive)</div>
+                <div class="ak-stat-label">Active</div>
+            </div>
+        </div>
+        <div class="ak-stat">
+            <div class="ak-stat-icon gold"><span class="material-icons-round">swap_horiz</span></div>
+            <div>
+                <div class="ak-stat-value">@(string.Format("{0:N0}", _keys.Where(k => k.IsActive).Sum(k => k.TotalRequestCount)))</div>
+                <div class="ak-stat-label">Total Requests</div>
+            </div>
+        </div>
+        <div class="ak-stat">
+            <div class="ak-stat-icon red"><span class="material-icons-round">block</span></div>
+            <div>
+                <div class="ak-stat-value">@_keys.Count(k => !k.IsActive)</div>
+                <div class="ak-stat-label">Revoked/Expired</div>
+            </div>
+        </div>
+    </div>
+
+    @* ─── New Key Banner (shown after creation) ───── *@
+    @if (_newlyCreatedKey != null)
+    {
+        <div class="ak-new-key-banner">
+            <h3>New API Key Created</h3>
+            <div class="ak-new-key-value">
+                <code>@_newlyCreatedKey</code>
+                <span class="material-icons-round" @onclick="CopyNewKey" title="Copy to clipboard">content_copy</span>
+            </div>
+            <div class="ak-new-key-warn">Save this key securely. It will not be shown again.</div>
+            <button class="ak-btn ak-btn-ghost" style="margin-top:12px;" @onclick="DismissNewKey">
+                <span class="material-icons-round">check</span>
+                I've Saved the Key
+            </button>
+        </div>
+    }
+
+    @* ─── Key List ───── *@
+    <div class="ak-keys">
+        @if (_keys.Count == 0 && !_loading)
+        {
+            <div class="ak-empty">
+                <div class="ak-empty-icon">vpn_key</div>
+                <h3>No API Keys Yet</h3>
+                <p>Create your first API key to connect external systems like the UkuuBridge desktop app, payroll exports, or HR integrations.</p>
+                <button class="ak-btn ak-btn-primary" @onclick="ShowCreateDialog">
+                    <span class="material-icons-round">add</span>
+                    Create Your First Key
+                </button>
+            </div>
+        }
+
+        @foreach (var key in _keys)
+        {
+            var scopeList = key.Scopes.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var isFullAccess = scopeList.Contains("FullAccess");
+            <div class="ak-key-card @(key.IsActive ? "" : "revoked")">
+                <div class="ak-key-top">
+                    <div>
+                        <span class="ak-key-name">@key.Name</span>
+                        <span class="ak-key-prefix">@key.KeyPrefix</span>
+                    </div>
+                    <span class="ak-key-badge @key.StatusDisplay.ToLower()">
+                        @key.StatusDisplay
+                    </span>
+                </div>
+
+                <div class="ak-key-meta">
+                    <div class="ak-meta-item">
+                        <span class="ak-meta-label">Scopes</span>
+                        <span class="ak-meta-value">@(isFullAccess ? "Full Access" : string.Join(", ", scopeList.Select(ScopeDisplayName)))</span>
+                    </div>
+                    <div class="ak-meta-item">
+                        <span class="ak-meta-label">Rate Limit</span>
+                        <span class="ak-meta-value">@(key.RateLimitPerMinute > 0 ? $"{key.RateLimitPerMinute}/min" : "Unlimited")</span>
+                    </div>
+                    <div class="ak-meta-item">
+                        <span class="ak-meta-label">Created</span>
+                        <span class="ak-meta-value">@key.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                    </div>
+                    <div class="ak-meta-item">
+                        <span class="ak-meta-label">Expires</span>
+                        <span class="ak-meta-value">@(key.ExpiresAt.HasValue ? key.ExpiresAt.Value.ToString("yyyy-MM-dd HH:mm") : "Never")</span>
+                    </div>
+                    <div class="ak-meta-item">
+                        <span class="ak-meta-label">Last Used</span>
+                        <span class="ak-meta-value">@(key.LastUsedAt.HasValue ? key.LastUsedAt.Value.ToString("yyyy-MM-dd HH:mm") : "Never")</span>
+                    </div>
+                    <div class="ak-meta-item">
+                        <span class="ak-meta-label">Total Requests</span>
+                        <span class="ak-meta-value">@string.Format("{0:N0}", key.TotalRequestCount)</span>
+                    </div>
+                </div>
+
+                <div class="ak-key-scopes">
+                    @foreach (var scope in scopeList)
+                    {
+                        <span class="ak-scope-chip @(scope == "FullAccess" ? "full" : "")">@ScopeDisplayName(scope)</span>
+                    }
+                </div>
+
+                <div class="ak-key-actions">
+                    @if (key.IsActive)
+                    {
+                        <button class="ak-btn ak-btn-ghost" @onclick="() => RotateKey(key.Id)" style="padding:8px 16px;font-size:13px;">
+                            <span class="material-icons-round" style="font-size:16px;">autorenew</span>
+                            Rotate
+                        </button>
+                        <button class="ak-btn ak-btn-danger" @onclick="() => RevokeKey(key.Id)" style="padding:8px 16px;font-size:13px;">
+                            <span class="material-icons-round" style="font-size:16px;">block</span>
+                            Revoke
+                        </button>
+                    }
+                    <button class="ak-btn ak-btn-danger" @onclick="() => DeleteKey(key.Id, key.Name)" style="padding:8px 16px;font-size:13px;">
+                        <span class="material-icons-round" style="font-size:16px;">delete</span>
+                        Delete
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@* ─── Create Key Dialog ───── *@
+@if (_showCreateDialog)
+{
+    <div class="ak-dialog-overlay" @onclick="HideCreateDialog">
+        <div class="ak-dialog" @onclick:stopPropagation>
+            <h2>Create API Key</h2>
+            <p class="ak-dialog-sub">The raw key will be shown only once after creation. Store it securely.</p>
+
+            <div class="ak-field">
+                <label class="ak-label">Key Name</label>
+                <input class="ak-input" @bind="_createForm.Name" placeholder="e.g. UkuuBridge Sync, Payroll Export" maxlength="100" />
+            </div>
+
+            <div class="ak-field">
+                <label class="ak-label">Scopes (Permissions)</label>
+                <div class="ak-scope-grid">
+                    @foreach (var scope in Enum.GetNames<ApiKeyScope>())
+                    {
+                        var isSelected = _createForm.Scopes.Contains(scope);
+                        <label class="ak-scope-opt @(isSelected ? "selected" : "")">
+                            <input type="checkbox" checked="@isSelected" @onchange="e => ToggleScope(scope, (bool)(e.Value ?? false))" />
+                            @ScopeDisplayName(scope)
+                        </label>
+                    }
+                </div>
+            </div>
+
+            <div class="ak-field">
+                <label class="ak-label">Rate Limit (requests per minute)</label>
+                <select class="ak-select" @bind="_createForm.RateLimitPerMinute">
+                    <option value="30">30/min — Conservative</option>
+                    <option value="60">60/min — Standard</option>
+                    <option value="120">120/min — High</option>
+                    <option value="300">300/min — Very High</option>
+                    <option value="0">Unlimited</option>
+                </select>
+            </div>
+
+            <div class="ak-field">
+                <label class="ak-label">Expiration</label>
+                <select class="ak-select" @bind="_createForm.ExpiresInDays">
+                    <option value="0">Never expires</option>
+                    <option value="30">30 days</option>
+                    <option value="90">90 days</option>
+                    <option value="180">180 days</option>
+                    <option value="365">1 year</option>
+                </select>
+            </div>
+
+            <div class="ak-dialog-actions">
+                <button class="ak-btn ak-btn-ghost" @onclick="HideCreateDialog">Cancel</button>
+                <button class="ak-btn ak-btn-primary" @onclick="CreateKey" disabled="@_creating">
+                    @if (_creating)
+                    {
+                        <span class="material-icons-round">hourglass_top</span>
+                        <text>Creating...</text>
+                    }
+                    else
+                    {
+                        <span class="material-icons-round">vpn_key</span>
+                        <text>Create Key</text>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ApiKeyViewModel> _keys = new();
+    private bool _loading = true;
+    private bool _showCreateDialog;
+    private bool _creating;
+    private string? _newlyCreatedKey;
+
+    private CreateFormModel _createForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadKeys();
+    }
+
+    async Task LoadKeys()
+    {
+        _loading = true;
+        try
+        {
+            var response = await Http.GetAsync("/api/api-keys");
+            if (response.IsSuccessStatusCode)
+            {
+                _keys = await response.Content.ReadFromJsonAsync<List<ApiKeyViewModel>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load API keys: {ex.Message}", Severity.Error);
+        }
+        _loading = false;
+    }
+
+    void ShowCreateDialog()
+    {
+        _createForm = new CreateFormModel();
+        _showCreateDialog = true;
+    }
+
+    void HideCreateDialog() => _showCreateDialog = false;
+
+    void ToggleScope(string scope, bool selected)
+    {
+        if (scope == "FullAccess")
+        {
+            // FullAccess supersedes all others
+            _createForm.Scopes = selected ? new List<string> { "FullAccess" } : new();
+            return;
+        }
+
+        // If toggling a non-FullAccess scope, remove FullAccess first
+        _createForm.Scopes.Remove("FullAccess");
+
+        if (selected && !_createForm.Scopes.Contains(scope))
+            _createForm.Scopes.Add(scope);
+        else if (!selected)
+            _createForm.Scopes.Remove(scope);
+    }
+
+    async Task CreateKey()
+    {
+        if (string.IsNullOrWhiteSpace(_createForm.Name))
+        {
+            Snackbar.Add("Key name is required.", Severity.Warning);
+            return;
+        }
+        if (_createForm.Scopes.Count == 0)
+        {
+            Snackbar.Add("Select at least one scope.", Severity.Warning);
+            return;
+        }
+
+        _creating = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/api-keys/create", new
+            {
+                Name = _createForm.Name,
+                Scopes = _createForm.Scopes,
+                RateLimitPerMinute = _createForm.RateLimitPerMinute,
+                ExpiresInDays = _createForm.ExpiresInDays > 0 ? (int?)_createForm.ExpiresInDays : null
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<CreateKeyResponse>();
+                _newlyCreatedKey = result?.Key;
+                _showCreateDialog = false;
+                Snackbar.Add("API key created successfully.", Severity.Success);
+                await LoadKeys();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Failed to create key: {error}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        _creating = false;
+    }
+
+    async Task RevokeKey(int id)
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"/api/api-keys/revoke/{id}", new { Reason = "Revoked via Settings UI" });
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("API key revoked.", Severity.Success);
+                await LoadKeys();
+            }
+            else
+            {
+                Snackbar.Add("Failed to revoke key.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    async Task RotateKey(int id)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"/api/api-keys/rotate/{id}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<RotateKeyResponse>();
+                _newlyCreatedKey = result?.Key;
+                Snackbar.Add("API key rotated. Save the new key — it won't be shown again.", Severity.Success);
+                await LoadKeys();
+            }
+            else
+            {
+                Snackbar.Add("Failed to rotate key.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    async Task DeleteKey(int id, string name)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/api-keys/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"API key '{name}' deleted.", Severity.Success);
+                await LoadKeys();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete key.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    async Task CopyNewKey()
+    {
+        if (_newlyCreatedKey != null)
+        {
+            try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newlyCreatedKey); }
+            catch { /* clipboard not available */ }
+            Snackbar.Add("Copied to clipboard!", Severity.Success);
+        }
+    }
+
+    void DismissNewKey() => _newlyCreatedKey = null;
+
+    static string ScopeDisplayName(string scope) => scope switch
+    {
+        "ReadEmployees" => "Read Employees",
+        "WriteEmployees" => "Write Employees",
+        "ReadAttendance" => "Read Attendance",
+        "WriteAttendance" => "Write Attendance",
+        "LeaveManagement" => "Leave Management",
+        "ReadPayroll" => "Read Payroll",
+        "WritePayroll" => "Write Payroll",
+        "DeviceManagement" => "Device Management",
+        "FullAccess" => "Full Access",
+        _ => scope
+    };
+
+    class ApiKeyViewModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string KeyPrefix { get; set; } = "";
+        public string Scopes { get; set; } = "";
+        public int RateLimitPerMinute { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? ExpiresAt { get; set; }
+        public DateTime? LastUsedAt { get; set; }
+        public string? LastUsedIp { get; set; }
+        public long TotalRequestCount { get; set; }
+        public DateTime? RevokedAt { get; set; }
+        public bool IsActive { get; set; }
+        public string StatusDisplay { get; set; } = "Active";
+    }
+
+    class CreateFormModel
+    {
+        public string Name { get; set; } = "";
+        public List<string> Scopes { get; set; } = new() { "FullAccess" };
+        public int RateLimitPerMinute { get; set; } = 60;
+        public int ExpiresInDays { get; set; }
+    }
+
+    class CreateKeyResponse
+    {
+        public int Id { get; set; }
+        public string? Key { get; set; }
+    }
+
+    class RotateKeyResponse
+    {
+        public string? Key { get; set; }
+    }
+}

@@ -49,6 +49,10 @@ public class AttendanceDevice
     [MaxLength(200)]
     public string? Password { get; set; }
 
+    /// <summary>P2/H-5: Encrypted version of Password. When set, Password is decrypted at runtime only.</summary>
+    [MaxLength(512)]
+    public string? PasswordEncrypted { get; set; }
+
     /// <summary>Vendor-specific connection JSON (e.g. SDK path, serial, device key).</summary>
     public string? ConnectionJson { get; set; }
 

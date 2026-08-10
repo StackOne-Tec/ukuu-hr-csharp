@@ -46,6 +46,9 @@ public class UkuuHrDbContext : DbContext
     public DbSet<CouponCode> CouponCodes => Set<CouponCode>();
     public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
 
+    // ───── Phase: API Key management ─────
+    public DbSet<ApiKeyRecord> ApiKeys => Set<ApiKeyRecord>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
@@ -345,6 +348,23 @@ public class UkuuHrDbContext : DbContext
         {
             e.HasIndex(r => new { r.CouponCodeId, r.OrganizationId });
             e.HasIndex(r => new { r.OrganizationId, r.RedeemedAt });
+        });
+
+        // ───── API Key management ─────
+        b.Entity<ApiKeyRecord>(e =>
+        {
+            e.HasIndex(k => new { k.OrganizationId, k.KeyPrefix });
+            e.HasIndex(k => k.KeyHash);
+            e.HasIndex(k => new { k.OrganizationId, k.RevokedAt });
+            e.Property(k => k.Scopes).HasDefaultValue("FullAccess");
+            e.Property(k => k.RateLimitPerMinute).HasDefaultValue(60);
+            e.Property(k => k.TotalRequestCount).HasDefaultValue(0L);
+            e.Ignore(k => k.IsActive);
+            e.Ignore(k => k.StatusDisplay);
+            e.Ignore(k => k.ParsedScopes);
+            e.Ignore(k => k.ScopesDisplay);
+            e.Ignore(k => k.DaysUntilExpiry);
+            e.Ignore(k => k._HasScopeComputed);
         });
     }
 }

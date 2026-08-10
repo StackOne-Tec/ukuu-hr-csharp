@@ -153,6 +153,10 @@
                         </form>
                         @if (d.Vendor == DeviceVendor.Hikvision)
                         {
+                            <a href="/devices/diagnostics" class="bk-btn bk-btn-secondary" style="font-size:11px;padding:6px 10px;text-decoration:none;" title="Run ISAPI endpoint diagnostics on this device">
+                                <span class="material-icons-round" style="font-size:13px;">science</span>
+                                Diagnose
+                            </a>
                             <form method="post" action="/api/devices/sync-persons/@d.Id" style="flex:1;">
                                 <button type="submit" class="bk-btn bk-btn-secondary" style="width:100%;font-size:11px;padding:6px 10px;" title="Push portal employees to this Hikvision device">
                                     <span class="material-icons-round" style="font-size:13px;">badge</span>

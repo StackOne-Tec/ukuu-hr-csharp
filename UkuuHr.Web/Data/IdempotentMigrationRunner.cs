@@ -29,6 +29,9 @@ public static class IdempotentMigrationRunner
                 @"ALTER TABLE ""Employees"" ADD COLUMN ""PayrollId"" varchar(50)"),
             ("AttendanceDevices", "UseHttps",
                 @"ALTER TABLE ""AttendanceDevices"" ADD COLUMN ""UseHttps"" boolean NOT NULL DEFAULT false"),
+            // P2/H-5: Encrypted device password column
+            ("AttendanceDevices", "PasswordEncrypted",
+                @"ALTER TABLE ""AttendanceDevices"" ADD COLUMN ""PasswordEncrypted"" varchar(512)"),
         };
 
         foreach (var (table, column, addSql) in migrations)

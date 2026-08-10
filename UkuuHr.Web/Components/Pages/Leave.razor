@@ -630,12 +630,14 @@
                             {
                                 <div class="lv-card-actions">
                                     <form method="post" action="/api/leave/@l.Id/approve" style="flex:1;display:flex;">
+                                    <AntiforgeryToken />
                                         <button type="submit" class="lv-card-action lv-btn-approve" style="width:100%;justify-content:center;">
                                             <span class="material-icons-round" style="font-size:15px;">check</span>
                                             Approve
                                         </button>
                                     </form>
                                     <form method="post" action="/api/leave/@l.Id/reject" style="flex:1;display:flex;">
+                                    <AntiforgeryToken />
                                         <button type="submit" class="lv-card-action lv-btn-reject" style="width:100%;justify-content:center;">
                                             <span class="material-icons-round" style="font-size:15px;">close</span>
                                             Reject

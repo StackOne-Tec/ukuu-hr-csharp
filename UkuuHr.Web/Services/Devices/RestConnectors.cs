@@ -44,17 +44,40 @@ public class DeviceSyncResultWithEvents
 /// <summary>Shared base class with helper methods for REST connectors.</summary>
 public abstract class RestConnectorBase
 {
-    protected static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    protected static readonly HttpClient SharedClient = new(new HttpClientHandler
+    {
+        // Biometric devices use self-signed certificates; bypass validation for HTTPS.
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+        SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+    })
+    { Timeout = TimeSpan.FromSeconds(30) };
+
+    /// <summary>P2/H-5: Get the decrypted password for a device. Uses PasswordEncrypted if available, falls back to Password.</summary>
+    protected static string GetDevicePassword(AttendanceDevice device)
+    {
+        if (!string.IsNullOrEmpty(device.PasswordEncrypted))
+        {
+            try
+            {
+                var encSvc = new AesEncryptionService();
+                return encSvc.Decrypt(device.PasswordEncrypted);
+            }
+            catch { /* decryption failed — fall back to plaintext */ }
+        }
+        return device.Password ?? "";
+    }
 
     protected RestConnectorBase(ILogger? logger = null) { }
 
     protected static HttpRequestMessage BuildRequest(AttendanceDevice device, string path, HttpMethod? method = null)
     {
-        var url = $"http://{device.IpAddress}:{device.Port ?? 80}{path}";
+        var scheme = device.UseHttps ? "https" : "http";
+        var port = device.Port ?? (device.UseHttps ? 443 : 80);
+        var url = $"{scheme}://{device.IpAddress}:{port}{path}";
         var req = new HttpRequestMessage(method ?? HttpMethod.Get, url);
         if (!string.IsNullOrEmpty(device.Username))
         {
-            var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{device.Username}:{device.Password ?? ""}"));
+            var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{device.Username}:{GetDevicePassword(device)}"));
             req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
         }
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -113,7 +136,7 @@ public class HikvisionRestConnector : RestConnectorBase, IDeviceConnectorWithEve
             IpAddress = device.IpAddress ?? "",
             Port = device.Port ?? (device.UseHttps ? 443 : 80),
             Username = device.Username ?? "admin",
-            Password = device.Password ?? "",
+            Password = GetDevicePassword(device),
             UseHttps = device.UseHttps,
             MaxRetries = 3,
             TimeoutSeconds = 30
@@ -330,7 +353,7 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
         var start = DateTime.UtcNow;
         try
         {
-            var apiKey = device.Password;
+            var apiKey = GetDevicePassword(device);
             var deviceSerial = device.DeviceSerial;
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(deviceSerial))
                 return DeviceSyncResult.Fail("Anviz cloud requires API key + device serial.", DateTime.UtcNow - start);
@@ -427,7 +450,7 @@ public class MatrixRestConnector : RestConnectorBase, IDeviceConnector
                 var timeStr = item.TryGetProperty("time", out var t) ? t.GetString() ?? "" : "";
                 var typeStr = item.TryGetProperty("type", out var ty) ? ty.GetString() : "";
                 if (!DateTime.TryParse(timeStr, out var eventTime)) continue;
-                var eventType = typeStr.Contains("Out") ? ClockEventType.CheckOut : ClockEventType.CheckIn;
+                var eventType = (typeStr ?? "").Contains("Out") ? ClockEventType.CheckOut : ClockEventType.CheckIn;
                 events.Add(new NormalizedClockEvent(empCode, eventTime, eventType, item.TryGetProperty("verify_mode", out var v) ? v.GetString() : null, typeStr, TruncatePayload(item.ToString())));
             }
         }

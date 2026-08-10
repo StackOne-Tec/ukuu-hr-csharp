@@ -48,6 +48,7 @@
     private bool _collapsed = false;
     private bool _mobileOpen = false;
     private bool _overtimeExpanded = true;
+    private bool _devicesExpanded = true;
     private string _currentUrl = string.Empty;
     private string _userName = "Administrator";
     private string _userRole = "Admin";
@@ -145,6 +146,7 @@
     private void ToggleSidebar() { _collapsed = !_collapsed; }
     private void ToggleMobile() { _mobileOpen = !_mobileOpen; }
     private void ToggleOvertime() { _overtimeExpanded = !_overtimeExpanded; }
+    private void ToggleDevices() { _devicesExpanded = !_devicesExpanded; }
     private void CloseMobile() { _mobileOpen = false; }
 
     private async Task ToggleTheme()
@@ -233,10 +235,27 @@
                 <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">calendar_month</span></span>
                 @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Shifts</span> }
             </a>
-            <a href="/devices" class="bk-admin-sidebar-item @(IsActive("devices") && !IsActive("devices/add") && !IsActive("hikvision") ? "active" : "")">
-                <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">fingerprint</span></span>
-                @if (!_collapsed) { <span class="bk-admin-sidebar-item-text">Devices</span> }
-            </a>
+            <div class="bk-admin-sidebar-group">
+                <div class="bk-admin-sidebar-item @(IsActive("devices") || IsActive("devices/diagnostics") ? "active" : "")" @onclick="ToggleDevices" style="cursor:pointer;">
+                    <span class="bk-admin-sidebar-item-icon"><span class="material-icons-round" style="font-size:20px;">fingerprint</span></span>
+                    @if (!_collapsed)
+                    {
+                        <span class="bk-admin-sidebar-item-text">Devices</span>
+                        <span class="material-icons-round" style="font-size:18px;margin-left:auto;transition:transform 0.2s;">@(_devicesExpanded ? "expand_less" : "expand_more")</span>
+                    }
+                </div>
+                @if (!_collapsed && _devicesExpanded)
+                {
+                    <a href="/devices" class="bk-admin-sidebar-subitem @(IsActive("devices") && !IsActive("devices/add") && !IsActive("devices/diagnostics") ? "active" : "")">
+                        <span class="material-icons-round" style="font-size:18px;margin-right:10px;color:var(--bk-ink-3);">list</span>
+                        <span>All Devices</span>
+                    </a>
+                    <a href="/devices/diagnostics" class="bk-admin-sidebar-subitem @(IsActive("devices/diagnostics") ? "active" : "")">
+                        <span class="material-icons-round" style="font-size:18px;margin-right:10px;color:var(--bk-ink-3);">science</span>
+                        <span>Diagnostics</span>
+                    </a>
+                }
+            </div>
 
             @if (!_collapsed)
             {

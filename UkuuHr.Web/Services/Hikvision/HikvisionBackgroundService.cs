@@ -151,9 +151,10 @@ public class HikvisionBackgroundService : BackgroundService
 
         foreach (var device in hikvisionDevices)
         {
+            HikvisionIsapiClient? client = null;
             try
             {
-                var client = CreateIsapiClient(device);
+                client = CreateIsapiClient(device);
                 var health = await client.GetHealthAsync(ct);
 
                 if (!health.IsHealthy)
@@ -161,11 +162,16 @@ public class HikvisionBackgroundService : BackgroundService
                     _logger.LogWarning("Device {Name} ({Ip}) health check failed: CPU={Cpu}%, MEM={Mem}%, Disk={Disk}%",
                         device.Name, device.IpAddress, health.CpuUsage, health.MemoryUsage, health.DiskUsage);
                 }
-                client.Dispose();
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Health check failed for {Name} ({Ip})", device.Name, device.IpAddress);
+            }
+            finally
+            {
+                // Always dispose the client to release its HttpClient + handler,
+                // preventing leaked TCP connections (CLOSE_WAIT sockets).
+                client?.Dispose();
             }
         }
     }
