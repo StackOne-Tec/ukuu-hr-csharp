@@ -433,10 +433,13 @@ public class DesktopAccessDataPullTests
     /// <summary>
     /// Different Hikvision firmware versions use different field names.
     /// The parser must accept all variants:
-    ///   employeeNo / EmployeeNo
+    ///   employeeNoString — face recognition terminals (DS-K1T343, etc.)
+    ///   employeeNo / EmployeeNo — access controllers, older firmware
     ///   time / eventTime
     /// </summary>
     [Theory]
+    [InlineData("employeeNoString", "time")]
+    [InlineData("employeeNoString", "eventTime")]
     [InlineData("employeeNo", "time")]
     [InlineData("EmployeeNo", "time")]
     [InlineData("employeeNo", "eventTime")]
