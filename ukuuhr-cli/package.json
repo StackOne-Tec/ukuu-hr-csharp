@@ -1,11 +1,10 @@
 {
-  "name": "@stackone-tec/ukuuhr",
+  "name": "ukuuhr",
   "version": "2.1.1",
   "description": "Ukuu HR Sync Bridge — CLI for connecting to Hikvision biometric devices, pulling attendance records, and syncing to Ukuu HR cloud",
   "main": "src/index.js",
   "bin": {
-    "ukuuhr": "./bin/ukuuhr.js",
-    "@stackone-tec/ukuuhr": "./bin/ukuuhr.js"
+    "ukuuhr": "./bin/ukuuhr.js"
   },
   "scripts": {
     "start": "node bin/ukuuhr.js",
@@ -30,7 +29,8 @@
     "url": "https://github.com/StackOne-Tec/ukuu-hr-csharp"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "dependencies": {
     "node-fetch": "^3.3.2"
