@@ -4,13 +4,17 @@ using System.Xml.Linq;
 namespace UkuuHr.Sync;
 
 /// <summary>
-/// Parsers for the Hikvision ISAPI payloads used by the Ukuu HR Sync Bridge
+/// Parsers for the Hikvision ISAPI payloads used by the Ukuu HR Access Sync Bridge
 /// (desktop). Extracted from Program.cs into a static class so the exact
 /// parsing logic that ships in the desktop build is directly unit-testable.
 ///
 /// The bridge talks to Hikvision access-control terminals over ISAPI:
 ///   - AcsEvent search results come back as JSON (InfoList / EventList arrays)
 ///   - AuditLog search results come back as XML (LogItem elements)
+///
+/// These are access events (door/terminal access records) — universal for all
+/// Hikvision device types (face terminals, card readers, door controllers, etc.),
+/// not limited to attendance/time-tracking.
 ///
 /// Robustness contract (what the 1000+ test suite pins down):
 ///   - A valid payload always parses — every structure and casing variant.
@@ -21,7 +25,7 @@ namespace UkuuHr.Sync;
 /// </summary>
 public static class HikvisionParser
 {
-    /// <summary>Parse an ISAPI AcsEvent JSON response into attendance events.</summary>
+    /// <summary>Parse an ISAPI AcsEvent JSON response into access events.</summary>
     public static List<ImportedPunch> ParseAcsEventJson(string json)
     {
         var events = new List<ImportedPunch>();
@@ -99,7 +103,7 @@ public static class HikvisionParser
         return "";
     }
 
-    /// <summary>Parse an ISAPI AuditLog XML response into attendance events.</summary>
+    /// <summary>Parse an ISAPI AuditLog XML response into access events.</summary>
     public static List<ImportedPunch> ParseAuditLogXml(string xml)
     {
         var events = new List<ImportedPunch>();
@@ -155,10 +159,14 @@ public static class HikvisionParser
 }
 
 /// <summary>
-/// An attendance punch imported from a Hikvision terminal.
+/// An access record imported from a Hikvision terminal.
 /// Named ImportedPunch (not ImportedEvent) to avoid clashing with the global
 /// ImportedEvent type declared by the Web app's Program.cs — projects that
 /// reference both apps must never silently bind to the wrong model.
+///
+/// Represents a universal access event from any Hikvision device type:
+/// face recognition terminal, card reader, door controller, turnstile, etc.
+/// Not limited to attendance/time-tracking — covers all door/terminal access.
 /// </summary>
 public sealed class ImportedPunch
 {

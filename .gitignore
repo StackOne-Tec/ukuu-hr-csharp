@@ -47,3 +47,5 @@ UkuuHr-macOS-arm64.zip
 # Desktop installers are produced by CI (.github/workflows/desktop-build.yml) — never commit them
 *.dmg
 publish/
+.build/
+tool-results/
