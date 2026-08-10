@@ -1,0 +1,43 @@
+{
+  "name": "ukuuhr",
+  "version": "2.0.0",
+  "description": "Ukuu HR Sync Bridge — CLI for connecting to Hikvision biometric devices, pulling attendance records, and syncing to Ukuu HR cloud",
+  "main": "src/index.js",
+  "bin": {
+    "ukuuhr": "./bin/ukuuhr.js"
+  },
+  "scripts": {
+    "start": "node bin/ukuuhr.js",
+    "postinstall": "node src/postinstall.js",
+    "test": "node --test test/parser.test.js"
+  },
+  "keywords": [
+    "hikvision",
+    "isapi",
+    "attendance",
+    "biometric",
+    "access-control",
+    "sync",
+    "hr",
+    "ukuu",
+    "cli"
+  ],
+  "author": "Ukuu HR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ukuu-hr/ukuu-hr-csharp"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "CHANGELOG.md"
+  ]
+}
