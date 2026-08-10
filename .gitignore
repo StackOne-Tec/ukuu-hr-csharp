@@ -52,3 +52,4 @@ publish/
 node_modules/
 package-lock.json
 tool-results/
+ukuuhr-cli/.npmrc
