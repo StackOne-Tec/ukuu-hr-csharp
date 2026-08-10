@@ -6,7 +6,7 @@ using System.Diagnostics;
 namespace UkuuHr.Sync;
 
 /// <summary>
-/// Ukuu HR Sync Bridge v2.1 — Terminal CLI
+/// Ukuu HR Sync Bridge v2.2.0 — Terminal CLI
 ///
 /// A cross-platform CLI that connects to Hikvision biometric terminals via ISAPI.
 ///
@@ -157,7 +157,7 @@ class Program
                 return 1;
             }
 
-            var xml = await infoResp.Content.ReadAsStringAsync(ct: default);
+            var xml = await infoResp.Content.ReadAsStringAsync();
             var deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
             var deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
             var serial = HikvisionParser.ExtractXmlValue(xml, "serialNumber") ?? "N/A";
@@ -450,7 +450,7 @@ class Program
             var infoResp = await client.GetAsync($"{baseUrl}/ISAPI/System/deviceInfo");
             if (infoResp.IsSuccessStatusCode)
             {
-                var xml = await infoResp.Content.ReadAsStringAsync(ct: default);
+                var xml = await infoResp.Content.ReadAsStringAsync();
                 deviceName = HikvisionParser.ExtractXmlValue(xml, "deviceName") ?? "Unknown";
                 deviceModel = HikvisionParser.ExtractXmlValue(xml, "model") ?? "Unknown";
                 WriteLog($"  Device: {Bold}{deviceName}{Reset} ({deviceModel})\n");
@@ -612,7 +612,7 @@ class Program
 
                 if (resp.IsSuccessStatusCode)
                 {
-                    var xml = await resp.Content.ReadAsStringAsync(ct: default);
+                    var xml = await resp.Content.ReadAsStringAsync();
                     events = HikvisionParser.ParseAuditLogXml(xml);
                     WriteLog($"  {Green}AuditLog{Reset}: {events.Count} records");
                 }
@@ -670,7 +670,7 @@ class Program
                 break; // Stop paginating on error
             }
 
-            var body = await resp.Content.ReadAsStringAsync(ct: default);
+            var body = await resp.Content.ReadAsStringAsync();
             List<ImportedPunch> pageEvents;
 
             if (jsonFormat && (body.TrimStart().StartsWith("{") || body.TrimStart().StartsWith("[")))
@@ -810,7 +810,7 @@ class Program
                 return 1;
             }
 
-            var xml = await resp.Content.ReadAsStringAsync(ct: default);
+            var xml = await resp.Content.ReadAsStringAsync();
 
             if (jsonOutput)
             {
@@ -841,7 +841,7 @@ class Program
                 var capResp = await client.GetAsync($"{baseUrl}/ISAPI/System/capabilities");
                 if (capResp.IsSuccessStatusCode)
                 {
-                    var capXml = await capResp.Content.ReadAsStringAsync(ct: default);
+                    var capXml = await capResp.Content.ReadAsStringAsync();
                     WriteLog($"\n  {Bold}CAPABILITIES{Reset} (raw XML available with --json)");
                     WriteLog($"  {Dim}{Truncate(capXml, 500)}{Reset}");
                 }
@@ -882,7 +882,7 @@ class Program
                 return 1;
             }
 
-            var body = await resp.Content.ReadAsStringAsync(ct: default);
+            var body = await resp.Content.ReadAsStringAsync();
 
             if (jsonOutput)
             {
@@ -990,7 +990,7 @@ class Program
         {
             var resp = await client.GetAsync(fullUrl);
             sw.Stop();
-            var body = await resp.Content.ReadAsStringAsync(ct: default);
+            var body = await resp.Content.ReadAsStringAsync();
 
             var statusColor = resp.IsSuccessStatusCode ? Green : Red;
             WriteLog($"  {statusColor}{Bold}HTTP {(int)resp.StatusCode}{Reset} {resp.ReasonPhrase}  ({sw.ElapsedMilliseconds}ms)");
@@ -1158,7 +1158,7 @@ class Program
             if (resp != null)
             {
                 statusCode = (int)resp.StatusCode;
-                body = await resp.Content.ReadAsStringAsync(ct: default);
+                body = await resp.Content.ReadAsStringAsync();
                 body = Truncate(body, 2000);
                 resp.Dispose();
             }
@@ -1239,7 +1239,7 @@ class Program
     {
         try
         {
-            var body = await resp.Content.ReadAsStringAsync(ct: default);
+            var body = await resp.Content.ReadAsStringAsync();
             return Truncate(body, 300);
         }
         catch { return ""; }
@@ -1399,7 +1399,7 @@ class Program
         {
             "",
             $"  {Magenta}{Bold}╔═══════════════════════════════════════════════╗{Reset}",
-            $"  {Magenta}{Bold}║{Reset}     {White}{Bold}UKUU HR — SYNC BRIDGE v2.1{Reset}          {Magenta}{Bold}║{Reset}",
+            $"  {Magenta}{Bold}║{Reset}     {White}{Bold}UKUU HR — SYNC BRIDGE v2.2{Reset}          {Magenta}{Bold}║{Reset}",
             $"  {Magenta}{Bold}╠═══════════════════════════════════════════════╣{Reset}",
             $"  {Magenta}{Bold}║{Reset}  {Cyan}{subtitle}{Reset}                {Magenta}{Bold}║{Reset}",
             $"  {Magenta}{Bold}╚═══════════════════════════════════════════════╝{Reset}",
@@ -1472,7 +1472,7 @@ static class Args
 // Data models
 // ═══════════════════════════════════════════════════════════════════════
 
-class SyncSettings
+public class SyncSettings
 {
     public string DeviceIp { get; set; } = "192.168.1.137";
     public int DevicePort { get; set; } = 80;
