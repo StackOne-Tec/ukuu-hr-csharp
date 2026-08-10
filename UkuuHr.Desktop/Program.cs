@@ -9,7 +9,7 @@ namespace UkuuHr.Sync;
 /// 
 /// A cross-platform desktop application that:
 /// 1. Connects to a Hikvision biometric terminal via ISAPI (on the local network)
-/// 2. Fetches attendance events (clock-in/out punches)
+/// 2. Fetches access events (door/terminal access records — universal for all device types)
 /// 3. Pushes them to the Ukuu HR cloud API (ukuuhr.com)
 /// 4. Auto-syncs on a configurable interval (default: every 5 minutes)
 /// 
@@ -202,7 +202,7 @@ class Program
             WriteLog($"  [{DateTime.Now:HH:mm:ss}] WARNING: Device info probe failed: {ex.Message}. Continuing...");
         }
 
-        // ── Step 2: Fetch attendance events via AcsEvent ─────────────────────
+        // ── Step 2: Fetch access events via AcsEvent ─────────────────────
         var fromTime = lastSync == DateTime.MinValue
             ? DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-ddTHH:mm:ssZ")
             : lastSync.ToString("yyyy-MM-ddTHH:mm:ssZ");
@@ -259,11 +259,11 @@ class Program
 
         if (events.Count == 0)
         {
-            WriteLog($"  [{DateTime.Now:HH:mm:ss}] No new attendance events found (range: {fromTime} to {toTime}).");
+            WriteLog($"  [{DateTime.Now:HH:mm:ss}] No new access events found (range: {fromTime} to {toTime}).");
             return;
         }
 
-        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Fetched {events.Count} attendance events. Pushing to cloud...");
+        WriteLog($"  [{DateTime.Now:HH:mm:ss}] Fetched {events.Count} access events. Pushing to cloud...");
 
         // ── Step 3: Push events to the cloud API ────────────────────────────
         var payload = JsonSerializer.Serialize(new
@@ -276,7 +276,7 @@ class Program
         try
         {
             var cloudContent = new StringContent(payload, Encoding.UTF8, "application/json");
-            var cloudUrl = settings.CloudUrl!.TrimEnd('/') + "/api/attendance/save-imported";
+            var cloudUrl = settings.CloudUrl!.TrimEnd('/') + "/api/access/save-imported";
 
             // Add API key header if configured
             var request = new HttpRequestMessage(HttpMethod.Post, cloudUrl) { Content = cloudContent };
@@ -497,9 +497,9 @@ class Program
         {
             "",
             "  ╔═══════════════════════════════════════════════╗",
-            "  ║         UKUU HR — SYNC BRIDGE v1.3.1          ║",
+            "  ║       UKUU HR — ACCESS SYNC BRIDGE v2.3.0     ║",
             "  ╠═══════════════════════════════════════════════╣",
-            "  ║  Connects Hikvision devices to Ukuu HR cloud  ║",
+            "  ║  Syncs Hikvision access data to Ukuu HR cloud  ║",
             "  ╚═══════════════════════════════════════════════╝",
             ""
         };
