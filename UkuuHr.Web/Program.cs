@@ -624,8 +624,8 @@ app.MapGet("/readiness", async (UkuuHrDbContext db) =>
 
 // Direct POST handler for login form (uses /auth/login to avoid conflict with Blazor's /login page route)
 // P3/L-4: Simple in-memory rate limiter for login (5 attempts per IP per minute)
+// .DisableAntiforgery() is required because this is a plain HTML <form> POST without a Blazor-rendered antiforgery token.
 var loginAttempts = new System.Collections.Concurrent.ConcurrentDictionary<string, (int Count, DateTime WindowStart)>();
-
 app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Program> logger) =>
 {
     // P3/L-4: Rate limiting — max 5 login attempts per IP per minute
@@ -665,7 +665,7 @@ app.MapPost("/auth/login", async (HttpContext ctx, AuthService auth, ILogger<Pro
         return Results.Redirect(redirectUrl);
     }
     return Results.Redirect("/login?error=1");
-});
+}).DisableAntiforgery();
 
 app.MapGet("/logout", async (AuthService auth) =>
 {
@@ -682,12 +682,14 @@ app.MapPost("/auth/register", async (HttpContext ctx, ILogger<Program> logger) =
     var email = form["FormData.Email"].ToString();
     logger.LogInformation("Register POST: firstName={FirstName}, email={Email}", firstName, email);
     return Results.Redirect("/login?registered=1");
-});
+}).DisableAntiforgery();
 
 // Phase 18: Real signup endpoint — creates org + user account + signs in.
 // This is a traditional HTTP POST (not Blazor) so it has a real HttpContext
 // and can issue the auth cookie. The SignUp.razor page uses a plain HTML
 // <form method="post" action="/auth/signup"> that posts here.
+// .DisableAntiforgery() is required because this is a plain HTML <form> POST
+// without a Blazor-rendered antiforgery token.
 app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthService auth, AuditService audit, ILogger<Program> logger) =>
 {
     var form = await ctx.Request.ReadFormAsync();
@@ -760,6 +762,8 @@ app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthServ
             LastActivatedAt = DateTime.UtcNow
         };
         db.UserAccounts.Add(userAccount);
+        await db.SaveChangesAsync();
+        // Fix: set OwnerUserId AFTER SaveChangesAsync so userAccount.Id is populated
         org.OwnerUserId = userAccount.Id.ToString();
         await db.SaveChangesAsync();
 
@@ -780,10 +784,11 @@ app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthServ
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Signup error for {Email}", email);
-        return Results.Redirect("/signup?error=Registration failed. Please try again."); // P2/M-4: generic error
+        logger.LogError(ex, "Signup error for {Email}: {Message}", email, ex.Message);
+        // P2/M-4: Generic error message to user, detailed error in logs
+        return Results.Redirect("/signup?error=Registration failed. Please try again.");
     }
-});
+}).DisableAntiforgery();
 
 // Phase 18: Auto-login endpoint for Blazor Server flows that can't access HttpContext.
 // After account creation (which happens in a Blazor event handler without HttpContext),
