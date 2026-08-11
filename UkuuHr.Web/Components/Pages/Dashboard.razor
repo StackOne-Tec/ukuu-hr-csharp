@@ -8,220 +8,238 @@
 @inject UkuuHrDbContext Db
 @inject IHttpContextAccessor HttpAccessor
 
-<div class="bk-admin-fade-in">
-    @* ───── Mobile hero (visible only < 1024px) — replaces the desktop greeting ───── *@
-    <div class="bk-mobile-hero bk-dashboard-mobile-hero">
-        <div class="bk-mobile-hero-greeting">@GetGreeting() · @(_orgName ?? "No organization")</div>
-        <div class="bk-mobile-hero-name">Welcome@(string.IsNullOrEmpty(_userFirstName) ? "" : $", {_userFirstName}")</div>
-        <div class="bk-mobile-hero-sub">@_presentToday present today · @_pendingLeave leave requests pending</div>
-        <div class="bk-mobile-hero-stats">
-            <div>
-                <div class="bk-mobile-hero-stat-value">@_totalEmployees</div>
-                <div class="bk-mobile-hero-stat-label">Employees</div>
-            </div>
-            <div>
-                <div class="bk-mobile-hero-stat-value">@_attendancePct.ToString("0")%</div>
-                <div class="bk-mobile-hero-stat-label">Attendance</div>
-            </div>
+<ErrorBoundary @ref="_errorBoundary">
+    <ChildContent>
+        <div class="bk-admin-fade-in">
+            @* ───── Mobile hero (visible only < 1024px) — replaces the desktop greeting ───── *@
+            <div class="bk-mobile-hero bk-dashboard-mobile-hero">
+                <div class="bk-mobile-hero-greeting">@GetGreeting() · @(_orgName ?? "No organization")</div>
+                <div class="bk-mobile-hero-name">Welcome@(string.IsNullOrEmpty(_userFirstName) ? "" : $", {_userFirstName}")</div>
+                <div class="bk-mobile-hero-sub">@_presentToday present today · @_pendingLeave leave requests pending</div>
+                <div class="bk-mobile-hero-stats">
+                    <div>
+                        <div class="bk-mobile-hero-stat-value">@_totalEmployees</div>
+                        <div class="bk-mobile-hero-stat-label">Employees</div>
+                    </div>
+                    <div>
+                        <div class="bk-mobile-hero-stat-value">@_attendancePct.ToString("0")%</div>
+                        <div class="bk-mobile-hero-stat-label">Attendance</div>
+                    </div>
 
-        </div>
-    </div>
-
-    <div class="bk-admin-section-header bk-hide-on-mobile">
-        <div class="bk-admin-section-header-left">
-            <div class="bk-admin-greeting">@GetGreeting()@(string.IsNullOrEmpty(_userFirstName) ? "" : $", {_userFirstName}") · @(_hasOrg ? "All systems operational" : "Set up your organization to begin")</div>
-            <h1 class="bk-admin-h1">Workspace Overview</h1>
-            <p class="bk-admin-sub">@if (_hasOrg) { <text>Here's what's happening across @_orgName today.</text> } else { <text>Welcome to Ukuu HR. Add your organization in Settings to start managing employees.</text> }</p>
-        </div>
-        <div class="bk-admin-actions">
-            <button class="bk-btn bk-btn-secondary" onclick="window.print()">
-                <span class="material-icons-round" style="font-size:16px;">download</span>
-                Export Report
-            </button>
-            <a href="/employees/add" class="bk-btn bk-btn-primary">
-                <span class="material-icons-round" style="font-size:16px;">person_add</span>
-                Add Employee
-            </a>
-        </div>
-    </div>
-
-    <!-- KPI ROW -->
-    <div class="bk-admin-kpi-grid">
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon blue">
-                    <span class="material-icons-round">groups</span>
                 </div>
-                <span class="bk-admin-kpi-delta up">
-                    <span class="material-icons-round" style="font-size:14px;">trending_up</span>
-                    +12%
-                </span>
             </div>
-            <div class="bk-admin-kpi-value">@_totalEmployees</div>
-            <div class="bk-admin-kpi-label">Total Employees</div>
-            <div class="bk-admin-kpi-sub">@_activeEmployees active · @_onProbation on probation</div>
-        </div>
 
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon green">
-                    <span class="material-icons-round">check_circle</span>
+            <div class="bk-admin-section-header bk-hide-on-mobile">
+                <div class="bk-admin-section-header-left">
+                    <div class="bk-admin-greeting">@GetGreeting()@(string.IsNullOrEmpty(_userFirstName) ? "" : $", {_userFirstName}") · @(_hasOrg ? "All systems operational" : "Set up your organization to begin")</div>
+                    <h1 class="bk-admin-h1">Workspace Overview</h1>
+                    <p class="bk-admin-sub">@if (_hasOrg) { <text>Here's what's happening across @_orgName today.</text> } else { <text>Welcome to Ukuu HR. Add your organization in Settings to start managing employees.</text> }</p>
                 </div>
-                <span class="bk-admin-kpi-delta up">
-                    <span class="material-icons-round" style="font-size:14px;">trending_up</span>
-                    +4%
-                </span>
-            </div>
-            <div class="bk-admin-kpi-value">@_attendancePct.ToString("0.0")%</div>
-            <div class="bk-admin-kpi-label">Attendance Today</div>
-            <div class="bk-admin-kpi-sub">@_presentToday present · @_onLeaveToday on leave</div>
-        </div>
-
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon gold">
-                    <span class="material-icons-round">event_available</span>
+                <div class="bk-admin-actions">
+                    <button class="bk-btn bk-btn-secondary" onclick="window.print()">
+                        <span class="material-icons-round" style="font-size:16px;">download</span>
+                        Export Report
+                    </button>
+                    <a href="/employees/add" class="bk-btn bk-btn-primary">
+                        <span class="material-icons-round" style="font-size:16px;">person_add</span>
+                        Add Employee
+                    </a>
                 </div>
-                <span class="bk-admin-kpi-delta down">
-                    <span class="material-icons-round" style="font-size:14px;">trending_down</span>
-                    -2
-                </span>
             </div>
-            <div class="bk-admin-kpi-value">@_pendingLeave</div>
-            <div class="bk-admin-kpi-label">Pending Leave Requests</div>
-            <div class="bk-admin-kpi-sub">@_approvedThisMonth approved this month</div>
-        </div>
 
-        <div class="bk-admin-kpi-card">
-            <div class="bk-admin-kpi-card-top">
-                <div class="bk-admin-kpi-icon pink">
-                    <span class="material-icons-round">timer</span>
+            <!-- KPI ROW -->
+            <div class="bk-admin-kpi-grid">
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon blue">
+                            <span class="material-icons-round">groups</span>
+                        </div>
+                        <span class="bk-admin-kpi-delta up">
+                            <span class="material-icons-round" style="font-size:14px;">trending_up</span>
+                            +12%
+                        </span>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_totalEmployees</div>
+                    <div class="bk-admin-kpi-label">Total Employees</div>
+                    <div class="bk-admin-kpi-sub">@_activeEmployees active · @_onProbation on probation</div>
                 </div>
-                <span class="bk-admin-kpi-delta down">
-                    <span class="material-icons-round" style="font-size:14px;">pending</span>
-                </span>
+
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon green">
+                            <span class="material-icons-round">check_circle</span>
+                        </div>
+                        <span class="bk-admin-kpi-delta up">
+                            <span class="material-icons-round" style="font-size:14px;">trending_up</span>
+                            +4%
+                        </span>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_attendancePct.ToString("0.0")%</div>
+                    <div class="bk-admin-kpi-label">Attendance Today</div>
+                    <div class="bk-admin-kpi-sub">@_presentToday present · @_onLeaveToday on leave</div>
+                </div>
+
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon gold">
+                            <span class="material-icons-round">event_available</span>
+                        </div>
+                        <span class="bk-admin-kpi-delta down">
+                            <span class="material-icons-round" style="font-size:14px;">trending_down</span>
+                            -2
+                        </span>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_pendingLeave</div>
+                    <div class="bk-admin-kpi-label">Pending Leave Requests</div>
+                    <div class="bk-admin-kpi-sub">@_approvedThisMonth approved this month</div>
+                </div>
+
+                <div class="bk-admin-kpi-card">
+                    <div class="bk-admin-kpi-card-top">
+                        <div class="bk-admin-kpi-icon pink">
+                            <span class="material-icons-round">timer</span>
+                        </div>
+                        <span class="bk-admin-kpi-delta down">
+                            <span class="material-icons-round" style="font-size:14px;">pending</span>
+                        </span>
+                    </div>
+                    <div class="bk-admin-kpi-value">@_pendingOvertime</div>
+                    <div class="bk-admin-kpi-label">Pending Overtime</div>
+                    <div class="bk-admin-kpi-sub">@_pendingOvertimeRecords.Count record(s) awaiting approval</div>
+                </div>
+
             </div>
-            <div class="bk-admin-kpi-value">@_pendingOvertime</div>
-            <div class="bk-admin-kpi-label">Pending Overtime</div>
-            <div class="bk-admin-kpi-sub">@_pendingOvertimeRecords.Count record(s) awaiting approval</div>
-        </div>
 
-    </div>
+            <!-- MAIN GRID — full width (Today's Attendance donut removed per user request) -->
+            <div style="margin-bottom:32px;">
+                <!-- LEFT: Charts + tables -->
+                <div style="display:flex;flex-direction:column;gap:24px;">
 
-    <!-- MAIN GRID — full width (Today's Attendance donut removed per user request) -->
-    <div style="margin-bottom:32px;">
-        <!-- LEFT: Charts + tables -->
-        <div style="display:flex;flex-direction:column;gap:24px;">
+                    <!-- Today's clock-in/out status -->
+                    <div class="bk-admin-card">
+                        <div class="bk-admin-card-header">
+                            <div>
+                                <h3>Today's Clock In/Out</h3>
+                                <p>@DateTime.Now.ToString("dd MMMM yyyy") · @_todayAttendance.Count employee(s) recorded</p>
+                            </div>
+                            <a href="/attendance" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View All →</a>
+                        </div>
+                        <table class="bk-admin-table" style="font-size:13px;">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Status</th>
+                                    <th>Clock In</th>
+                                    <th>Clock Out</th>
+                                    <th>Hours</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (_todayAttendance.Count == 0)
+                                {
+                                    <tr>
+                                        <td colspan="5" style="text-align:center;padding:24px;color:var(--bk-ink-3);font-size:13px;">No attendance records for today yet.</td>
+                                    </tr>
+                                }
+                                @foreach (var a in _todayAttendance.Take(10))
+                                {
+                                    <tr>
+                                        <td>
+                                            <div style="display:flex;align-items:center;gap:10px;">
+                                                <div class="bk-admin-avatar" style="width:28px;height:28px;font-size:10px;">@GetInitial(a.EmployeeName)</div>
+                                                <span style="font-weight:600;color:var(--bk-ink);">@a.EmployeeName</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="bk-admin-pill @(a.Status == AttendanceStatus.Present ? "active" : a.Status == AttendanceStatus.Late ? "pending" : a.Status == AttendanceStatus.Absent ? "inactive" : "info")" style="font-size:11px;">
+                                                @a.Status
+                                            </span>
+                                        </td>
+                                        <td style="font-weight:500;">@a.CheckInLabel</td>
+                                        <td style="font-weight:500;">@a.CheckOutLabel</td>
+                                        <td style="font-weight:600;">@a.WorkedHours.ToString("0.0")h</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        @if (_todayAttendance.Count > 10)
+                        {
+                            <div style="padding:10px 16px;border-top:1px solid var(--bk-line);text-align:center;font-size:12px;color:var(--bk-ink-3);">
+                                + @(_todayAttendance.Count - 10) more record(s) — <a href="/attendance" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">View full list</a>
+                            </div>
+                        }
+                    </div>
 
-            <!-- Today's clock-in/out status -->
-            <div class="bk-admin-card">
+                </div>
+            </div>
+
+            <!-- Pending overtime — full width -->
+            <div class="bk-admin-card" style="margin-bottom:32px;">
                 <div class="bk-admin-card-header">
                     <div>
-                        <h3>Today's Clock In/Out</h3>
-                        <p>@DateTime.Now.ToString("dd MMMM yyyy") · @_todayAttendance.Count employee(s) recorded</p>
+                        <h3>Overtime Pending Approval</h3>
+                        <p>@_pendingOvertime record(s) awaiting review</p>
                     </div>
-                    <a href="/attendance" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View All →</a>
+                    <a href="/overtime" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View All →</a>
                 </div>
                 <table class="bk-admin-table" style="font-size:13px;">
                     <thead>
                         <tr>
                             <th>Employee</th>
-                            <th>Status</th>
-                            <th>Clock In</th>
-                            <th>Clock Out</th>
+                            <th>Date</th>
                             <th>Hours</th>
+                            <th>Rate</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @if (_todayAttendance.Count == 0)
+                        @if (_pendingOvertimeRecords.Count == 0)
                         {
                             <tr>
-                                <td colspan="5" style="text-align:center;padding:24px;color:var(--bk-ink-3);font-size:13px;">No attendance records for today yet.</td>
+                                <td colspan="4" style="text-align:center;padding:24px;color:var(--bk-ink-3);font-size:13px;">No overtime pending approval.</td>
                             </tr>
                         }
-                        @foreach (var a in _todayAttendance.Take(10))
+                        @foreach (var ot in _pendingOvertimeRecords.Take(8))
                         {
                             <tr>
                                 <td>
                                     <div style="display:flex;align-items:center;gap:10px;">
-                                        <div class="bk-admin-avatar" style="width:28px;height:28px;font-size:10px;">@(a.EmployeeName.Length > 0 ? a.EmployeeName[..1].ToUpper() : "?")</div>
-                                        <span style="font-weight:600;color:var(--bk-ink);">@a.EmployeeName</span>
+                                        <div class="bk-admin-avatar" style="width:28px;height:28px;font-size:10px;">@GetInitial(ot.EmployeeName)</div>
+                                        <span style="font-weight:600;color:var(--bk-ink);">@ot.EmployeeName</span>
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="bk-admin-pill @(a.Status == AttendanceStatus.Present ? "active" : a.Status == AttendanceStatus.Late ? "pending" : a.Status == AttendanceStatus.Absent ? "inactive" : "info")" style="font-size:11px;">
-                                        @a.Status
-                                    </span>
-                                </td>
-                                <td style="font-weight:500;">@a.CheckInLabel</td>
-                                <td style="font-weight:500;">@a.CheckOutLabel</td>
-                                <td style="font-weight:600;">@a.WorkedHours.ToString("0.0")h</td>
+                                <td style="font-weight:500;">@ot.Date.ToString("dd MMM")</td>
+                                <td style="font-weight:700;">@ot.Hours.ToString("0.0")h</td>
+                                <td><span class="bk-admin-pill pending" style="font-size:11px;">@ot.RateTypeDisplay</span></td>
                             </tr>
                         }
                     </tbody>
                 </table>
-                @if (_todayAttendance.Count > 10)
+                @if (_pendingOvertimeRecords.Count > 8)
                 {
                     <div style="padding:10px 16px;border-top:1px solid var(--bk-line);text-align:center;font-size:12px;color:var(--bk-ink-3);">
-                        + @(_todayAttendance.Count - 10) more record(s) — <a href="/attendance" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">View full list</a>
+                        + @(_pendingOvertimeRecords.Count - 8) more — <a href="/overtime" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">View all pending</a>
                     </div>
                 }
             </div>
-
         </div>
-    </div>
-
-    <!-- Pending overtime — full width -->
-    <div class="bk-admin-card" style="margin-bottom:32px;">
-        <div class="bk-admin-card-header">
-            <div>
-                <h3>Overtime Pending Approval</h3>
-                <p>@_pendingOvertime record(s) awaiting review</p>
+    </ChildContent>
+    <ErrorContent Context="ex">
+        <div class="bk-admin-fade-in" style="padding:32px;">
+            <div class="bk-admin-card" style="text-align:center;padding:48px 32px;">
+                <span class="material-icons-round" style="font-size:48px;color:var(--bk-error);">error_outline</span>
+                <h3 style="margin-top:16px;color:var(--bk-ink);">Dashboard Error</h3>
+                <p style="color:var(--bk-ink-3);margin-top:8px;">Something went wrong loading the dashboard. This is usually a temporary issue.</p>
+                <button class="bk-btn bk-btn-primary" style="margin-top:20px;" @onclick="RecoverError">
+                    <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                    Try Again
+                </button>
             </div>
-            <a href="/overtime" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">View All →</a>
         </div>
-        <table class="bk-admin-table" style="font-size:13px;">
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Date</th>
-                    <th>Hours</th>
-                    <th>Rate</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (_pendingOvertimeRecords.Count == 0)
-                {
-                    <tr>
-                        <td colspan="4" style="text-align:center;padding:24px;color:var(--bk-ink-3);font-size:13px;">No overtime pending approval.</td>
-                    </tr>
-                }
-                @foreach (var ot in _pendingOvertimeRecords.Take(8))
-                {
-                    <tr>
-                        <td>
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <div class="bk-admin-avatar" style="width:28px;height:28px;font-size:10px;">@(ot.EmployeeName.Length > 0 ? ot.EmployeeName[..1].ToUpper() : "?")</div>
-                                <span style="font-weight:600;color:var(--bk-ink);">@ot.EmployeeName</span>
-                            </div>
-                        </td>
-                        <td style="font-weight:500;">@ot.Date.ToString("dd MMM")</td>
-                        <td style="font-weight:700;">@ot.Hours.ToString("0.0")h</td>
-                        <td><span class="bk-admin-pill pending" style="font-size:11px;">@ot.RateTypeDisplay</span></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        @if (_pendingOvertimeRecords.Count > 8)
-        {
-            <div style="padding:10px 16px;border-top:1px solid var(--bk-line);text-align:center;font-size:12px;color:var(--bk-ink-3);">
-                + @(_pendingOvertimeRecords.Count - 8) more — <a href="/overtime" style="color:var(--bk-accent);font-weight:600;text-decoration:none;">View all pending</a>
-            </div>
-        }
-    </div>
-</div>
+    </ErrorContent>
+</ErrorBoundary>
 
 @code {
+    private ErrorBoundary? _errorBoundary;
     private int _totalEmployees;
     private int _activeEmployees;
     private int _onProbation;
@@ -239,53 +257,84 @@
     private bool _hasOrg = false;
     private string? _userFirstName = null;
 
+    /// <summary>Safely get the first character of a name for avatar display. Never throws.</summary>
+    private static string GetInitial(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return "?";
+        return char.IsLetter(name[0]) ? name[0].ToString().ToUpper() : "?";
+    }
+
+    /// <summary>Recover from an ErrorBoundary exception by resetting it.</summary>
+    private void RecoverError()
+    {
+        _errorBoundary?.Recover();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
-        _hasOrg = org != null;
-        _orgName = org?.Name;
+            // Load the user's organization — for a freshly signed-up user, this is the
+            // org they just created. We look it up from the auth cookie's email claim.
+            var emailClaim = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            Organization? org = null;
 
-        // Resolve the signed-in user's first name from the auth cookie.
-        var nameClaim = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
-        if (!string.IsNullOrWhiteSpace(nameClaim))
-        {
-            var parts = nameClaim.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-            _userFirstName = parts.Length > 0 ? parts[0] : nameClaim;
+            if (!string.IsNullOrWhiteSpace(emailClaim))
+            {
+                // Find the user's account → their organization (correct multi-tenant lookup)
+                var userAccount = await Db.UserAccounts
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == emailClaim.ToLower());
+                if (userAccount != null)
+                {
+                    org = await Db.Organizations.FirstOrDefaultAsync(o => o.Id == userAccount.OrganizationId);
+                }
+            }
+
+            // Fallback: if we couldn't find the org via the user's account, use the first org
+            org ??= await Db.Organizations.FirstOrDefaultAsync();
+
+            _hasOrg = org != null;
+            _orgName = org?.Name;
+
+            // Resolve the signed-in user's first name from the auth cookie.
+            var nameClaim = HttpAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (!string.IsNullOrWhiteSpace(nameClaim))
+            {
+                var parts = nameClaim.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                _userFirstName = parts.Length > 0 ? parts[0] : nameClaim;
+            }
+
+            if (org == null) return;
+            var today = DateTime.Today;
+
+            _totalEmployees = await EmployeeSvc.CountAsync(org.Id);
+            _activeEmployees = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Active);
+            _onProbation = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Probation);
+            _attendanceBreakdown = await AttendanceSvc.BreakdownAsync(org.Id, today);
+            var total = _attendanceBreakdown.Values.Sum();
+
+            // Load today's attendance records with clock-in/out times
+            _todayAttendance = await AttendanceSvc.ForDateAsync(org.Id, today);
+
+            // Load pending overtime
+            _pendingOvertimeRecords = await OvertimeSvc.GetPendingAsync(org.Id);
+            _pendingOvertime = _pendingOvertimeRecords.Count;
+            var present = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Present);
+            var late = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Late);
+            _presentToday = present + late;
+            _onLeaveToday = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.OnLeave);
+            _attendanceToday = total > 0 ? (present + late) * 100.0 / total : 0;
+            _attendancePct = _attendanceToday;
+
+            var leaveReqs = await LeaveSvc.AllAsync(org.Id);
+            _pendingLeave = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Pending);
+            _approvedThisMonth = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Approved && l.ReviewedAt?.Month == today.Month && l.ReviewedAt?.Year == today.Year);
         }
-
-        if (org == null) return;
-        var today = DateTime.Today;
-
-        _totalEmployees = await EmployeeSvc.CountAsync(org.Id);
-        _activeEmployees = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Active);
-        _onProbation = await EmployeeSvc.CountByStatusAsync(org.Id, EmploymentStatus.Probation);
-        _attendanceBreakdown = await AttendanceSvc.BreakdownAsync(org.Id, today);
-        var total = _attendanceBreakdown.Values.Sum();
-
-        // Load today's attendance records with clock-in/out times
-        _todayAttendance = await AttendanceSvc.ForDateAsync(org.Id, today);
-
-        // Load pending overtime
-        _pendingOvertimeRecords = await OvertimeSvc.GetPendingAsync(org.Id);
-        _pendingOvertime = _pendingOvertimeRecords.Count;
-        var present = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Present);
-        var late = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Late);
-        _presentToday = present + late;
-        _onLeaveToday = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.OnLeave);
-        _attendanceToday = total > 0 ? (present + late) * 100.0 / total : 0;
-        _attendancePct = _attendanceToday;
-
-        var leaveReqs = await LeaveSvc.AllAsync(org.Id);
-        _pendingLeave = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Pending);
-        _approvedThisMonth = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Approved && l.ReviewedAt?.Month == today.Month && l.ReviewedAt?.Year == today.Year);
-
-
-        }
-        catch
+        catch (Exception ex)
         {
-            // Fall back to empty data — page renders with defaults
+            // Fall back to empty data — page renders with defaults.
+            // The ErrorBoundary will catch rendering errors if any data is in a bad state.
+            Console.Error.WriteLine($"Dashboard load error: {ex.Message}");
         }
     }
 

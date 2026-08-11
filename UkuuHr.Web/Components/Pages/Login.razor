@@ -1305,7 +1305,7 @@
 
             @* Login form with exact Blazor bindings *@
             <form method="post" action="/auth/login@(_returnUrlEncoded)">
-                <AntiforgeryToken />
+                <Antiforgery />
 
                 @if (_error != null)
                 {
