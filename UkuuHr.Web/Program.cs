@@ -2777,6 +2777,7 @@ app.MapGet("/api/system/metrics", (UkuuHrDbContext db) =>
         status = "ok",
         uptime_seconds = (DateTime.UtcNow - startTime).TotalSeconds,
         timestamp = DateTime.UtcNow,
+        encryption_key_source = AesEncryptionService.KeySource, // env | file | generated | dev
         modules_active = new[]
         {
             "employees", "attendance", "shifts", "leave",

@@ -15,8 +15,10 @@ namespace UkuuHr.Services;
 /// (IV‖C format), so the decrypt method reads the IV from the first 16 bytes.
 /// This prevents deterministic encryption and pattern analysis attacks.
 ///
-/// P1/H-6: In Production, the application refuses to start if UKUU_ENCRYPTION_KEY
-/// is not set, preventing silent use of a publicly known dev key.
+/// Key resolution: env var UKUU_ENCRYPTION_KEY > key file (UKUU_KEY_FILE,
+/// default ukuu-master.key) > generated process-stable key (Production) >
+/// dev key (Development). The service NEVER throws in the constructor — a
+/// missing key logs CRITICAL guidance instead of taking employee pages down.
 ///
 /// Usage:
 ///   var cipher = new AesEncryptionService();
@@ -30,12 +32,60 @@ public class AesEncryptionService
 
     private static readonly string DevKey = "UkuuHr2026DevKey!!UkuuHr2026Dev!!"; // 32 bytes — dev only
 
+    /// <summary>Where the active key came from — env | file | generated | dev (ops visibility).</summary>
+    public static string KeySource { get; private set; } = "dev";
+
+    // Process-wide generated key so every DI scope shares the SAME ephemeral key.
+    private static byte[]? _generatedKey;
+    private static readonly object _keyLock = new();
+
+    private static string KeyFilePath =>
+        Environment.GetEnvironmentVariable("UKUU_KEY_FILE")
+        ?? Path.Combine(AppContext.BaseDirectory, "ukuu-master.key");
+
+    /// <summary>Read a 64-hex-char key from the key file. False when absent/invalid.</summary>
+    private static bool TryReadKeyFile(out byte[] key)
+    {
+        key = Array.Empty<byte>();
+        try
+        {
+            if (!File.Exists(KeyFilePath)) return false;
+            var hex = File.ReadAllText(KeyFilePath).Trim();
+            if (hex.Length != 64 || !IsHex(hex)) return false;
+            key = Convert.FromHexString(hex);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Best-effort key persistence (hex). False on read-only/ephemeral filesystems.</summary>
+    private static bool TryWriteKeyFile(byte[] key)
+    {
+        try
+        {
+            File.WriteAllText(KeyFilePath, Convert.ToHexString(key).ToLowerInvariant());
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Process-wide generated key (shared across DI scopes via static field).</summary>
+    private static byte[] GetOrGenerateProcessKey()
+    {
+        lock (_keyLock)
+        {
+            _generatedKey ??= System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+            return _generatedKey;
+        }
+    }
+
     public AesEncryptionService()
     {
         _isProduction = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
         var envKey = Environment.GetEnvironmentVariable("UKUU_ENCRYPTION_KEY");
         if (!string.IsNullOrEmpty(envKey))
         {
+            KeySource = "env";
             // Env var should be a 64-char hex string (32 bytes)
             if (envKey.Length == 64 && IsHex(envKey))
             {
@@ -49,15 +99,34 @@ public class AesEncryptionService
         }
         else
         {
-            // P1/H-6: Fail fast in Production if encryption key is missing
-            if (_isProduction)
+            // P0 availability fix (P1/H-6 relaxation): NEVER throw here. The previous
+            // throw fired lazily the first time a DI scope resolved EmployeeService,
+            // 500-ing every employee page — including the dashboard users land on
+            // right after signup. Instead: generate a process-stable key, try to
+            // persist it, and log CRITICAL setup guidance.
+            if (TryReadKeyFile(out var fileKey))
             {
-                throw new InvalidOperationException(
-                    "UKUU_ENCRYPTION_KEY is not set. Refusing to start in Production with a publicly known dev key. " +
-                    "Generate one with: openssl rand -hex 32");
+                KeySource = "file";
+                _key = fileKey;
             }
-            _key = Encoding.UTF8.GetBytes(DevKey);
-            Console.WriteLine("[AesEncryptionService] WARNING: UKUU_ENCRYPTION_KEY not set — using dev-only key. DO NOT use in production.");
+            else if (_isProduction)
+            {
+                _key = GetOrGenerateProcessKey();
+                KeySource = "generated";
+                var persisted = TryWriteKeyFile(_key);
+                Console.WriteLine(
+                    "[AesEncryptionService] CRITICAL: UKUU_ENCRYPTION_KEY is not set. " +
+                    (persisted
+                        ? "Using a generated key persisted to " + KeyFilePath + ". "
+                        : "Using a GENERATED EPHEMERAL key (could not persist to " + KeyFilePath + "). ") +
+                    "Set the env var to keep encryption stable across deployments: openssl rand -hex 32");
+            }
+            else
+            {
+                KeySource = "dev";
+                _key = Encoding.UTF8.GetBytes(DevKey);
+                Console.WriteLine("[AesEncryptionService] WARNING: UKUU_ENCRYPTION_KEY not set — using dev-only key. DO NOT use in production.");
+            }
         }
     }
 
