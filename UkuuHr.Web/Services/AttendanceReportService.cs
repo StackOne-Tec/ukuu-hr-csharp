@@ -173,10 +173,11 @@ public class ReportExportService
             .Where(e => employeeIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
-        // Fetch overtime records for the same period and index by (EmployeeId, Date)
+        // Fetch overtime records for the same period and index by (EmployeeId, Date).
+        // Only APPROVED overtime counts toward payroll-ready reports.
         var overtimeRecords = await _db.OvertimeRecords
             .Where(o => o.OrganizationId == orgId && o.Date >= from && o.Date <= to
-                     && o.Status != OvertimeStatus.Rejected)
+                     && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved))
             .ToListAsync();
         var overtimeByKey = overtimeRecords
             .GroupBy(o => (o.EmployeeId, o.Date.Date))
@@ -185,24 +186,57 @@ public class ReportExportService
             .GroupBy(o => (o.EmployeeId, o.Date.Date))
             .ToDictionary(g => g.Key, g => g.Sum(o => o.Pay));
 
+        // Early-departure detection needs shift context — load the org's shift
+        // data once and resolve per row with the (pure) ShiftEngine.
+        var tolerance = await _db.AttendanceTolerances.FirstOrDefaultAsync(t => t.OrganizationId == orgId)
+            ?? new AttendanceTolerance();
+        var shifts = await _db.Shifts.Where(s => s.OrganizationId == orgId).ToListAsync();
+        var assignments = await _db.EmployeeShiftAssignments
+            .Where(a => a.OrganizationId == orgId && a.IsActive)
+            .ToListAsync();
+        var fallbackShift = shifts.OrderBy(s => s.Id).FirstOrDefault();
+        var assignmentsByEmployee = assignments.ToLookup(a => a.EmployeeId);
+
+        // Branch names for the report dimension (falls back to employee city).
+        var branches = await _db.Branches.Where(b => b.OrganizationId == orgId).ToListAsync();
+        var branchNames = branches.ToDictionary(b => b.Id, b => b.Name);
+
         var rows = records.Select(r =>
         {
             employees.TryGetValue(r.EmployeeId, out var emp);
             var key = (r.EmployeeId, r.Date.Date);
             overtimeByKey.TryGetValue(key, out var otHours);
             overtimePayByKey.TryGetValue(key, out var otPay);
+
+            // Shift-aware early-departure minutes (0 when no shift resolves).
+            var earlyMinutes = 0;
+            try
+            {
+                var resolution = ShiftEngine.Resolve(r.Date, fallbackShift, assignmentsByEmployee[r.EmployeeId]);
+                if (resolution.IsWorkingDay && resolution.Shift != null && r.CheckOut.HasValue)
+                {
+                    var computation = ShiftEngine.ComputeStatus(resolution, tolerance, r.CheckIn, r.CheckOut, r.Date);
+                    earlyMinutes = computation.EarlyMinutes;
+                }
+            }
+            catch { /* shift context unavailable — leave early-minutes at 0 */ }
+
             return new AttendanceReportRow
             {
                 Date = r.Date,
                 EmployeeCode = emp?.EmployeeCode ?? "",
                 EmployeeName = r.EmployeeName,
                 Department = emp?.Department ?? "",
-                Branch = emp?.City ?? "",
+                // Assigned company branch when present; otherwise the employee's city.
+                Branch = emp?.BranchId.HasValue == true && branchNames.TryGetValue(emp.BranchId.Value, out var bn)
+                    ? bn
+                    : emp?.City ?? "",
                 CheckIn = r.CheckIn,
                 CheckOut = r.CheckOut,
                 WorkedHours = r.WorkedHours,
                 OvertimeHours = Math.Round(otHours, 2),
                 OvertimePay = Math.Round(otPay, 2),
+                EarlyDepartureMinutes = earlyMinutes,
                 Status = r.Status.ToString(),
                 Notes = r.Notes
             };
@@ -224,6 +258,8 @@ public class ReportExportService
                 OnLeaveCount = rows.Count(r => r.Status == nameof(AttendanceStatus.OnLeave)),
                 RemoteCount = rows.Count(r => r.Status == nameof(AttendanceStatus.Remote)),
                 HalfDayCount = rows.Count(r => r.Status == nameof(AttendanceStatus.HalfDay)),
+                MissingPunchCount = rows.Count(r => r.Status == nameof(AttendanceStatus.MissingPunch)),
+                EarlyDepartureCount = rows.Count(r => r.EarlyDepartureMinutes > 0),
                 TotalWorkedHours = rows.Sum(r => r.WorkedHours),
                 TotalOvertimeHours = Math.Round(rows.Sum(r => r.OvertimeHours), 2),
                 TotalOvertimePay = Math.Round(rows.Sum(r => r.OvertimePay), 2)
@@ -267,6 +303,7 @@ public class ReportExportService
         csv.WriteField("WorkedHours");
         csv.WriteField("OvertimeHours");
         csv.WriteField("OvertimePay");
+        csv.WriteField("EarlyDepartureMinutes");
         csv.WriteField("Status");
         csv.WriteField("Notes");
         csv.NextRecord();
@@ -284,6 +321,7 @@ public class ReportExportService
             csv.WriteField(r.WorkedHours.ToString("0.00", CultureInfo.InvariantCulture));
             csv.WriteField(r.OvertimeHours.ToString("0.00", CultureInfo.InvariantCulture));
             csv.WriteField(r.OvertimePay.ToString("0.00", CultureInfo.InvariantCulture));
+            csv.WriteField(r.EarlyDepartureMinutes);
             csv.WriteField(r.Status);
             csv.WriteField(r.Notes ?? "");
             csv.NextRecord();
@@ -323,6 +361,8 @@ public class ReportExportService
         summaryWs.Cell(row, 1).Value = "On Leave"; summaryWs.Cell(row, 2).Value = report.Summary.OnLeaveCount;
         summaryWs.Cell(row, 1).Value = "Remote"; summaryWs.Cell(row, 2).Value = report.Summary.RemoteCount;
         summaryWs.Cell(row, 1).Value = "Half Day"; summaryWs.Cell(row, 2).Value = report.Summary.HalfDayCount;
+        summaryWs.Cell(row, 1).Value = "Missing Punch"; summaryWs.Cell(row, 2).Value = report.Summary.MissingPunchCount;
+        summaryWs.Cell(row, 1).Value = "Early Departures"; summaryWs.Cell(row, 2).Value = report.Summary.EarlyDepartureCount;
         summaryWs.Cell(row, 1).Value = "Total Worked Hours"; summaryWs.Cell(row, 2).Value = Math.Round(report.Summary.TotalWorkedHours, 2);
         summaryWs.Cell(row, 1).Value = "Total Overtime Hours"; summaryWs.Cell(row++, 2).Value = Math.Round(report.Summary.TotalOvertimeHours, 2);
         summaryWs.Cell(row, 1).Value = "Total Overtime Pay"; summaryWs.Cell(row, 2).Value = Math.Round(report.Summary.TotalOvertimePay, 2);
@@ -331,7 +371,7 @@ public class ReportExportService
 
         // ─── Sheet 2: Detail ───
         var detailWs = wb.AddWorksheet("Detail");
-        var headers = new[] { "Date", "EmployeeCode", "EmployeeName", "Department", "Branch", "CheckIn", "CheckOut", "WorkedHours", "OvertimeHours", "OvertimePay", "Status", "Notes" };
+        var headers = new[] { "Date", "EmployeeCode", "EmployeeName", "Department", "Branch", "CheckIn", "CheckOut", "WorkedHours", "OvertimeHours", "OvertimePay", "EarlyDepartureMinutes", "Status", "Notes" };
         for (int i = 0; i < headers.Length; i++)
         {
             detailWs.Cell(1, i + 1).Value = headers[i];
@@ -354,11 +394,12 @@ public class ReportExportService
             detailWs.Cell(x, 8).Value = Math.Round(r.WorkedHours, 2);
             detailWs.Cell(x, 9).Value = Math.Round(r.OvertimeHours, 2);
             detailWs.Cell(x, 10).Value = Math.Round(r.OvertimePay, 2);
-            detailWs.Cell(x, 11).Value = r.Status;
-            detailWs.Cell(x, 12).Value = r.Notes ?? "";
+            detailWs.Cell(x, 11).Value = r.EarlyDepartureMinutes;
+            detailWs.Cell(x, 12).Value = r.Status;
+            detailWs.Cell(x, 13).Value = r.Notes ?? "";
 
             // Color-code the Status cell.
-            var statusCell = detailWs.Cell(x, 9);
+            var statusCell = detailWs.Cell(x, 12);
             statusCell.Style.Fill.BackgroundColor = r.Status switch
             {
                 "Present" => XLColor.FromHtml("#DCFCE7"),
@@ -367,6 +408,7 @@ public class ReportExportService
                 "OnLeave" => XLColor.FromHtml("#DBEAFE"),
                 "Remote" => XLColor.FromHtml("#E0E7FF"),
                 "HalfDay" => XLColor.FromHtml("#FEF3C7"),
+                "MissingPunch" => XLColor.FromHtml("#FDE68A"),
                 _ => XLColor.White
             };
         }
@@ -413,6 +455,8 @@ public class AttendanceReportRow
     public double OvertimeHours { get; set; }
     /// <summary>Overtime pay amount for this attendance date.</summary>
     public double OvertimePay { get; set; }
+    /// <summary>Minutes the employee left before the shift end (shift-aware; 0 when unknown).</summary>
+    public int EarlyDepartureMinutes { get; set; }
     public string Status { get; set; } = "";
     public string? Notes { get; set; }
 }
@@ -427,6 +471,10 @@ public class AttendanceReportSummary
     public int OnLeaveCount { get; set; }
     public int RemoteCount { get; set; }
     public int HalfDayCount { get; set; }
+    /// <summary>Records flagged as incomplete in/out pairs (manual correction needed).</summary>
+    public int MissingPunchCount { get; set; }
+    /// <summary>Records where the employee left before the shift-end tolerance window.</summary>
+    public int EarlyDepartureCount { get; set; }
     public double TotalWorkedHours { get; set; }
     public double TotalOvertimeHours { get; set; }
     public double TotalOvertimePay { get; set; }

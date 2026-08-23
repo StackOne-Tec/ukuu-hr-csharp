@@ -327,12 +327,36 @@ public class OvertimeService
     private readonly UkuuHrDbContext _db;
     private readonly ILogger<OvertimeService> _logger;
     private readonly NotificationService _notifications;
+    private readonly EmailService? _email;
 
-    public OvertimeService(UkuuHrDbContext db, ILogger<OvertimeService> logger, NotificationService notifications)
+    public OvertimeService(UkuuHrDbContext db, ILogger<OvertimeService> logger, NotificationService notifications, EmailService? email = null)
     {
         _db = db;
         _logger = logger;
         _notifications = notifications;
+        _email = email;
+    }
+
+    /// <summary>Best-effort email to the employee about an overtime decision.</summary>
+    private async Task EmailEmployeeDecisionAsync(OvertimeRecord ot, bool approved, string byEmail, string? note)
+    {
+        if (_email is not { Enabled: true }) return;
+        try
+        {
+            var employeeEmail = await _db.Employees
+                .Where(e => e.OrganizationId == ot.OrganizationId && e.Id == ot.EmployeeId)
+                .Select(e => e.Email)
+                .FirstOrDefaultAsync();
+            if (string.IsNullOrWhiteSpace(employeeEmail)) return;
+
+            var html = EmailService.WrapHtml(
+                approved ? "Overtime approved" : "Overtime rejected",
+                $@"<p>Hi {ot.EmployeeName},</p>
+<p>Your <b>{ot.Hours:F1}h</b> overtime on <b>{ot.Date:dd MMM yyyy}</b> ({ot.RateTypeDisplay}) has been <b>{(approved ? "approved" : "rejected")}</b>.</p>
+{(string.IsNullOrWhiteSpace(note) ? "" : $"<p style=\"color:#6b6580;\">Note: {note}</p>")}");
+            await _email.SendAsync(employeeEmail, $"[Ukuu HR] Overtime {(approved ? "approved" : "rejected")}", html);
+        }
+        catch { /* email is best-effort */ }
     }
 
     /// <summary>
@@ -535,6 +559,8 @@ public class OvertimeService
             sourceModule: "overtime",
             actionUrl: "/overtime");
 
+        await EmailEmployeeDecisionAsync(ot, approved: true, approverEmail, notes);
+
         return true;
     }
 
@@ -556,6 +582,8 @@ public class OvertimeService
             recipientUserId: ot.RequestedByUserId,
             sourceModule: "overtime",
             actionUrl: "/overtime");
+
+        await EmailEmployeeDecisionAsync(ot, approved: false, rejectorEmail, reason);
 
         return true;
     }

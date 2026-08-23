@@ -125,6 +125,234 @@ public class EmployeeService
             .GroupBy(e => e.Department!)
             .Select(g => new { Dept = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Dept, x => x.Count);
+
+    // ───────────── FR: Employee CSV/XLSX import & export ─────────────
+
+    /// <summary>Column headers shared by the CSV and XLSX exports (round-trips with ImportCsvAsync).</summary>
+    private static readonly string[] EmployeeExportColumns =
+    {
+        "EmployeeCode", "FirstName", "MiddleNames", "Surname", "Email", "Phone", "Gender",
+        "MaritalStatus", "Country", "City", "Department", "JobTitle", "EmploymentType",
+        "ContractType", "BasicSalary", "Currency", "WorkHoursPerWeek", "JoiningDate", "Status"
+    };
+
+    /// <summary>
+    /// Export all employees for the org as CSV. Sensitive fields (bank details,
+    /// NRC, TPIN, NAPSA number…) are deliberately excluded — this export targets
+    /// directory/bulk-edit workflows, not payroll data movement.
+    /// </summary>
+    public async Task<byte[]> ExportCsvAsync(int orgId)
+    {
+        var employees = await _db.Employees
+            .Where(e => e.OrganizationId == orgId)
+            .OrderBy(e => e.Surname).ThenBy(e => e.FirstName)
+            .ToListAsync();
+
+        var writer = new StringWriter();
+        var csv = new CsvHelper.CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture);
+        foreach (var col in EmployeeExportColumns) csv.WriteField(col);
+        await csv.NextRecordAsync();
+
+        foreach (var e in employees)
+        {
+            csv.WriteField(e.EmployeeCode);
+            csv.WriteField(e.FirstName);
+            csv.WriteField(e.MiddleNames);
+            csv.WriteField(e.Surname);
+            csv.WriteField(e.Email);
+            csv.WriteField(e.Phone);
+            csv.WriteField(e.Gender);
+            csv.WriteField(e.MaritalStatus);
+            csv.WriteField(e.Country);
+            csv.WriteField(e.City);
+            csv.WriteField(e.Department);
+            csv.WriteField(e.JobTitle);
+            csv.WriteField(e.EmploymentType);
+            csv.WriteField(e.ContractType);
+            csv.WriteField(e.BasicSalary);
+            csv.WriteField(e.Currency);
+            csv.WriteField(e.WorkHoursPerWeek);
+            csv.WriteField(e.JoiningDate?.ToString("yyyy-MM-dd"));
+            csv.WriteField(e.Status.ToString());
+            await csv.NextRecordAsync();
+        }
+        await csv.FlushAsync();
+        return System.Text.Encoding.UTF8.GetBytes(writer.ToString());
+    }
+
+    /// <summary>Export all employees as a styled .xlsx workbook (ClosedXML).</summary>
+    public async Task<byte[]> ExportXlsxAsync(int orgId)
+    {
+        var employees = await _db.Employees
+            .Where(e => e.OrganizationId == orgId)
+            .OrderBy(e => e.Surname).ThenBy(e => e.FirstName)
+            .ToListAsync();
+
+        using var wb = new ClosedXML.Excel.XLWorkbook();
+        var ws = wb.Worksheets.Add("Employees");
+
+        for (var i = 0; i < EmployeeExportColumns.Length; i++)
+        {
+            var cell = ws.Cell(1, i + 1);
+            cell.Value = EmployeeExportColumns[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+            cell.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+        }
+        ws.Row(1).Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Center;
+        ws.SheetView.FreezeRows(1);
+
+        var row = 2;
+        foreach (var e in employees)
+        {
+            ws.Cell(row, 1).Value = e.EmployeeCode;
+            ws.Cell(row, 2).Value = e.FirstName;
+            ws.Cell(row, 3).Value = e.MiddleNames;
+            ws.Cell(row, 4).Value = e.Surname;
+            ws.Cell(row, 5).Value = e.Email;
+            ws.Cell(row, 6).Value = e.Phone;
+            ws.Cell(row, 7).Value = e.Gender;
+            ws.Cell(row, 8).Value = e.MaritalStatus;
+            ws.Cell(row, 9).Value = e.Country;
+            ws.Cell(row, 10).Value = e.City;
+            ws.Cell(row, 11).Value = e.Department;
+            ws.Cell(row, 12).Value = e.JobTitle;
+            ws.Cell(row, 13).Value = e.EmploymentType;
+            ws.Cell(row, 14).Value = e.ContractType;
+            ws.Cell(row, 15).Value = e.BasicSalary;
+            ws.Cell(row, 16).Value = e.Currency;
+            ws.Cell(row, 17).Value = e.WorkHoursPerWeek;
+            ws.Cell(row, 18).Value = e.JoiningDate?.ToString("yyyy-MM-dd") ?? "";
+            ws.Cell(row, 19).Value = e.Status.ToString();
+            row++;
+        }
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
+
+    /// <summary>Outcome of a CSV import.</summary>
+    public sealed class EmployeeCsvImportResult
+    {
+        public int Imported { get; set; }
+        public int Skipped { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Import employees from a CSV stream. Columns are matched case-insensitively
+    /// against the export headers (FirstName/Surname or a FullName fallback).
+    /// Rows with a duplicate EmployeeCode or a missing name are skipped and
+    /// reported in <see cref="EmployeeCsvImportResult.Errors"/> — one bad row
+    /// never aborts the batch.
+    /// </summary>
+    public async Task<EmployeeCsvImportResult> ImportCsvAsync(int orgId, Stream csvStream)
+    {
+        var result = new EmployeeCsvImportResult();
+
+        var existingCodes = await _db.Employees
+            .Where(e => e.OrganizationId == orgId && e.EmployeeCode != null)
+            .Select(e => e.EmployeeCode!)
+            .ToListAsync();
+        var codeSet = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+
+        using var reader = new StreamReader(csvStream);
+        using var csv = new CsvHelper.CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture);
+
+        await csv.ReadAsync();
+        csv.ReadHeader();
+        var header = csv.HeaderRecord ?? Array.Empty<string>();
+
+        string? Col(params string[] names)
+        {
+            foreach (var n in names)
+            {
+                var idx = Array.FindIndex(header, h => string.Equals(h?.Trim(), n, StringComparison.OrdinalIgnoreCase));
+                if (idx >= 0)
+                {
+                    var v = csv.GetField(idx);
+                    return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+                }
+            }
+            return null;
+        }
+
+        while (await csv.ReadAsync())
+        {
+            var rowNum = csv.Context.Parser?.Row ?? (result.Imported + result.Skipped + 2);
+            try
+            {
+                var firstName = Col("FirstName", "First Name");
+                var surname = Col("Surname", "LastName", "Last Name");
+                var fullName = Col("FullName", "Full Name", "Name");
+
+                // FullName fallback: "First [Middle] Last".
+                if (string.IsNullOrWhiteSpace(firstName) && !string.IsNullOrWhiteSpace(fullName))
+                {
+                    var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0) firstName = parts[0];
+                    if (string.IsNullOrWhiteSpace(surname) && parts.Length > 1)
+                        surname = string.Join(" ", parts.Skip(1));
+                }
+
+                if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(surname))
+                {
+                    result.Skipped++;
+                    result.Errors.Add($"Row {rowNum}: skipped — missing FirstName/Surname (provide columns or a FullName).");
+                    continue;
+                }
+
+                var code = Col("EmployeeCode", "Employee Code", "Code");
+                if (!string.IsNullOrWhiteSpace(code) && codeSet.Contains(code))
+                {
+                    result.Skipped++;
+                    result.Errors.Add($"Row {rowNum}: skipped — EmployeeCode '{code}' already exists.");
+                    continue;
+                }
+
+                var emp = new Employee
+                {
+                    OrganizationId = orgId,
+                    FirstName = firstName,
+                    MiddleNames = Col("MiddleNames", "Middle Names") ?? "",
+                    Surname = surname,
+                    Email = Col("Email"),
+                    Phone = Col("Phone", "Mobile"),
+                    Gender = Col("Gender"),
+                    MaritalStatus = Col("MaritalStatus", "Marital Status"),
+                    Country = Col("Country"),
+                    City = Col("City"),
+                    Department = Col("Department"),
+                    JobTitle = Col("JobTitle", "Job Title", "Title"),
+                    EmploymentType = Col("EmploymentType", "Employment Type"),
+                    ContractType = Col("ContractType", "Contract Type"),
+                    BasicSalary = double.TryParse(Col("BasicSalary", "Basic Salary"), out var bs) ? bs : 0,
+                    Currency = Col("Currency") ?? "ZMW",
+                    WorkHoursPerWeek = double.TryParse(Col("WorkHoursPerWeek", "Work Hours Per Week"), out var wh) ? wh : 40,
+                    EmployeeCode = string.IsNullOrWhiteSpace(code) ? null : code,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                if (DateTime.TryParse(Col("JoiningDate", "Joining Date"), out var jd))
+                    emp.JoiningDate = jd;
+                if (Enum.TryParse<EmploymentStatus>(Col("Status"), out var st))
+                    emp.Status = st;
+
+                await CreateAsync(emp); // persists via the normal path
+                if (!string.IsNullOrWhiteSpace(emp.EmployeeCode))
+                    codeSet.Add(emp.EmployeeCode);
+                result.Imported++;
+            }
+            catch (Exception ex)
+            {
+                result.Skipped++;
+                result.Errors.Add($"Row {rowNum}: {ex.Message}");
+            }
+        }
+        return result;
+    }
 }
 
 public class AttendanceService
@@ -186,7 +414,14 @@ public class AttendanceService
 public class LeaveService
 {
     private readonly UkuuHrDbContext _db;
-    public LeaveService(UkuuHrDbContext db) => _db = db;
+    private readonly NotificationService? _notifications;
+    private readonly EmailService? _email;
+    public LeaveService(UkuuHrDbContext db, NotificationService? notifications = null, EmailService? email = null)
+    {
+        _db = db;
+        _notifications = notifications;
+        _email = email;
+    }
 
     // ───────────── Queries ─────────────
 
@@ -266,6 +501,15 @@ public class LeaveService
         req.Status = LeaveRequestStatus.Pending;
         _db.LeaveRequests.Add(req);
         await _db.SaveChangesAsync();
+
+        // FR-013: notify managers/admins that a request is awaiting review.
+        await NotifySafeAsync(req.OrganizationId,
+            type: "info",
+            title: "Leave request pending approval",
+            body: $"{req.EmployeeName} requested leave from {req.StartDate:yyyy-MM-dd} to {req.EndDate:yyyy-MM-dd} ({req.LeaveTypeName}).",
+            sourceModule: "leave",
+            actionUrl: "/leave");
+
         return req;
     }
 
@@ -298,7 +542,60 @@ public class LeaveService
         }
 
         await _db.SaveChangesAsync();
+
+        // FR-013: notify the requester of the decision.
+        await NotifySafeAsync(orgId,
+            type: approve ? "success" : "warning",
+            title: approve ? "Leave request approved" : "Leave request rejected",
+            body: $"{lr.EmployeeName}'s {lr.LeaveTypeName} request ({lr.StartDate:yyyy-MM-dd} → {lr.EndDate:yyyy-MM-dd}) was {(approve ? "approved" : "rejected")} by {reviewerEmail}.",
+            sourceModule: "leave",
+            actionUrl: "/leave");
+
+        // Best-effort email to the employee (module 10 — notifications).
+        if (_email is { Enabled: true })
+        {
+            try
+            {
+                var employeeEmail = await _db.Employees
+                    .Where(e => e.OrganizationId == orgId && e.Id == lr.EmployeeId)
+                    .Select(e => e.Email)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(employeeEmail))
+                {
+                    var html = EmailService.WrapHtml(
+                        approve ? "Leave request approved" : "Leave request rejected",
+                        $@"<p>Hi {lr.EmployeeName},</p>
+<p>Your <b>{lr.LeaveTypeName}</b> request for <b>{lr.StartDate:dd MMM yyyy} – {lr.EndDate:dd MMM yyyy}</b> has been <b>{(approve ? "approved" : "rejected")}</b>.</p>
+{(string.IsNullOrWhiteSpace(notes) ? "" : $"<p style=\"color:#6b6580;\">Reviewer note: {notes}</p>")}");
+                    await _email.SendAsync(employeeEmail, $"[Ukuu HR] Leave request {(approve ? "approved" : "rejected")}", html);
+                }
+            }
+            catch { /* email is best-effort */ }
+        }
+
         return true;
+    }
+
+    /// <summary>Best-effort notification helper — never fails the leave workflow.</summary>
+    private async Task NotifySafeAsync(int orgId, string type, string title, string body, string sourceModule, string actionUrl)
+    {
+        if (_notifications == null) return;
+        try
+        {
+            switch (type)
+            {
+                case "success":
+                    await _notifications.NotifySuccessAsync(orgId, title, body, sourceModule: sourceModule, actionUrl: actionUrl);
+                    break;
+                case "warning":
+                    await _notifications.NotifyWarningAsync(orgId, title, body, sourceModule: sourceModule, actionUrl: actionUrl);
+                    break;
+                default:
+                    await _notifications.NotifyInfoAsync(orgId, title, body, sourceModule: sourceModule, actionUrl: actionUrl);
+                    break;
+            }
+        }
+        catch { /* notifications are best-effort */ }
     }
 
     /// <summary>Cancel a leave request (employee self-service, only if still pending).</summary>
@@ -532,6 +829,14 @@ public class PayrollService
         if (existing) return await ForPeriodAsync(orgId, month, year);
 
         var employees = await _db.Employees.Where(e => e.OrganizationId == orgId && e.Status != EmploymentStatus.Inactive).ToListAsync();
+
+        // FR-006/FR-012: pull APPROVED overtime for the period so payroll reflects it.
+        var approvedOvertime = await _db.OvertimeRecords
+            .Where(o => o.OrganizationId == orgId
+                     && o.Date >= payStart && o.Date <= payEnd
+                     && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved))
+            .ToListAsync();
+
         var runs = new List<PayrollRun>();
 
         foreach (var emp in employees)
@@ -543,7 +848,15 @@ public class PayrollService
                 Taxable = a.Taxable
             }).ToList();
 
-            var calc = PayrollCalculator.Calculate(emp.BasicSalary, allowances, countryConfig: cfg);
+            // Approved overtime for this employee in the pay period.
+            var empOt = approvedOvertime.Where(o => o.EmployeeId == emp.Id).ToList();
+            var otHours = Math.Round(empOt.Sum(o => o.Hours), 2);
+            var otPay = Math.Round(empOt.Sum(o => o.Pay), 2);
+            // Effective blended hourly OT rate (pay / hours) keeps PAYE math consistent.
+            var otRate = otHours > 0 ? otPay / otHours : 0;
+
+            var calc = PayrollCalculator.Calculate(emp.BasicSalary, allowances,
+                overtimeHours: otHours, overtimeRate: otRate, countryConfig: cfg);
 
             var run = new PayrollRun
             {
@@ -558,6 +871,9 @@ public class PayrollService
                 Base = calc.Basic,
                 Allowances = calc.TaxableAllowances + calc.NonTaxableAllowances,
                 NonTaxableAllowances = calc.NonTaxableAllowances,
+                OvertimePay = Math.Round(calc.OvertimePay, 2),
+                OvertimeHours = otHours,
+                OvertimeRate = Math.Round(otRate, 4),
                 Paye = Math.Round(calc.Paye, 2),
                 Napsa = Math.Round(calc.Napsa, 2),
                 Nhima = Math.Round(calc.Nhima, 2),

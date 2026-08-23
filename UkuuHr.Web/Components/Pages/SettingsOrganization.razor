@@ -173,7 +173,7 @@
     {
         try
         {
-            _org = await Db.Organizations.FirstOrDefaultAsync();
+            _org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
             if (_org != null)
             {
                 _employeeCount = await Db.Employees.CountAsync(e => e.OrganizationId == _org.Id);

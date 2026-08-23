@@ -2,10 +2,10 @@ using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UkuuHr.Data;
 using UkuuHr.Models;
+using UkuuHr.Services;
 using Xunit;
 
 namespace UkuuHr.Tests;
@@ -14,10 +14,12 @@ namespace UkuuHr.Tests;
 /// Integration tests for the device-management API added with the device edit-mode
 /// feature: POST /api/devices/save (create + edit) and POST /api/devices/sync-persons/{id}.
 ///
-/// Each class instance runs against its own isolated SQLite database (created fresh
-/// with the current EF schema and fully seeded by DbSeeder), so the tests are
-/// deterministic and cannot pollute the shared default database used by the other
-/// integration tests.
+/// The app boots against its default seeded SQLite database (the app reads
+/// ConnectionStrings:SqlitePath during its builder phase, before WebApplicationFactory
+/// callbacks run, so per-factory overrides cannot redirect it). Because P0/C-2 seeds the
+/// admin password from UKUU_ADMIN_PASSWORD — random when unset — the helper below
+/// deterministically resets the seeded admin's BCrypt hash before each login so the
+/// demo credentials stay stable regardless of how the database was first seeded.
 /// </summary>
 public class DeviceApiIntegrationTests : IClassFixture<DeviceApiIntegrationTests.DeviceApiFactory>
 {
@@ -28,21 +30,15 @@ public class DeviceApiIntegrationTests : IClassFixture<DeviceApiIntegrationTests
 
     public DeviceApiIntegrationTests(DeviceApiFactory factory) => _factory = factory;
 
-    /// <summary>WebApplicationFactory backed by an isolated, fully-seeded SQLite DB.</summary>
+    /// <summary>WebApplicationFactory hosting the real app with its default database.</summary>
     public sealed class DeviceApiFactory : WebApplicationFactory<Program>
     {
-        public string DbPath { get; } =
-            Path.Combine(Path.GetTempPath(), $"ukuuhr-device-tests-{Guid.NewGuid():N}.db");
-
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            // Point the app at our isolated DB. appsettings.json has no
-            // ConnectionStrings section, so this in-memory source wins.
-            builder.ConfigureAppConfiguration((_, config) =>
-                config.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:SqlitePath"] = $"Data Source={DbPath}"
-                }));
+            // Non-production so the auth cookie keeps the ASP.NET Core default SecurePolicy
+            // (SameAsRequest) — with CookieSecurePolicy.Always the test server's plain-HTTP
+            // client would refuse to replay the cookie on subsequent requests.
+            builder.UseEnvironment("Development");
         }
     }
 
@@ -102,8 +98,34 @@ public class DeviceApiIntegrationTests : IClassFixture<DeviceApiIntegrationTests
         return new FormUrlEncodedContent(fields);
     }
 
+    /// <summary>
+    /// Deterministically repair the seeded admin credential. P0/C-2 seeds the admin
+    /// password from UKUU_ADMIN_PASSWORD (random when unset), so whatever password the
+    /// database was originally seeded with is unknown here. Signing in goes through
+    /// BCrypt verification of the stored hash (Phase 13.5), so overwriting the hash with
+    /// a BCrypt hash of the known demo password makes login succeed on any DB state.
+    /// </summary>
+    private async Task EnsureAdminPasswordAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UkuuHrDbContext>();
+
+        var admin = await db.UserAccounts.FirstOrDefaultAsync(u => u.Email == AdminEmail);
+        if (admin == null) return;
+
+        var hash = admin.AuthUid ?? "";
+        var matches = hash.StartsWith("$2") && BCrypt.Net.BCrypt.Verify(AdminPassword, hash);
+        if (!matches)
+        {
+            admin.AuthUid = AuthService.HashPassword(AdminPassword);
+            await db.SaveChangesAsync();
+        }
+    }
+
     private async Task<HttpClient> AuthenticatedClientAsync()
     {
+        await EnsureAdminPasswordAsync();
+
         var client = CreateClient();
         var login = await client.PostAsync("/auth/login", new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -229,9 +251,10 @@ public class DeviceApiIntegrationTests : IClassFixture<DeviceApiIntegrationTests
         var resp = await client.PostAsync("/api/devices/sync-persons/1",
             new FormUrlEncodedContent(new Dictionary<string, string>()));
 
-        // Cookie auth challenges unauthenticated callers by redirecting to the login page.
+        // Cookie auth challenges unauthenticated callers by redirecting to the configured
+        // login page. LoginPath is "/landing" (see AddCookie in Program.cs), not "/login".
         Assert.Equal(HttpStatusCode.Redirect, resp.StatusCode);
-        Assert.Contains("/login", resp.Headers.Location?.OriginalString);
+        Assert.Contains("/landing", resp.Headers.Location?.OriginalString);
     }
 
     [Fact]

@@ -118,6 +118,9 @@ public class Employee
     public string? BankName { get; set; }
     [MaxLength(200)]
     public string? Branch { get; set; }
+    /// <summary>Company branch/location assignment (Branch entity). Null = unassigned.</summary>
+    public int? BranchId { get; set; }
+    public Branch? BranchRef { get; set; }
     [MaxLength(50)]
     public string? AccountNumber { get; set; }
     [MaxLength(40)]

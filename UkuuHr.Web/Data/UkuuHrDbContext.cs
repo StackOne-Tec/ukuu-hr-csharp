@@ -11,6 +11,7 @@ public class UkuuHrDbContext : DbContext
     public UkuuHrDbContext(DbContextOptions<UkuuHrDbContext> options) : base(options) { }
 
     public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<Attendance> Attendances => Set<Attendance>();

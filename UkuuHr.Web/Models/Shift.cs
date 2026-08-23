@@ -304,7 +304,9 @@ public class EmployeeShiftAssignment
     public DateTime? UpdatedAt { get; set; }
 
     // ───── Helpers ─────
-    public int EffectiveDaysMask => DaysOfWeekMaskOverride ?? Shift.DaysOfWeekMask;
+    // Null-safe so JSON serialization (e.g. the admin backup snapshot) never throws
+    // when the Shift navigation isn't loaded.
+    public int EffectiveDaysMask => DaysOfWeekMaskOverride ?? Shift?.DaysOfWeekMask ?? 0;
 
     public bool IsEffectiveOn(DateTime date)
     {

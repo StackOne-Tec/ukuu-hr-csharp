@@ -395,7 +395,7 @@
         </div>
         <a href="/api/overtime/export?tab=@_tab" class="ot-btn ot-btn-ghost" style="font-size:12px;padding:8px 14px;">
             <span class="material-icons-round" style="font-size:14px;">file_download</span>
-            Export Excel
+            Export CSV
         </a>
     </div>
 
@@ -672,7 +672,7 @@ function otToggleView(view) {
         }
         catch { }
 
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         _orgId = org.Id;
         await LoadData();

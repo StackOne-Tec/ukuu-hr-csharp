@@ -9,6 +9,14 @@
 @inject NavigationManager Nav
 
 <div class="bk-admin-fade-in">
+    @if (_correctionBanner != null)
+    {
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;margin-bottom:16px;font-size:13px;font-weight:600;background:@(_correctionIsError ? "#FEE2E2" : "#DCFCE7");color:@(_correctionIsError ? "#991B1B" : "#166534");"
+             role="status">
+            <span class="material-icons-round" style="font-size:18px;">@(_correctionIsError ? "error_outline" : "check_circle")</span>
+            <span>@_correctionBanner</span>
+        </div>
+    }
     <div class="bk-admin-section-header">
         <div class="bk-admin-section-header-left">
             <div class="bk-admin-greeting">Time & Attendance · @_selectedDate.ToString("dd MMMM yyyy")</div>
@@ -92,6 +100,7 @@
                     <th>Hours</th>
                     <th>Late / Early</th>
                     <th>Status</th>
+                    <th>Correct</th>
                 </tr>
             </thead>
             <tbody>
@@ -146,6 +155,45 @@
                             <span class="bk-admin-pill @(row.Attendance.Status == AttendanceStatus.Present ? "active" : row.Attendance.Status == AttendanceStatus.Late ? "probation" : row.Attendance.Status == AttendanceStatus.Absent ? "inactive" : row.Attendance.Status == AttendanceStatus.HalfDay ? "pending" : "info")">
                                 @row.Attendance.Status
                             </span>
+                        </td>
+                        <td>
+                            @* Manual correction — static-SSR form posting to /api/attendance/{id}/edit (audited) *@
+                            <details style="position:relative;">
+                                <summary style="cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#4A3C68;padding:4px 8px;border-radius:8px;"
+                                          onmouseover="this.style.background='#F3F1F6'" onmouseout="this.style.background='none'">
+                                    <span class="material-icons-round" style="font-size:14px;">edit</span>
+                                    Correct
+                                </summary>
+                                <form method="post" action="/api/attendance/@row.Attendance.Id/edit"
+                                      style="position:absolute;right:0;z-index:20;background:#fff;border:1px solid #E8E4F0;border-radius:12px;padding:14px;width:250px;box-shadow:0 12px 32px rgba(37,22,63,.14);">
+                                    <div style="font-size:11px;font-weight:800;color:#25163F;margin-bottom:10px;">Correct — @row.Attendance.EmployeeName</div>
+                                    <label style="display:block;font-size:10px;font-weight:700;color:#6b6580;margin-bottom:2px;">Check in (leave blank to keep)</label>
+                                    <input type="time" name="CheckIn" value="@row.Attendance.CheckIn?.ToString("HH:mm")"
+                                           style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #ddd6e8;border-radius:8px;font-size:12px;margin-bottom:8px;" />
+                                    <label style="display:block;font-size:10px;font-weight:700;color:#6b6580;margin-bottom:2px;">Check out (leave blank to keep)</label>
+                                    <input type="time" name="CheckOut" value="@row.Attendance.CheckOut?.ToString("HH:mm")"
+                                           style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #ddd6e8;border-radius:8px;font-size:12px;margin-bottom:8px;" />
+                                    <label style="display:block;font-size:10px;font-weight:700;color:#6b6580;margin-bottom:2px;">Break minutes</label>
+                                    <input type="number" name="BreakMinutes" min="0" max="240" step="5" value="@row.Attendance.BreakMinutes"
+                                           style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #ddd6e8;border-radius:8px;font-size:12px;margin-bottom:8px;" />
+                                    <label style="display:block;font-size:10px;font-weight:700;color:#6b6580;margin-bottom:2px;">Status</label>
+                                    <select name="Status"
+                                            style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #ddd6e8;border-radius:8px;font-size:12px;margin-bottom:8px;background:#fff;">
+                                        @foreach (var s in Enum.GetValues<AttendanceStatus>())
+                                        {
+                                            var sel = row.Attendance.Status == s ? "selected" : null;
+                                            <option value="@s" selected="@(sel != null)">@s</option>
+                                        }
+                                    </select>
+                                    <label style="display:block;font-size:10px;font-weight:700;color:#6b6580;margin-bottom:2px;">Note (optional)</label>
+                                    <input type="text" name="Notes" maxlength="200" placeholder="Reason for correction"
+                                           style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #ddd6e8;border-radius:8px;font-size:12px;margin-bottom:10px;" />
+                                    <button type="submit"
+                                            style="width:100%;background:#25163F;color:#fff;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">
+                                        Save correction
+                                    </button>
+                                </form>
+                            </details>
                         </td>
                     </tr>
                 }
@@ -394,6 +442,27 @@
     private int _present, _late, _absent, _onLeave, _remote;
     private int _orgId;
 
+    [SupplyParameterFromQuery] private int? Corrected { get; set; }
+    [SupplyParameterFromQuery] private string? Name { get; set; }
+    [SupplyParameterFromQuery] private string? Error { get; set; }
+    private string? _correctionBanner;
+    private bool _correctionIsError;
+
+    protected override void OnParametersSet()
+    {
+        if (Corrected == 1 && !string.IsNullOrWhiteSpace(Name))
+        {
+            _correctionBanner = $"Attendance corrected for {Name} — change recorded in the audit log.";
+            _correctionIsError = false;
+        }
+        else if (!string.IsNullOrWhiteSpace(Error))
+        {
+            _correctionBanner = Uri.UnescapeDataString(Error);
+            _correctionIsError = true;
+        }
+        else _correctionBanner = null;
+    }
+
     /// <summary>Per-row payload: attendance record + engine resolution + computation.</summary>
     private sealed record AttendanceRow(Attendance Attendance, ShiftResolution Resolution, AttendanceComputation Computation);
 
@@ -413,7 +482,7 @@
 
     private async Task LoadAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         _orgId = org.Id;
         _records = await AttendanceSvc.ForDateAsync(_orgId, _selectedDate);

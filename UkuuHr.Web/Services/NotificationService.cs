@@ -7,14 +7,20 @@ namespace UkuuHr.Services;
 /// <summary>
 /// Notification service for FR-013 Notifications module.
 /// Supports in-app notifications with the ability to extend to email/push delivery.
+/// Error/warning notifications are additionally emailed to the org's admin
+/// accounts when email (Resend) is configured.
 /// </summary>
 public class NotificationService
 {
     private readonly UkuuHrDbContext _db;
+    private readonly EmailService? _email;
+    private readonly ILogger<NotificationService>? _logger;
 
-    public NotificationService(UkuuHrDbContext db)
+    public NotificationService(UkuuHrDbContext db, EmailService? email = null, ILogger<NotificationService>? logger = null)
     {
         _db = db;
+        _email = email;
+        _logger = logger;
     }
 
     // ───────────── Queries ─────────────
@@ -63,7 +69,38 @@ public class NotificationService
 
         _db.Set<NotificationRecord>().Add(notification);
         await _db.SaveChangesAsync();
+
+        // Best-effort admin email for error/warning notifications (device failures,
+        // sync problems, urgent operational issues).
+        if (notification.Type is "error" or "warning")
+            _ = EmailAdminsBestEffortAsync(notification);
+
         return notification;
+    }
+
+    /// <summary>Email error/warning notifications to the org's admin accounts (never throws).</summary>
+    private async Task EmailAdminsBestEffortAsync(NotificationRecord notification)
+    {
+        if (_email == null || !_email.Enabled) return;
+        try
+        {
+            var adminEmails = await _db.UserAccounts
+                .Where(u => u.OrganizationId == notification.OrganizationId
+                         && u.Status == AccountStatus.Active
+                         && (u.Role == UserRole.SuperAdmin || u.Role == UserRole.HrAdmin || u.Role == UserRole.FinancePayrollAdmin))
+                .Select(u => u.Email)
+                .ToListAsync();
+            if (adminEmails.Count == 0) return;
+
+            var html = EmailService.WrapHtml(notification.Title,
+                $@"<p>{notification.Body}</p>
+<p style=""color:#6b6580;font-size:12px;"">Raised by module: <b>{notification.SourceModule ?? "system"}</b></p>");
+            await _email.SendToManyAsync(adminEmails, $"[Ukuu HR] {notification.Title}", html);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Admin email for notification '{Title}' failed", notification.Title);
+        }
     }
 
     /// <summary>Mark a notification as read.</summary>

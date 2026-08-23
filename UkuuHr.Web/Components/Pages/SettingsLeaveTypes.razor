@@ -204,7 +204,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         _orgId = org.Id;
         _leaveTypes = await Db.LeaveTypes.Where(l => l.OrganizationId == _orgId).OrderBy(l => l.Name).ToListAsync();

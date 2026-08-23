@@ -358,6 +358,16 @@
         </div>
     </div>
 
+    @* ── Action result banners (query params set by form-post endpoints) ── *@
+    @if (_banner != null)
+    {
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;margin-bottom:16px;font-size:13px;font-weight:600;background:@(_bannerIsError ? "#FEE2E2" : "#DCFCE7");color:@(_bannerIsError ? "#991B1B" : "#166534");"
+             role="status">
+            <span class="material-icons-round" style="font-size:18px;">@(_bannerIsError ? "error_outline" : "check_circle")</span>
+            <span>@_banner</span>
+        </div>
+    }
+
     @* ── Section Header ─ *@
     <div class="emp-header">
         <div class="emp-header-left">
@@ -374,11 +384,22 @@
                     <span class="material-icons-round">view_list</span>
                 </button>
             </div>
-            <button class="emp-btn emp-btn-ghost" onclick="document.getElementById('emp-csv-input')?.click()">
-                <span class="material-icons-round" style="font-size:16px;">upload</span>
-                Import CSV
-            </button>
-            <input type="file" id="emp-csv-input" accept=".csv" style="display:none;" />
+            <form method="post" action="/api/employees/import" enctype="multipart/form-data" id="emp-csv-form" style="display:inline;">
+                <button class="emp-btn emp-btn-ghost" type="button" onclick="document.getElementById('emp-csv-input')?.click()" title="Import employees from CSV">
+                    <span class="material-icons-round" style="font-size:16px;">upload</span>
+                    Import CSV
+                </button>
+                <input type="file" id="emp-csv-input" name="file" accept=".csv" style="display:none;"
+                       onchange="if(this.files.length) this.form.submit()" />
+            </form>
+            <a href="/api/employees/export" class="emp-btn emp-btn-ghost" title="Download employee directory as CSV">
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export CSV
+            </a>
+            <a href="/api/employees/export/xlsx" class="emp-btn emp-btn-ghost" title="Download employee directory as Excel">
+                <span class="material-icons-round" style="font-size:16px;">table_view</span>
+                Export Excel
+            </a>
             <a href="/employees/add" class="emp-btn emp-btn-primary">
                 <span class="material-icons-round" style="font-size:16px;">person_add</span>
                 Add Employee
@@ -464,6 +485,21 @@
                                 <span class="material-icons-round" style="font-size:15px;">edit</span>
                                 Edit
                             </a>
+                            <form method="post" action="/api/employees/@emp.Id/status" style="display:inline;">
+                                <input type="hidden" name="Status" value="@(emp.Status == EmploymentStatus.Inactive ? "Active" : "Inactive")" />
+                                <button type="submit" class="emp-card-action view" style="cursor:pointer;">
+                                    <span class="material-icons-round" style="font-size:15px;">@(emp.Status == EmploymentStatus.Inactive ? "play_circle" : "pause_circle")</span>
+                                    @(emp.Status == EmploymentStatus.Inactive ? "Activate" : "Deactivate")
+                                </button>
+                            </form>
+                            <form method="post" action="/api/employees/delete/@emp.Id"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Permanently delete @emp.FullName? This cannot be undone.')">
+                                <button type="submit" class="emp-card-action edit" style="cursor:pointer;color:#dc2626;">
+                                    <span class="material-icons-round" style="font-size:15px;">delete</span>
+                                    Delete
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -512,6 +548,20 @@
                                     <a href="/employees/@emp.Id/edit" class="emp-table-action" title="Edit">
                                         <span class="material-icons-round" style="font-size:16px;">edit</span>
                                     </a>
+                                    <form method="post" action="/api/employees/@emp.Id/status" style="display:inline;">
+                                        <input type="hidden" name="Status" value="@(emp.Status == EmploymentStatus.Inactive ? "Active" : "Inactive")" />
+                                        <button type="submit" style="cursor:pointer;background:none;border:none;padding:4px;display:inline-flex;align-items:center;"
+                                                title="@(emp.Status == EmploymentStatus.Inactive ? "Reactivate employee" : "Deactivate employee")">
+                                            <span class="material-icons-round" style="font-size:16px;color:var(--bk-ink-3);">@(emp.Status == EmploymentStatus.Inactive ? "play_circle" : "pause_circle")</span>
+                                        </button>
+                                    </form>
+                                    <form method="post" action="/api/employees/delete/@emp.Id"
+                                          style="display:inline;"
+                                          onsubmit="return confirm('Permanently delete @emp.FullName? This cannot be undone.')">
+                                        <button type="submit" style="cursor:pointer;background:none;border:none;padding:4px;display:inline-flex;align-items:center;color:#dc2626;" title="Delete employee">
+                                            <span class="material-icons-round" style="font-size:16px;">delete</span>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
@@ -601,6 +651,15 @@ function empToggleView(view) {
     private List<Employee> _employees = new();
     private List<string> _departments = new();
     private bool _loading = true;
+    private string? _banner;
+    private bool _bannerIsError;
+
+    [SupplyParameterFromQuery] private int? Imported { get; set; }
+    [SupplyParameterFromQuery] private int? Skipped { get; set; }
+    [SupplyParameterFromQuery] private string? Deleted { get; set; }
+    [SupplyParameterFromQuery] private string? Status { get; set; }
+    [SupplyParameterFromQuery] private string? Name { get; set; }
+    [SupplyParameterFromQuery] private string? Error { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -608,10 +667,42 @@ function empToggleView(view) {
         catch { /* fall back to empty */ }
     }
 
+    protected override void OnParametersSet()
+    {
+        // Result banners from the form-post endpoints (import / status / delete).
+        if (Imported > 0)
+        {
+            _banner = $"CSV import complete: {Imported} employee(s) imported" +
+                      (Skipped > 0 ? $", {Skipped} skipped." : ".");
+            _bannerIsError = false;
+        }
+        else if (Imported == 0 && Skipped > 0)
+        {
+            _banner = $"CSV import skipped {Skipped} row(s) — check your file (names + unique employee codes required).";
+            _bannerIsError = true;
+        }
+        else if (!string.IsNullOrWhiteSpace(Deleted))
+        {
+            _banner = $"Employee '{Deleted}' permanently deleted.";
+            _bannerIsError = false;
+        }
+        else if (!string.IsNullOrWhiteSpace(Status) && !string.IsNullOrWhiteSpace(Name))
+        {
+            _banner = $"{Name} is now {Status}.";
+            _bannerIsError = false;
+        }
+        else if (!string.IsNullOrWhiteSpace(Error))
+        {
+            _banner = Uri.UnescapeDataString(Error);
+            _bannerIsError = true;
+        }
+        else _banner = null;
+    }
+
     private async Task LoadAsync()
     {
         _loading = true;
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org != null)
         {
             _employees = await EmployeeSvc.GetAllAsync(org.Id);

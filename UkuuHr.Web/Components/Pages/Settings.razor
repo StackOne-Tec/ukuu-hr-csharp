@@ -28,6 +28,15 @@
                 <div style="font-size:12px;color:var(--bk-ink-3);margin-top:2px;">Company details, country, currency</div>
             </div>
         </a>
+        <a href="/settings/branches" class="bk-admin-card bk-admin-card-hover" style="padding:20px;display:flex;align-items:center;gap:14px;text-decoration:none;cursor:pointer;">
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(22,163,74,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <span class="material-icons-round" style="color:var(--bk-success);font-size:24px;">location_city</span>
+            </div>
+            <div style="min-width:0;">
+                <div style="font-size:14px;font-weight:700;color:var(--bk-ink);">Branches &amp; Locations</div>
+                <div style="font-size:12px;color:var(--bk-ink-3);margin-top:2px;">Sites, addresses, employee assignment</div>
+            </div>
+        </a>
         <a href="/settings/leave-types" class="bk-admin-card bk-admin-card-hover" style="padding:20px;display:flex;align-items:center;gap:14px;text-decoration:none;cursor:pointer;">
             <div style="width:44px;height:44px;border-radius:12px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 <span class="material-icons-round" style="color:rgb(139,92,246);font-size:24px;">event_available</span>
@@ -160,7 +169,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         _orgId = org.Id;
 

@@ -694,7 +694,7 @@ function ukuuFilterHolidays() {
 
     private async Task LoadAsync()
     {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         _orgId = org.Id;
         _holidays = await HolidaySvc.GetAllAsync(_orgId, _selectedYear);

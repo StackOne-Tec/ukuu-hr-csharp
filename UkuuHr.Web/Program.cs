@@ -126,8 +126,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
         options.Cookie.Name = "UkuuHr.Auth";
         options.Cookie.HttpOnly = true;
-        // P2/M-1: Always send cookie over HTTPS in production (prevents proxy-induced HTTP downgrade)
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        // P2/M-1: Always send cookie over HTTPS in production (prevents proxy-induced HTTP downgrade).
+        // Non-production environments keep the ASP.NET Core default (SameAsRequest) so local
+        // HTTP development and WebApplicationFactory integration tests can authenticate.
+        options.Cookie.SecurePolicy = builder.Environment.IsProduction()
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
         // P2/M-2: SameSite=Strict — cookie only sent for same-site requests (strongest CSRF defense)
         options.Cookie.SameSite = SameSiteMode.Strict;
         // P2/M-7: Cap maximum session lifetime to 24 hours (prevent infinite sliding sessions)
@@ -292,6 +296,10 @@ builder.Services.AddScoped<AesEncryptionService>();
 // ───── FR-013: Notifications module ─────
 builder.Services.AddScoped<NotificationService>();
 
+// ───── Transactional email (Resend) + subscription licensing ─────
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<LicenseService>();
+
 // ───────────── KeepAlive: self-ping every 5 minutes to prevent Render free-tier spin-down ─────────────
 builder.Services.AddHostedService<KeepAliveService>();
 
@@ -306,6 +314,9 @@ builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(opts =>
     opts.BackgroundServiceExceptionBehavior = Microsoft.Extensions.Hosting.BackgroundServiceExceptionBehavior.Ignore);
 
 var app = builder.Build();
+
+// Multi-tenant org resolution — ambient HttpContext access for OrgResolution extensions
+OrgResolution.Configure(app.Services.GetRequiredService<IHttpContextAccessor>());
 
 // ───────────── Initialize DB ─────────────
 using (var scope = app.Services.CreateScope())
@@ -442,6 +453,38 @@ _ = Task.Run(async () =>
     }
 });
 
+// ───────────── API-key scope enforcement ─────────────
+// Maps request path + method to the ApiKeyScope a DB API key must hold.
+// Only applies to X-API-Key (DB) authentication — the server-configured
+// UKUU_API_KEY env fallback is a trusted full-access bridge key, and cookie
+// authentication is governed by endpoint role policies instead.
+static ApiKeyScope? RequiredApiScope(string path, string method)
+{
+    var isWrite = !string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)
+               && !string.Equals(method, "HEAD", StringComparison.OrdinalIgnoreCase)
+               && !string.Equals(method, "OPTIONS", StringComparison.OrdinalIgnoreCase);
+    var p = path.TrimEnd('/');
+
+    if (p.StartsWith("/api/api-keys") || p.StartsWith("/api/super-admin") || p.StartsWith("/api/admin"))
+        return ApiKeyScope.FullAccess;
+    if (p.StartsWith("/api/subscription"))
+        return ApiKeyScope.FullAccess;
+    if (p.StartsWith("/api/employees") || p.StartsWith("/api/branches") || p.StartsWith("/api/documents"))
+        return isWrite ? ApiKeyScope.WriteEmployees : ApiKeyScope.ReadEmployees;
+    if (p.StartsWith("/api/attendance") || p.StartsWith("/api/overtime")
+        || p.StartsWith("/api/shifts") || p.StartsWith("/api/reports") || p.StartsWith("/api/time-cards"))
+        return isWrite ? ApiKeyScope.WriteAttendance : ApiKeyScope.ReadAttendance;
+    if (p.StartsWith("/api/leave"))
+        return isWrite ? ApiKeyScope.LeaveManagement : ApiKeyScope.ReadAttendance;
+    if (p.StartsWith("/api/payroll"))
+        return isWrite ? ApiKeyScope.WritePayroll : ApiKeyScope.ReadPayroll;
+    if (p.StartsWith("/api/devices") || p.StartsWith("/api/hikvision"))
+        return ApiKeyScope.DeviceManagement;
+    // Unlisted routes (modules, metrics, notifications, downloads…): reads open to
+    // any valid key, writes require full access.
+    return isWrite ? ApiKeyScope.FullAccess : null;
+}
+
 app.Use(async (ctx, next) =>
 {
     var path = ctx.Request.Path.Value ?? "";
@@ -472,6 +515,16 @@ app.Use(async (ctx, next) =>
                 {
                     ctx.Response.StatusCode = 429;
                     await ctx.Response.WriteAsync("{\"error\":\"Rate limit exceeded. Try again later.\"}");
+                    return;
+                }
+
+                // ── Scope enforcement (P1): the key must hold the scope the route requires ──
+                var requiredScope = RequiredApiScope(path, ctx.Request.Method);
+                if (requiredScope.HasValue && !keyRecord.HasScope(requiredScope.Value))
+                {
+                    ctx.Response.StatusCode = 403;
+                    await ctx.Response.WriteAsync(
+                        $"{{\"error\":\"API key '{keyRecord.Name}' lacks the required scope '{requiredScope.Value}'. Grant it on the API Keys settings page.\"}}");
                     return;
                 }
 
@@ -771,6 +824,18 @@ app.MapPost("/auth/signup", async (HttpContext ctx, UkuuHrDbContext db, AuthServ
         await audit.LogAsync(org.Id, AuditAction.UserCreated, email,
             details: $"Self-registration: {firstName} {lastName} created organization '{orgName}'");
 
+        // 3b. Provision a 30-day Professional trial license so the new tenant is
+        // immediately functional (billing prompts appear as the trial winds down).
+        try
+        {
+            var licenses = ctx.RequestServices.GetRequiredService<LicenseService>();
+            await licenses.ProvisionTrialAsync(org.Id, email);
+        }
+        catch (Exception licenseEx)
+        {
+            logger.LogWarning(licenseEx, "Trial license provisioning failed for org {OrgId}", org.Id);
+        }
+
         // 4. Sign in
         var success = await auth.SignInAsync(email, password, rememberMe: true);
         if (success)
@@ -859,7 +924,7 @@ app.MapGet("/api/employees", async (
     string? department,
     string? status) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     EmploymentStatus? statusFilter = status != null && Enum.TryParse<EmploymentStatus>(status, true, out var s)
@@ -901,7 +966,7 @@ app.MapGet("/api/employees/{id:int}", async (
     int id,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var emp = await svc.GetAsync(oid, id);
     if (emp == null) return Results.NotFound(new { error = "Employee not found." });
     return Results.Ok(new
@@ -963,7 +1028,7 @@ app.MapPost("/api/employees", async (
     EmployeeService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var body = await ctx.Request.ReadFromJsonAsync<Employee>();
@@ -981,7 +1046,7 @@ app.MapPut("/api/employees/{id:int}", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var existing = await svc.GetAsync(oid, id);
@@ -1002,7 +1067,7 @@ app.MapDelete("/api/employees/{id:int}", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var deleted = await svc.DeleteAsync(oid, id);
@@ -1016,7 +1081,7 @@ app.MapGet("/api/employees/stats", async (
     UkuuHrDbContext db,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var total = await svc.CountAsync(oid);
@@ -1051,7 +1116,7 @@ app.MapGet("/api/attendance", async (
     string? from,
     string? to) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     DateTime? fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today;
@@ -1089,7 +1154,7 @@ app.MapGet("/api/attendance/today", async (
     UkuuHrDbContext db,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var today = DateTime.Today;
@@ -1121,7 +1186,7 @@ app.MapPost("/api/attendance/clock-in", async (
     AttendanceService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var employeeIdStr = ctx.Request.Query["employeeId"].FirstOrDefault();
@@ -1146,7 +1211,7 @@ app.MapPost("/api/attendance/clock-out", async (
     AttendanceService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var employeeIdStr = ctx.Request.Query["employeeId"].FirstOrDefault();
@@ -1183,7 +1248,7 @@ app.MapPost("/api/attendance/clock", async (
     if (!int.TryParse(employeeIdStr, out var employeeId))
         return Results.Redirect("/clock?result=error");
 
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.Redirect("/clock?result=error");
 
     var emp = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId);
@@ -1209,7 +1274,7 @@ app.MapGet("/api/shifts", async (
     UkuuHrDbContext db,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var shifts = await svc.GetAllShiftsAsync(oid, includeInactive: true);
@@ -1247,7 +1312,7 @@ app.MapGet("/api/shifts/{id:int}", async (
     int id,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var shift = await svc.GetShiftAsync(oid, id);
     if (shift == null) return Results.NotFound(new { error = "Shift not found." });
     return Results.Ok(new
@@ -1283,7 +1348,7 @@ app.MapPost("/api/shifts", async (
     ShiftService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var body = await ctx.Request.ReadFromJsonAsync<Shift>();
@@ -1300,7 +1365,7 @@ app.MapPut("/api/shifts/{id:int}", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var body = await ctx.Request.ReadFromJsonAsync<Shift>();
@@ -1317,7 +1382,7 @@ app.MapDelete("/api/shifts/{id:int}", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var deleted = await svc.DeleteShiftAsync(oid, id, actorEmail: null);
@@ -1331,7 +1396,7 @@ app.MapPost("/api/shifts/delete/{id:int}", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var deleted = await svc.DeleteShiftAsync(oid, id, actorEmail: "admin@ukuuhr.demo");
@@ -1346,7 +1411,7 @@ app.MapPost("/api/shifts/tolerance", async (
     UkuuHrDbContext db,
     ILogger<Program> logger) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.Redirect("/shifts/tolerance");
 
     var form = await ctx.Request.ReadFormAsync();
@@ -1388,7 +1453,7 @@ app.MapGet("/api/shifts/assignments", async (
     int? orgId,
     int? employeeId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var assignments = await svc.GetAssignmentsAsync(oid, employeeId);
@@ -1419,7 +1484,7 @@ app.MapPost("/api/shifts/assignments", async (
     ShiftService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var body = await ctx.Request.ReadFromJsonAsync<EmployeeShiftAssignment>();
@@ -1435,7 +1500,7 @@ app.MapDelete("/api/shifts/assignments/{id:int}", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var deleted = await svc.UnassignShiftAsync(oid, id, actorEmail: null);
@@ -1449,7 +1514,7 @@ app.MapGet("/api/shifts/tolerance", async (
     UkuuHrDbContext db,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var tolerance = await svc.GetOrCreateToleranceAsync(oid);
@@ -1476,7 +1541,7 @@ app.MapPut("/api/shifts/tolerance", async (
     ShiftService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var body = await ctx.Request.ReadFromJsonAsync<AttendanceTolerance>();
@@ -1498,7 +1563,7 @@ app.MapGet("/api/leave", async (
     string? status,
     int? employeeId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     LeaveRequestStatus? statusFilter = status != null && Enum.TryParse<LeaveRequestStatus>(status, true, out var s)
@@ -1543,7 +1608,7 @@ app.MapGet("/api/leave/{id:int}", async (
     int id,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var lr = await svc.GetAsync(oid, id);
     if (lr == null) return Results.NotFound(new { error = "Leave request not found." });
 
@@ -1578,7 +1643,7 @@ app.MapPost("/api/leave", async (
     LeaveService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var body = await ctx.Request.ReadFromJsonAsync<LeaveRequest>();
@@ -1596,10 +1661,11 @@ app.MapPost("/api/leave/{id:int}/approve", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
-    var reviewerEmail = "admin@ukuuhr.demo";
+    // Identity of the authenticated reviewer (cookie or API-key principal).
+    var reviewerEmail = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "admin@ukuuhr.demo";
     string? notes = null;
     if (ctx.Request.ContentType?.Contains("application/json") == true)
     {
@@ -1620,10 +1686,11 @@ app.MapPost("/api/leave/{id:int}/reject", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
-    var reviewerEmail = "admin@ukuuhr.demo";
+    // Identity of the authenticated reviewer (cookie or API-key principal).
+    var reviewerEmail = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "admin@ukuuhr.demo";
     string? notes = null;
     if (ctx.Request.ContentType?.Contains("application/json") == true)
     {
@@ -1639,25 +1706,29 @@ app.MapPost("/api/leave/{id:int}/reject", async (
 
 // ───── POST /api/overtime/{id}/approve — approve overtime (form POST) ─────
 app.MapPost("/api/overtime/{id:int}/approve", async (
+    HttpContext ctx,
     OvertimeService svc,
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
-    await svc.ApproveAsync(oid, id, "admin@ukuuhr.demo", "Approved.");
+    var approver = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "admin@ukuuhr.demo";
+    await svc.ApproveAsync(oid, id, approver, "Approved.");
     return Results.Redirect("/overtime?tab=approved&reviewed=1");
 }).WithName("OvertimeApprove"); // P1/H-7: CSRF re-enabled
 
 // ───── POST /api/overtime/{id}/reject — reject overtime (form POST) ─────
 app.MapPost("/api/overtime/{id:int}/reject", async (
+    HttpContext ctx,
     OvertimeService svc,
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
-    await svc.RejectAsync(oid, id, "admin@ukuuhr.demo", "Rejected by admin.");
+    var rejector = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "admin@ukuuhr.demo";
+    await svc.RejectAsync(oid, id, rejector, "Rejected.");
     return Results.Redirect("/overtime?tab=pending&reviewed=1");
 }).WithName("OvertimeReject"); // P1/H-7: CSRF re-enabled
 
@@ -1666,7 +1737,7 @@ app.MapPost("/api/overtime/auto-calculate", async (
     OvertimeService svc,
     UkuuHrDbContext db) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
     var from = DateTime.Today.AddDays(-30);
     var to = DateTime.Today;
@@ -1680,7 +1751,7 @@ app.MapPost("/api/leave/{id:int}/cancel", async (
     UkuuHrDbContext db,
     int id) =>
 {
-    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var result = await svc.CancelAsync(oid, id);
@@ -1694,7 +1765,7 @@ app.MapGet("/api/leave/types", async (
     UkuuHrDbContext db,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var types = await svc.GetLeaveTypesAsync(oid);
@@ -1723,7 +1794,7 @@ app.MapGet("/api/leave/balances", async (
     int? employeeId,
     int? year) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
     if (!employeeId.HasValue) return Results.BadRequest(new { error = "employeeId is required." });
 
@@ -1767,7 +1838,7 @@ app.MapGet("/api/payroll/attendance-summary", async (
     var today = DateTime.Today;
     var y = year ?? today.Year;
     var m = month ?? today.Month;
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var from = new DateTime(y, m, 1);
@@ -1777,7 +1848,8 @@ app.MapGet("/api/payroll/attendance-summary", async (
         .Where(a => a.OrganizationId == oid && a.Date >= from && a.Date <= to)
         .ToListAsync();
     var overtime = await db.OvertimeRecords
-        .Where(o => o.OrganizationId == oid && o.Date >= from && o.Date <= to && o.Status != OvertimeStatus.Rejected)
+        .Where(o => o.OrganizationId == oid && o.Date >= from && o.Date <= to
+                 && (o.Status == OvertimeStatus.Approved || o.Status == OvertimeStatus.AutoApproved)) // approved OT only — payroll-ready
         .ToListAsync();
     var leave = await db.LeaveRequests
         .Where(l => l.OrganizationId == oid && l.Status == LeaveRequestStatus.Approved
@@ -1833,7 +1905,7 @@ app.MapGet("/api/payroll/attendance-summary.csv", async (
     var today = DateTime.Today;
     var y = year ?? today.Year;
     var m = month ?? today.Month;
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound();
 
     var from = new DateTime(y, m, 1);
@@ -1868,7 +1940,7 @@ app.MapGet("/api/payroll/attendance-summary.csv", async (
 // FR-013: Modular API — list of available modules + their status.
 app.MapGet("/api/modules", async (UkuuHrDbContext db) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     var modules = new List<ModuleInfo>
     {
         new("employees", "Employee Management", true, "GET /api/employees, /api/employees/stats, /api/employees/{id}"),
@@ -1889,7 +1961,7 @@ app.MapGet("/api/notifications", async (
     int? orgId,
     string? userId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     if (oid == 0) return Results.NotFound(new { error = "No organization found." });
 
     var q = db.NotificationRecords.Where(n => n.OrganizationId == oid);
@@ -1928,7 +2000,7 @@ app.MapPost("/api/notifications/{id:int}/read", async (
     int id,
     int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var n = await db.NotificationRecords
         .FirstOrDefaultAsync(x => x.OrganizationId == oid && x.Id == id);
     if (n == null) return Results.NotFound();
@@ -1945,7 +2017,7 @@ app.MapPost("/api/notifications/read-all", async (
     int? orgId,
     string? userId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var q = db.NotificationRecords.Where(n => n.OrganizationId == oid && !n.IsRead);
     if (!string.IsNullOrWhiteSpace(userId))
         q = q.Where(n => n.RecipientUserId == null || n.RecipientUserId == userId);
@@ -1964,7 +2036,7 @@ app.MapPost("/api/notifications/read-all", async (
 // FR-013: Devices list (modular API surface — minimal read endpoint for external systems).
 app.MapGet("/api/devices", async (UkuuHrDbContext db, int? orgId) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var devices = await db.AttendanceDevices
         .Where(d => d.OrganizationId == oid && d.IsActive)
         .Select(d => new
@@ -1988,7 +2060,7 @@ app.MapGet("/api/devices", async (UkuuHrDbContext db, int? orgId) =>
 // ───── POST /api/organization/seed — create a default organization ─────
 app.MapPost("/api/organization/seed", async (UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var existing = await db.Organizations.FirstOrDefaultAsync();
+    var existing = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (existing != null)
         return Results.Redirect("/devices?saved=1&name=org_exists");
 
@@ -2014,7 +2086,7 @@ app.MapPost("/api/devices/sync/{id:int}", async (
     UkuuHrDbContext db,
     ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     logger.LogInformation("Device sync requested for device {Id}", id);
@@ -2031,7 +2103,7 @@ app.MapPost("/api/devices/sync-all", async (
     UkuuHrDbContext db,
     ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     logger.LogInformation("Sync-all requested for org {OrgId}", org.Id);
@@ -2047,7 +2119,7 @@ app.MapPost("/api/devices/delete/{id:int}", async (
     UkuuHrDbContext db,
     ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id);
@@ -2067,7 +2139,7 @@ app.MapPost("/api/devices/delete/{id:int}", async (
 // ───── GET /api/api-keys — list all API keys for the org ─────
 app.MapGet("/api/api-keys", async (HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var keys = await db.ApiKeys
@@ -2100,7 +2172,7 @@ app.MapGet("/api/api-keys", async (HttpContext ctx, UkuuHrDbContext db, ILogger<
 // ───── POST /api/api-keys/create — create a new API key ─────
 app.MapPost("/api/api-keys/create", async (HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     // Get the current user's ID for audit trail
@@ -2178,7 +2250,7 @@ app.MapPost("/api/api-keys/create", async (HttpContext ctx, UkuuHrDbContext db, 
 app.MapPost("/api/api-keys/revoke/{id:int}", async (
     int id, HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var key = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id && k.OrganizationId == org.Id);
@@ -2205,7 +2277,7 @@ app.MapPost("/api/api-keys/revoke/{id:int}", async (
 app.MapPost("/api/api-keys/rotate/{id:int}", async (
     int id, HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var oldKey = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id && k.OrganizationId == org.Id);
@@ -2263,7 +2335,7 @@ app.MapPost("/api/api-keys/rotate/{id:int}", async (
 app.MapDelete("/api/api-keys/{id:int}", async (
     int id, HttpContext ctx, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var key = await db.ApiKeys.FirstOrDefaultAsync(k => k.Id == id && k.OrganizationId == org.Id);
@@ -2284,7 +2356,7 @@ app.MapPost("/api/devices/save", async (
     ILogger<Program> logger) =>
 {
     var form = await ctx.Request.ReadFormAsync();
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var idStr = form["Id"].ToString();
@@ -2379,7 +2451,7 @@ app.MapGet("/api/hikvision/discover", async (ILogger<Program> logger) =>
 // GET /api/hikvision/{id}/info — Get device info from ISAPI
 app.MapGet("/api/hikvision/{id:int}/info", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
@@ -2403,7 +2475,7 @@ app.MapGet("/api/hikvision/{id:int}/info", async (int id, UkuuHrDbContext db, IL
 // GET /api/hikvision/{id}/health — Get device health status
 app.MapGet("/api/hikvision/{id:int}/health", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
@@ -2426,7 +2498,7 @@ app.MapGet("/api/hikvision/{id:int}/health", async (int id, UkuuHrDbContext db, 
 // GET /api/hikvision/{id}/doors — Get door status
 app.MapGet("/api/hikvision/{id:int}/doors", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
@@ -2449,7 +2521,7 @@ app.MapGet("/api/hikvision/{id:int}/doors", async (int id, UkuuHrDbContext db, I
 // POST /api/hikvision/{id}/unlock/{doorId} — Remotely unlock a door
 app.MapPost("/api/hikvision/{id:int}/unlock/{doorId:int}", async (int id, int doorId, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
@@ -2472,7 +2544,7 @@ app.MapPost("/api/hikvision/{id:int}/unlock/{doorId:int}", async (int id, int do
 // POST /api/hikvision/{id}/sync-persons — Sync all employees to the device
 app.MapPost("/api/hikvision/{id:int}/sync-persons", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
@@ -2507,7 +2579,7 @@ app.MapPost("/api/devices/sync-persons/{id:int}", async (
     UkuuHrDbContext db,
     ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.Redirect("/devices?pushed=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage("No organization found.")));
 
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
@@ -2554,7 +2626,7 @@ app.MapPost("/api/devices/sync-persons/{id:int}", async (
 // POST /api/hikvision/{id}/sync-time — Sync device time with server
 app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
@@ -2577,7 +2649,7 @@ app.MapPost("/api/hikvision/{id:int}/sync-time", async (int id, UkuuHrDbContext 
 // POST /api/hikvision/{id}/reboot — Reboot the device remotely
 app.MapPost("/api/hikvision/{id:int}/reboot", async (int id, UkuuHrDbContext db, ILogger<Program> logger) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
     var device = await db.AttendanceDevices.FirstOrDefaultAsync(d => d.Id == id && d.OrganizationId == org.Id && d.Vendor == DeviceVendor.Hikvision);
     if (device == null) return Results.NotFound(new { error = "Hikvision device not found." });
@@ -2609,7 +2681,7 @@ app.MapGet("/api/reports/attendance/csv", async (
     string? from,
     string? to) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     DateTime? fromDate = DateTime.TryParse(from, out var fd) ? fd : null;
     DateTime? toDate = DateTime.TryParse(to, out var td) ? td : null;
     var report = await reportSvc.GenerateAsync(oid, ReportPeriod.Custom, fromDate, toDate);
@@ -2624,7 +2696,7 @@ app.MapGet("/api/reports/attendance/xlsx", async (
     string? from,
     string? to) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     DateTime? fromDate = DateTime.TryParse(from, out var fd) ? fd : null;
     DateTime? toDate = DateTime.TryParse(to, out var td) ? td : null;
     var report = await reportSvc.GenerateAsync(oid, ReportPeriod.Custom, fromDate, toDate);
@@ -2646,7 +2718,7 @@ app.MapGet("/api/reports/attendance/csv/search", async (
     string? from,
     string? to) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var filter = new AttendanceSearchFilter
     {
         EmployeeId = employeeId,
@@ -2678,7 +2750,7 @@ app.MapGet("/api/reports/attendance/xlsx/search", async (
     string? from,
     string? to) =>
 {
-    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    var oid = await db.ResolveOrgIdAsync(orgId); // multi-tenant: principal org > orgId (anon only) > first org
     var filter = new AttendanceSearchFilter
     {
         EmployeeId = employeeId,
@@ -2741,7 +2813,7 @@ app.MapPost("/api/security/policies", async (HttpContext ctx, UkuuHrDbContext db
 // GET /api/security/audit-log.csv — export audit log as CSV
 app.MapGet("/api/security/audit-log.csv", async (UkuuHrDbContext db) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     var logs = org != null
         ? await db.AuditLogs.Where(a => a.OrganizationId == org.Id).OrderByDescending(a => a.Timestamp).Take(500).ToListAsync()
         : new List<UkuuHr.Models.AuditLog>();
@@ -2785,7 +2857,7 @@ app.MapPost("/api/documents/upload", async (
     if (file.Length > 10 * 1024 * 1024)
         return Results.Redirect("/documents/upload?error=1");
 
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.Redirect("/documents/upload?error=1");
 
     // Parse category
@@ -2853,7 +2925,7 @@ app.MapPost("/api/documents/upload", async (
 // GET /api/documents/export.csv — export document list as CSV
 app.MapGet("/api/documents/export.csv", async (UkuuHrDbContext db) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     var docs = org != null
         ? await db.EmployeeDocuments.Where(d => d.OrganizationId == org.Id).OrderByDescending(d => d.UploadedAt).ToListAsync()
         : new List<EmployeeDocument>();
@@ -2879,6 +2951,8 @@ app.MapPost("/api/employees/save", async (
     HttpContext ctx,
     UkuuHrDbContext db,
     EmployeeService svc,
+    LicenseService licenses,
+    IHostEnvironment env,
     ILogger<Program> logger) =>
 {
     var form = await ctx.Request.ReadFormAsync();
@@ -2887,8 +2961,16 @@ app.MapPost("/api/employees/save", async (
 
     logger.LogInformation("Employee save POST: isEdit={IsEdit}, empId={EmpId}", isEdit, empIdStr);
 
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found" });
+
+    // Subscription enforcement: block NEW hires beyond the plan limit (Production only).
+    if (!isEdit)
+    {
+        var (allowed, reason) = await licenses.CanAddEmployeeAsync(org.Id, env);
+        if (!allowed)
+            return Results.Json(new { error = reason }, statusCode: 402); // 402 Payment Required
+    }
 
     Employee? emp;
     if (isEdit && int.TryParse(empIdStr, out var eid) && eid > 0)
@@ -2944,11 +3026,25 @@ app.MapPost("/api/employees/save", async (
     if (int.TryParse(form["ProbationaryPeriodMonths"], out var ppm)) emp.ProbationaryPeriodMonths = ppm;
     emp.JobDescription = form["JobDescription"].ToString();
 
-    Enum.TryParse<EmploymentStatus>(form["Status"].ToString(), out var status);
-    emp.Status = status;
+    // P2 fix: only override Status when the form actually posts a valid value.
+    // Previously every UI edit silently reset the status to Active (the wizard
+    // never sends this field) — deactivating an employee via edit was impossible.
+    if (Enum.TryParse<EmploymentStatus>(form["Status"].ToString(), out var postedStatus) && postedStatus != default)
+        emp.Status = postedStatus;
+    // ShiftId from the wizard's "Assign to Shift" dropdown (previously dead — the
+    // field was posted but never read, so the assignment silently never happened).
+    var shiftIdStr = form["ShiftId"].ToString();
+    var shiftId = int.TryParse(shiftIdStr, out var sid) && sid > 0 ? sid : (int?)null;
 
     emp.BasicSalary = double.TryParse(form["BasicSalary"], out var bs) ? bs : 0;
     emp.HourlyRate = double.TryParse(form["HourlyRate"], out var hr) ? hr : null;
+    // Company branch/location assignment (Branch entity; distinct from the bank branch below).
+    if (int.TryParse(form["BranchId"], out var bid) && bid > 0)
+    {
+        var branchExists = await db.Branches.AnyAsync(b => b.Id == bid && b.OrganizationId == org.Id && b.IsActive);
+        emp.BranchId = branchExists ? bid : null;
+    }
+    else emp.BranchId = null;
     emp.BankName = form["BankName"].ToString();
     emp.Branch = form["Branch"].ToString();
     emp.AccountNumber = form["AccountNumber"].ToString();
@@ -2977,6 +3073,39 @@ app.MapPost("/api/employees/save", async (
             await svc.CreateAsync(emp);
             logger.LogInformation("Employee created: {Name}", emp.FullName);
         }
+
+        // Wire the optional shift assignment from the wizard (create + edit paths).
+        if (shiftId.HasValue)
+        {
+            var shiftExists = await db.Shifts.AnyAsync(s => s.Id == shiftId.Value && s.OrganizationId == org.Id);
+            if (shiftExists)
+            {
+                var existingAssignment = await db.EmployeeShiftAssignments
+                    .FirstOrDefaultAsync(a => a.OrganizationId == org.Id && a.EmployeeId == emp.Id && a.IsPrimary);
+                if (existingAssignment == null)
+                {
+                    db.EmployeeShiftAssignments.Add(new EmployeeShiftAssignment
+                    {
+                        OrganizationId = org.Id,
+                        EmployeeId = emp.Id,
+                        ShiftId = shiftId.Value,
+                        EffectiveFrom = DateTime.Today,
+                        IsPrimary = true,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    await db.SaveChangesAsync();
+                }
+                else if (existingAssignment.ShiftId != shiftId.Value)
+                {
+                    existingAssignment.ShiftId = shiftId.Value;
+                    existingAssignment.EffectiveFrom = DateTime.Today;
+                    existingAssignment.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                }
+            }
+        }
+
         return Results.Ok(new { success = true, name = emp.FullName, id = emp.Id });
     }
     catch (Exception ex)
@@ -2985,6 +3114,443 @@ app.MapPost("/api/employees/save", async (
         return Results.BadRequest(new { error = "Failed to save device. Please try again." }); // P2/M-4
     }
 }).WithName("EmployeeSave"); // P1/H-7: CSRF re-enabled
+
+// ───── GET /api/employees/export — CSV export of the employee directory ─────
+app.MapGet("/api/employees/export", async (
+    EmployeeService svc,
+    UkuuHrDbContext db) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+    var bytes = await svc.ExportCsvAsync(org.Id);
+    return Results.File(bytes, "text/csv", $"ukuuhr-employees-{DateTime.UtcNow:yyyyMMdd}.csv");
+}).WithName("EmployeesExportCsv");
+
+// ───── GET /api/employees/export/xlsx — Excel export of the employee directory ─────
+app.MapGet("/api/employees/export/xlsx", async (
+    EmployeeService svc,
+    UkuuHrDbContext db) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+    var bytes = await svc.ExportXlsxAsync(org.Id);
+    return Results.File(bytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        $"ukuuhr-employees-{DateTime.UtcNow:yyyyMMdd}.xlsx");
+}).WithName("EmployeesExportXlsx");
+
+// ───── POST /api/employees/import — bulk CSV import (multipart form file) ─────
+app.MapPost("/api/employees/import", async (
+    HttpContext ctx,
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    AuditService audit,
+    LicenseService licenses,
+    IHostEnvironment env,
+    ILogger<Program> logger) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    // Subscription enforcement: block imports that would exceed the plan limit (Production only).
+    var (importAllowed, importReason) = await licenses.CanAddEmployeeAsync(org.Id, env);
+    if (!importAllowed)
+        return Results.Redirect("/employees?imported=0&skipped=0&error=" + Uri.EscapeDataString(importReason!));
+
+    try
+    {
+        var file = ctx.Request.Form.Files.FirstOrDefault(f => f.Name == "file" || f.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase));
+        if (file == null || file.Length == 0)
+            return Results.Redirect("/employees?imported=0&skipped=0&error=" + Uri.EscapeDataString("No CSV file received (field name must be 'file')."));
+
+        using var stream = file.OpenReadStream();
+        var result = await svc.ImportCsvAsync(org.Id, stream);
+        logger.LogInformation("Employee CSV import: {Imported} imported, {Skipped} skipped", result.Imported, result.Skipped);
+
+        await audit.LogAsync(org.Id, AuditAction.EmployeeImported,
+            ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+            $"Imported {result.Imported} employees from CSV ({result.Skipped} skipped).");
+
+        var errorNote = result.Errors.Count > 0
+            ? "&error=" + Uri.EscapeDataString(SanitizeRedirectMessage(string.Join("; ", result.Errors.Take(3))))
+            : "";
+        return Results.Redirect($"/employees?imported={result.Imported}&skipped={result.Skipped}{errorNote}");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Employee CSV import failed");
+        return Results.Redirect("/employees?imported=0&skipped=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage(ex.Message)));
+    }
+}).DisableAntiforgery().WithName("EmployeesImportCsv");
+
+// ───── POST /api/employees/{id}/status — activate / deactivate / terminate (form POST) ─────
+app.MapPost("/api/employees/{id:int}/status", async (
+    HttpContext ctx,
+    int id,
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    AuditService audit) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var form = await ctx.Request.ReadFormAsync();
+    var statusStr = form["Status"].ToString();
+    if (!Enum.TryParse<EmploymentStatus>(statusStr, out var newStatus))
+        return Results.Redirect($"/employees?error={Uri.EscapeDataString("Invalid status value.")}");
+
+    var emp = await db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == org.Id && e.Id == id);
+    if (emp == null) return Results.NotFound(new { error = "Employee not found." });
+
+    var previous = emp.Status;
+    emp.Status = newStatus;
+    emp.UpdatedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    await audit.LogAsync(org.Id, AuditAction.EmployeeStatusChanged,
+        ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+        $"Employee '{emp.FullName}' status: {previous} → {newStatus}.",
+        targetUserEmail: emp.Email,
+        previousValue: previous.ToString(),
+        newValue: newStatus.ToString());
+
+    return Results.Redirect($"/employees?status={Uri.EscapeDataString(newStatus.ToString())}&name={Uri.EscapeDataString(emp.FullName)}");
+}).DisableAntiforgery().WithName("EmployeeSetStatus");
+
+// ───── POST /api/employees/delete/{id} — permanently delete an employee (form POST) ─────
+app.MapPost("/api/employees/delete/{id:int}", async (
+    HttpContext ctx,
+    int id,
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    AuditService audit) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var emp = await db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == org.Id && e.Id == id);
+    if (emp == null) return Results.NotFound(new { error = "Employee not found." });
+
+    // Hard-delete cascade: remove every dependent row first (SQLite/Postgres enforce
+    // FK constraints) so the employee record itself can be removed cleanly.
+    var attendances = db.Attendances.Where(a => a.OrganizationId == org.Id && a.EmployeeId == id);
+    var overtimes = db.OvertimeRecords.Where(o => o.OrganizationId == org.Id && o.EmployeeId == id);
+    var leaveRequests = db.LeaveRequests.Where(l => l.OrganizationId == org.Id && l.EmployeeId == id);
+    var leaveBalances = db.LeaveBalances.Where(b => b.OrganizationId == org.Id && b.EmployeeId == id);
+    var shiftAssignments = db.EmployeeShiftAssignments.Where(a => a.OrganizationId == org.Id && a.EmployeeId == id);
+    var payrollRuns = db.PayrollRuns.Where(p => p.OrganizationId == org.Id && p.EmployeeId == id);
+    var documents = db.EmployeeDocuments.Where(d => d.OrganizationId == org.Id && d.EmployeeId == id);
+    var expenses = db.ExpenseRequests.Where(x => x.OrganizationId == org.Id && x.EmployeeId == id);
+    await attendances.ExecuteDeleteAsync();
+    await overtimes.ExecuteDeleteAsync();
+    await leaveRequests.ExecuteDeleteAsync();
+    await leaveBalances.ExecuteDeleteAsync();
+    await shiftAssignments.ExecuteDeleteAsync();
+    await payrollRuns.ExecuteDeleteAsync();
+    await documents.ExecuteDeleteAsync();
+    await expenses.ExecuteDeleteAsync();
+
+    // Raw clock events keep their payload as an audit trail — just unlink the employee.
+    await db.UnifiedClockEvents.Where(c => c.OrganizationId == org.Id && c.EmployeeId == id)
+        .ExecuteUpdateAsync(s => s.SetProperty(c => c.EmployeeId, (int?)null));
+    await db.HikvisionClockEvents.Where(c => c.OrganizationId == org.Id && c.EmployeeId == id)
+        .ExecuteUpdateAsync(s => s.SetProperty(c => c.EmployeeId, (int?)null));
+
+    // Unlink any user account pointing at this employee before removing it.
+    var linkedAccounts = await db.UserAccounts.Where(u => u.EmployeeId == id).ToListAsync();
+    foreach (var account in linkedAccounts) account.EmployeeId = null;
+
+    var deleted = await svc.DeleteAsync(org.Id, id);
+    if (!deleted) return Results.NotFound(new { error = "Employee not found." });
+
+    await audit.LogAsync(org.Id, AuditAction.EmployeeDeleted,
+        ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+        $"Employee '{emp.FullName}' ({emp.EmployeeCode}) permanently deleted.",
+        targetUserEmail: emp.Email);
+
+    return Results.Redirect($"/employees?deleted={Uri.EscapeDataString(emp.FullName)}");
+}).DisableAntiforgery().WithName("EmployeeDelete");
+
+// ───── GET /api/overtime — JSON list of overtime records (REST resource) ─────
+// Query params: status (Pending|Approved|Rejected|AutoApproved), from, to, employeeId, limit.
+app.MapGet("/api/overtime", async (
+    OvertimeService svc,
+    UkuuHrDbContext db,
+    string? status,
+    DateTime? from,
+    DateTime? to,
+    int? employeeId,
+    int? limit) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var q = db.OvertimeRecords.Where(o => o.OrganizationId == org.Id);
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<OvertimeStatus>(status, true, out var st))
+        q = q.Where(o => o.Status == st);
+    if (from.HasValue) q = q.Where(o => o.Date >= from.Value.Date);
+    if (to.HasValue) q = q.Where(o => o.Date < to.Value.Date.AddDays(1));
+    if (employeeId.HasValue) q = q.Where(o => o.EmployeeId == employeeId.Value);
+
+    q = q.OrderByDescending(o => o.Date).ThenByDescending(o => o.CreatedAt);
+    if (limit is > 0) q = q.Take(limit.Value);
+
+    var records = await q.ToListAsync();
+    return Results.Ok(records.Select(o => new
+    {
+        o.Id,
+        o.EmployeeId,
+        o.EmployeeName,
+        date = o.Date.ToString("yyyy-MM-dd"),
+        startTime = o.StartTime.ToString("HH:mm"),
+        endTime = o.EndTime.ToString("HH:mm"),
+        o.Hours,
+        rateType = o.RateType.ToString(),
+        o.RateMultiplier,
+        o.HourlyRate,
+        pay = Math.Round(o.Pay, 2),
+        source = o.Source.ToString(),
+        status = o.Status.ToString(),
+        o.Reason,
+        approvedByEmail = o.ApprovedByEmail,
+        approvedAt = o.ApprovedAt
+    }));
+}).WithName("OvertimeList");
+
+// ───── POST /api/attendance/{id}/edit — manual attendance correction (form POST, audited) ─────
+app.MapPost("/api/attendance/{id:int}/edit", async (
+    HttpContext ctx,
+    int id,
+    UkuuHrDbContext db,
+    AuditService audit,
+    ILogger<Program> logger) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var record = await db.Attendances.FirstOrDefaultAsync(a => a.OrganizationId == org.Id && a.Id == id);
+    if (record == null) return Results.NotFound(new { error = "Attendance record not found." });
+
+    var form = await ctx.Request.ReadFormAsync();
+    var actor = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "system";
+
+    // Snapshot the pre-correction state for the audit trail.
+    var before = $"in={record.CheckIn:HH:mm}, out={record.CheckOut:HH:mm}, status={record.Status}, break={record.BreakMinutes}m";
+
+    DateTime? ParseLocalTime(string key)
+    {
+        var raw = form[key].ToString();
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        return DateTime.TryParse(raw, out var t) ? t : null;
+    }
+
+    var newCheckIn = ParseLocalTime("CheckIn");
+    var newCheckOut = ParseLocalTime("CheckOut");
+    var newStatus = Enum.TryParse<AttendanceStatus>(form["Status"].ToString(), out var st) ? st : record.Status;
+    var newBreak = int.TryParse(form["BreakMinutes"], out var bm) ? bm : record.BreakMinutes;
+
+    if (newCheckIn == null && newCheckOut == null && newStatus == record.Status && newBreak == record.BreakMinutes)
+        return Results.Redirect("/attendance?corrected=0");
+
+    if (newCheckIn.HasValue && newCheckOut.HasValue && newCheckOut < newCheckIn)
+        return Results.Redirect("/attendance?corrected=0&error=" + Uri.EscapeDataString("Check-out cannot be before check-in."));
+
+    record.CheckIn = newCheckIn ?? record.CheckIn;
+    record.CheckOut = newCheckOut ?? record.CheckOut;
+    record.Status = newStatus;
+    record.BreakMinutes = newBreak;
+    var notes = form["Notes"].ToString();
+    if (!string.IsNullOrWhiteSpace(notes)) record.Notes = notes;
+    record.Source = AttendanceSource.Manual;
+    record.UpdatedAt = DateTime.UtcNow;
+
+    await db.SaveChangesAsync();
+
+    var after = $"in={record.CheckIn:HH:mm}, out={record.CheckOut:HH:mm}, status={record.Status}, break={record.BreakMinutes}m";
+    await audit.LogAsync(org.Id, AuditAction.AttendanceCorrected, actor,
+        $"Corrected attendance for {record.EmployeeName} on {record.Date:yyyy-MM-dd}.",
+        targetUserEmail: null,
+        previousValue: before,
+        newValue: after);
+
+    logger.LogInformation("Attendance {Id} corrected by {Actor}: {Before} → {After}", id, actor, before, after);
+    return Results.Redirect($"/attendance?corrected=1&name={Uri.EscapeDataString(record.EmployeeName)}");
+}).DisableAntiforgery().WithName("AttendanceCorrect");
+
+// ───── POST /api/shifts/save — create or update a shift from a plain HTML form ─────
+app.MapPost("/api/shifts/save", async (
+    HttpContext ctx,
+    ShiftService svc,
+    UkuuHrDbContext db) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var form = await ctx.Request.ReadFormAsync();
+    var actor = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+
+    static int? ParseMinutes(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var parts = value.Split(':');
+        if (parts.Length == 2 && int.TryParse(parts[0], out var h) && int.TryParse(parts[1], out var m)
+            && h is >= 0 and < 24 && m is >= 0 and < 60)
+            return h * 60 + m;
+        return null;
+    }
+
+    var startMinutes = ParseMinutes(form["StartTime"].ToString());
+    var endMinutes = ParseMinutes(form["EndTime"].ToString());
+    if (startMinutes == null || endMinutes == null)
+        return Results.Redirect("/shifts?saved=0&error=" + Uri.EscapeDataString("Start and End time must be in HH:mm format."));
+
+    var shift = new Shift
+    {
+        Name = form["Name"].ToString(),
+        Description = string.IsNullOrWhiteSpace(form["Description"].ToString()) ? null : form["Description"].ToString(),
+        Kind = Enum.TryParse<ShiftKind>(form["Kind"].ToString(), out var kind) ? kind : ShiftKind.Fixed,
+        Color = form["Color"].ToString(),
+        StartMinutes = startMinutes.Value,
+        EndMinutes = endMinutes.Value,
+        BreakMinutes = int.TryParse(form["BreakMinutes"], out var brk) ? brk : 60,
+        RotationCycleDays = int.TryParse(form["RotationCycleDays"], out var rcd) ? rcd : 7,
+        RotationSlots = int.TryParse(form["RotationSlots"], out var rs) ? rs : 2
+    };
+
+    // Day-of-week checkboxes: fields named "day0".."day6" (Mon..Sun).
+    var mask = 0;
+    for (var i = 0; i < 7; i++)
+        if (form[$"day{i}"].ToString() is "true" or "on" or "1")
+            mask |= 1 << i;
+    shift.DaysOfWeekMask = mask == 0 ? 0b0011111 : mask;
+
+    var idStr = form["Id"].ToString();
+    if (int.TryParse(idStr, out var editId) && editId > 0)
+    {
+        shift.Id = editId;
+        try
+        {
+            await svc.UpdateShiftAsync(org.Id, shift, actor);
+            return Results.Redirect("/shifts?saved=1");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        {
+            return Results.Redirect("/shifts?saved=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage(ex.Message)));
+        }
+    }
+
+    try
+    {
+        await svc.CreateShiftAsync(org.Id, shift, actor);
+        return Results.Redirect("/shifts?saved=1");
+    }
+    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+    {
+        return Results.Redirect("/shifts?saved=0&error=" + Uri.EscapeDataString(SanitizeRedirectMessage(ex.Message)));
+    }
+}).DisableAntiforgery().WithName("ShiftSaveForm");
+
+// ───── GET /api/admin/backup — full JSON data snapshot (download) ─────
+// Admin-only disaster-recovery export: every business table in one JSON file.
+// Restore path: re-import via the APIs / database tooling. Sensitive employee
+// fields remain AES-encrypted exactly as stored.
+app.MapGet("/api/admin/backup", async (
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    try
+    {
+        var snapshot = new
+        {
+            format = "ukuuhr-backup",
+            version = 1,
+            generatedAt = DateTime.UtcNow,
+            organization = await db.Organizations.AsNoTracking().ToListAsync(),
+            employees = await db.Employees.AsNoTracking().ToListAsync(),
+            attendances = await db.Attendances.AsNoTracking().ToListAsync(),
+            shifts = await db.Shifts.AsNoTracking().ToListAsync(),
+            shiftAssignments = await db.EmployeeShiftAssignments.AsNoTracking().ToListAsync(),
+            tolerance = await db.AttendanceTolerances.AsNoTracking().ToListAsync(),
+            leaveTypes = await db.LeaveTypes.AsNoTracking().ToListAsync(),
+            leaveRequests = await db.LeaveRequests.AsNoTracking().ToListAsync(),
+            leaveBalances = await db.LeaveBalances.AsNoTracking().ToListAsync(),
+            holidays = await db.LeaveHolidays.AsNoTracking().ToListAsync(),
+            overtimeRecords = await db.OvertimeRecords.AsNoTracking().ToListAsync(),
+            attendanceDevices = await db.AttendanceDevices.AsNoTracking()
+                .Select(d => new { d.Id, d.OrganizationId, d.Name, d.Vendor, d.Mode, d.IpAddress, d.Port, d.UseHttps, d.Username, d.Location, d.DeviceSerial, d.IsActive, d.AutoSyncEnabled, d.SyncIntervalMinutes, d.CreatedAt })
+                .ToListAsync(),
+            payrollRuns = await db.PayrollRuns.AsNoTracking().ToListAsync(),
+            auditLogs = await db.AuditLogs.AsNoTracking().ToListAsync(),
+            notifications = await db.Set<NotificationRecord>().AsNoTracking().ToListAsync()
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(snapshot, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
+        });
+
+        return Results.File(System.Text.Encoding.UTF8.GetBytes(json), "application/json",
+            $"ukuuhr-backup-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Backup generation failed");
+        return Results.Json(new { error = "Backup generation failed. Please try again." }, statusCode: 500);
+    }
+}).RequireAuthorization("AdminOnly").WithName("AdminBackup");
+
+// ───── POST /api/payroll/{id}/email-payslip — email the payslip to the employee (Resend) ─────
+app.MapPost("/api/payroll/{id:int}/email-payslip", async (
+    HttpContext ctx,
+    int id,
+    UkuuHrDbContext db,
+    EmailService email,
+    ILogger<Program> logger) =>
+{
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var run = await db.PayrollRuns.FirstOrDefaultAsync(p => p.OrganizationId == org.Id && p.Id == id);
+    if (run == null) return Results.NotFound(new { error = "Payroll run not found." });
+
+    var employee = await db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == org.Id && e.Id == run.EmployeeId);
+    var to = employee?.Email;
+    if (string.IsNullOrWhiteSpace(to))
+        return Results.Redirect($"/payroll/{id}/payslip?emailed=0&error=" + Uri.EscapeDataString("Employee has no email address on file."));
+
+    if (!email.Enabled)
+        return Results.Redirect($"/payroll/{id}/payslip?emailed=0&error=" + Uri.EscapeDataString("Email is not configured — set RESEND_API_KEY on the server."));
+
+    var period = $"{System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(run.Month)} {run.Year}";
+    var html = EmailService.WrapHtml($"Payslip — {period}",
+        $@"<p>Hi {run.EmployeeName},</p>
+<p>Your payslip for <b>{period}</b> is ready.</p>
+<table style=""border-collapse:collapse;width:100%;margin:12px 0;"">
+  <tr><td style=""padding:6px 0;color:#6b6580;"">Gross</td><td style=""text-align:right;font-weight:700;"">{run.Currency} {run.Gross:N2}</td></tr>
+  <tr><td style=""padding:6px 0;color:#6b6580;"">PAYE</td><td style=""text-align:right;"">− {run.Currency} {run.Paye:N2}</td></tr>
+  <tr><td style=""padding:6px 0;color:#6b6580;"">NAPSA</td><td style=""text-align:right;"">− {run.Currency} {run.Napsa:N2}</td></tr>
+  <tr><td style=""padding:6px 0;color:#6b6580;"">NHIMA</td><td style=""text-align:right;"">− {run.Currency} {run.Nhima:N2}</td></tr>
+  <tr style=""border-top:2px solid #E8E4F0;""><td style=""padding:8px 0;font-weight:800;"">Net Pay</td><td style=""text-align:right;font-weight:800;color:#25163F;"">{run.Currency} {run.Net:N2}</td></tr>
+</table>
+<p style=""color:#6b6580;font-size:12px;"">Full breakdown available in your Ukuu HR account.</p>");
+
+    var sent = await email.SendAsync(to, $"Your Ukuu HR payslip — {period}", html);
+    if (sent)
+    {
+        run.PayslipDelivery = PayslipDeliveryStatus.Sent;
+        run.SentToEmail = to;
+        run.SentAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        logger.LogInformation("Payslip {Id} emailed to {To}", id, to);
+    }
+
+    return Results.Redirect($"/payroll/{id}/payslip?emailed={(sent ? 1 : 0)}");
+}).DisableAntiforgery().WithName("PayslipEmail");
+
 
 // ───── POST /api/overtime/{id}/edit — edit overtime record (form POST) ─────
 app.MapPost("/api/overtime/{id:int}/edit", async (
@@ -2997,7 +3563,7 @@ app.MapPost("/api/overtime/{id:int}/edit", async (
     var form = await ctx.Request.ReadFormAsync();
     logger.LogInformation("Overtime edit POST received for id={Id}", id);
 
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var existing = await svc.GetAsync(org.Id, id);
@@ -3037,7 +3603,7 @@ app.MapPost("/api/overtime/add", async (
     var form = await ctx.Request.ReadFormAsync();
     logger.LogInformation("Overtime add POST received");
 
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     // Parse employee
@@ -3109,7 +3675,7 @@ app.MapGet("/api/overtime/export", async (
     UkuuHrDbContext db,
     string? tab) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.NotFound(new { error = "No organization found." });
 
     var allRecords = await svc.GetAllAsync(org.Id);
@@ -3175,7 +3741,7 @@ app.MapGet("/api/time-cards/export", async (
     string? tab,
     string? date) =>
 {
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.NotFound(new { error = "No organization found." });
 
     var parsedDate = DateTime.TryParse(date, out var d) ? d : DateTime.Today;
@@ -3298,9 +3864,11 @@ app.MapPost("/api/super-admin/coupons/revoke", async (
 }).WithName("CouponRevoke"); // P1/H-7: CSRF re-enabled
 
 // POST /api/subscription/redeem-coupon — redeem a coupon (any authenticated user)
+// Coupons now provision/extend a real LicenseCode (previously granted nothing).
 app.MapPost("/api/subscription/redeem-coupon", async (
     HttpContext ctx,
     UkuuHrDbContext db,
+    LicenseService licenses,
     ILogger<Program> logger) =>
 {
     if (!ctx.User.Identity?.IsAuthenticated == true)
@@ -3310,48 +3878,168 @@ app.MapPost("/api/subscription/redeem-coupon", async (
     var code = form["CouponCode"].ToString().Trim().ToUpperInvariant();
 
     if (string.IsNullOrWhiteSpace(code))
-        return Results.Redirect("/settings?coupon=error&msg=Code is required");
-
-    var coupon = await db.CouponCodes.FirstOrDefaultAsync(c => c.Code == code);
-    if (coupon == null)
-        return Results.Redirect("/settings?coupon=error&msg=Coupon not found");
-
-    if (!coupon.IsActive)
-        return Results.Redirect("/settings?coupon=error&msg=Coupon has been revoked");
-
-    if (DateTime.UtcNow >= coupon.ExpiresAt)
-        return Results.Redirect("/settings?coupon=error&msg=Coupon has expired");
-
-    if (coupon.MaxUses > 0 && coupon.UsedCount >= coupon.MaxUses)
-        return Results.Redirect("/settings?coupon=error&msg=Coupon has reached max uses");
+        return Results.Redirect("/billing?coupon=error&msg=" + Uri.EscapeDataString("Code is required"));
 
     var email = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "unknown";
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null)
-        return Results.Redirect("/settings?coupon=error&msg=No organization found");
+        return Results.Redirect("/billing?coupon=error&msg=" + Uri.EscapeDataString("No organization found"));
 
-    // Check if org already redeemed this coupon
-    var alreadyRedeemed = await db.CouponRedemptions
-        .AnyAsync(r => r.CouponCodeId == coupon.Id && r.OrganizationId == org.Id);
-    if (alreadyRedeemed)
-        return Results.Redirect("/settings?coupon=error&msg=Already redeemed this coupon");
+    var (success, message, _) = await licenses.RedeemCouponAsync(org.Id, code, email);
+    logger.LogInformation("Coupon redemption attempt by {Email} for org {OrgId}: {Result}", email, org.Id, message);
 
-    // Record redemption
-    db.CouponRedemptions.Add(new CouponRedemption
+    return Results.Redirect(success
+        ? "/billing?coupon=success&msg=" + Uri.EscapeDataString(message)
+        : "/billing?coupon=error&msg=" + Uri.EscapeDataString(message));
+}).WithName("CouponRedeem"); // P1/H-7: CSRF re-enabled
+
+// GET /api/subscription/status — current license posture (plan, limits, usage)
+app.MapGet("/api/subscription/status", async (
+    UkuuHrDbContext db,
+    LicenseService licenses) =>
+{
+    var org = await db.ResolveOrgAsync();
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var status = await licenses.GetStatusAsync(org.Id);
+    return Results.Ok(new
     {
-        CouponCodeId = coupon.Id,
-        OrganizationId = org.Id,
-        RedeemedByEmail = email,
-        RedeemedAt = DateTime.UtcNow
+        organization = org.Name,
+        hasLicense = status.HasLicense,
+        plan = status.PlanName,
+        licenseCode = status.License?.Code,
+        activatedAt = status.License?.ActivatedAt,
+        expiresAt = status.License?.ExpiresAt,
+        daysRemaining = status.DaysRemaining,
+        employeeCount = status.EmployeeCount,
+        employeeLimit = status.EmployeeLimit == int.MaxValue ? (int?)null : status.EmployeeLimit,
+        overLimit = status.IsOverLimit,
+        message = status.Message
     });
+}).WithName("SubscriptionStatus");
 
-    coupon.UsedCount++;
+// POST /api/subscription/activate — bind an issued license code to this org
+app.MapPost("/api/subscription/activate", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    LicenseService licenses) =>
+{
+    var org = await db.ResolveOrgAsync();
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var form = await ctx.Request.ReadFormAsync();
+    var code = form["LicenseCode"].ToString();
+    if (string.IsNullOrWhiteSpace(code))
+        return Results.Redirect("/billing?activate=error&msg=" + Uri.EscapeDataString("Enter a license code."));
+
+    var email = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "unknown";
+    var (success, message) = await licenses.ActivateAsync(org.Id, code, email);
+
+    return Results.Redirect(success
+        ? "/billing?activate=success&msg=" + Uri.EscapeDataString(message)
+        : "/billing?activate=error&msg=" + Uri.EscapeDataString(message));
+}).DisableAntiforgery().WithName("LicenseActivate");
+
+// ───── Branch / location management (Module 1.3 + Module 2.2) ─────
+
+// GET /api/branches — list branches (active + deactivated, with employee counts)
+app.MapGet("/api/branches", async (UkuuHrDbContext db) =>
+{
+    var org = await db.ResolveOrgAsync();
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var branches = await db.Branches
+        .Where(b => b.OrganizationId == org.Id)
+        .OrderBy(b => b.Name)
+        .ToListAsync();
+    var counts = await db.Employees
+        .Where(e => e.OrganizationId == org.Id && e.BranchId != null)
+        .GroupBy(e => e.BranchId!.Value)
+        .Select(g => new { BranchId = g.Key, Count = g.Count() })
+        .ToDictionaryAsync(x => x.BranchId, x => x.Count);
+
+    return Results.Ok(branches.Select(b => new
+    {
+        b.Id,
+        b.Name,
+        b.City,
+        b.Address,
+        b.ContactPhone,
+        b.IsActive,
+        employeeCount = counts.GetValueOrDefault(b.Id)
+    }));
+}).WithName("BranchList");
+
+// POST /api/branches/save — create or update a branch (form POST)
+app.MapPost("/api/branches/save", async (
+    HttpContext ctx,
+    UkuuHrDbContext db,
+    AuditService audit) =>
+{
+    var org = await db.ResolveOrgAsync();
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var form = await ctx.Request.ReadFormAsync();
+    var name = form["Name"].ToString().Trim();
+    if (string.IsNullOrWhiteSpace(name))
+        return Results.Redirect("/settings/branches?saved=0&error=" + Uri.EscapeDataString("Branch name is required."));
+
+    var idStr = form["Id"].ToString();
+    Branch? branch;
+    if (int.TryParse(idStr, out var editId) && editId > 0)
+    {
+        branch = await db.Branches.FirstOrDefaultAsync(b => b.OrganizationId == org.Id && b.Id == editId);
+        if (branch == null) return Results.NotFound(new { error = "Branch not found." });
+    }
+    else
+    {
+        branch = new Branch { OrganizationId = org.Id, CreatedAt = DateTime.UtcNow };
+        db.Branches.Add(branch);
+    }
+
+    branch.Name = name;
+    branch.City = form["City"].ToString();
+    branch.Address = form["Address"].ToString();
+    branch.ContactPhone = form["ContactPhone"].ToString();
+    branch.IsActive = form["IsActive"] != "false";
+    branch.UpdatedAt = DateTime.UtcNow;
     await db.SaveChangesAsync();
 
-    logger.LogInformation("Coupon redeemed: {Code} by {Email} for org {OrgId}",
-        coupon.Code, email, org.Id);
-    return Results.Redirect("/settings?coupon=success");
-}).WithName("CouponRedeem"); // P1/H-7: CSRF re-enabled
+    await audit.LogAsync(org.Id,
+        branch.Id == editId ? AuditAction.ProfileUpdated : AuditAction.UserCreated,
+        ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+        $"Branch '{branch.Name}' saved.");
+
+    return Results.Redirect("/settings/branches?saved=1");
+}).DisableAntiforgery().WithName("BranchSave");
+
+// POST /api/branches/delete/{id} — deactivate a branch (soft delete; employees unassigned)
+app.MapPost("/api/branches/delete/{id:int}", async (
+    HttpContext ctx,
+    int id,
+    UkuuHrDbContext db,
+    AuditService audit) =>
+{
+    var org = await db.ResolveOrgAsync();
+    if (org == null) return Results.NotFound(new { error = "No organization found." });
+
+    var branch = await db.Branches.FirstOrDefaultAsync(b => b.OrganizationId == org.Id && b.Id == id);
+    if (branch == null) return Results.NotFound(new { error = "Branch not found." });
+
+    branch.IsActive = false;
+    branch.UpdatedAt = DateTime.UtcNow;
+    // Unassign employees so reports fall back to their city.
+    await db.Employees
+        .Where(e => e.OrganizationId == org.Id && e.BranchId == id)
+        .ExecuteUpdateAsync(s => s.SetProperty(e => e.BranchId, (int?)null));
+
+    await db.SaveChangesAsync();
+    await audit.LogAsync(org.Id, AuditAction.ProfileUpdated,
+        ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+        $"Branch '{branch.Name}' deactivated; assigned employees unassigned.");
+
+    return Results.Redirect("/settings/branches?saved=1");
+}).DisableAntiforgery().WithName("BranchDeactivate");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/attendance/import-from-device
@@ -3386,7 +4074,7 @@ app.MapPost("/api/attendance/import-from-device", async (
     var to = body.To ?? DateTime.UtcNow;
 
     // ── 2. Resolve the org (events get attached to the org's employees) ─────
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found. Create an organization first." });
 
     logger.LogInformation("ImportFromDevice: connecting to {Scheme}://{Host}:{Port} as {User} (range {From} → {To}, max {Max})",
@@ -3621,7 +4309,7 @@ app.MapPost("/api/attendance/save-imported", async (
     catch (Exception) { return Results.BadRequest(new { error = "Invalid request body." }); } // P2/M-4
     if (body == null || body.Events == null) return Results.BadRequest(new { error = "No events in request body." });
 
-    var org = await db.Organizations.FirstOrDefaultAsync();
+    var org = await db.ResolveOrgAsync(); // multi-tenant org resolution
     if (org == null) return Results.BadRequest(new { error = "No organization found." });
 
     var employees = await db.Employees.Where(e => e.OrganizationId == org.Id).ToListAsync();

@@ -6,8 +6,10 @@ namespace UkuuHr.Services.Devices;
 /// Adapter that wraps the shared CsvConnector and tags it with a specific vendor.
 /// The CSV format is identical across vendors, but the registry needs (Vendor, Mode)
 /// tuples — so we create one adapter per vendor for the CsvFile mode.
+/// Implements IDeviceConnectorWithEvents so scheduled CSV syncs actually persist
+/// their parsed events (previously they were fetched and silently discarded).
 /// </summary>
-public sealed class VendorSpecificCsvAdapter : IDeviceConnector
+public sealed class VendorSpecificCsvAdapter : IDeviceConnectorWithEvents
 {
     private readonly CsvConnector _inner;
     public DeviceVendor Vendor { get; }
@@ -24,4 +26,7 @@ public sealed class VendorSpecificCsvAdapter : IDeviceConnector
 
     public Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
         => _inner.SyncAsync(device, since, ct);
+
+    public Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+        => _inner.SyncWithEventsAsync(device, since, ct);
 }
