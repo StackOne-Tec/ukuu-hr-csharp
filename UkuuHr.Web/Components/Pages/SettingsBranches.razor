@@ -1,0 +1,201 @@
+@page "/settings/branches"
+@attribute [Authorize(Policy = "UserManagement")]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+
+@* ─────────────────────────────────────────────────────────────────
+   Branch / location management (Module 1.3 — company profile and
+   branch/location setup). Static SSR forms → /api/branches/*.
+   ───────────────────────────────────────────────────────────────── *@
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Settings · Organization</div>
+            <h1 class="bk-admin-h1">Branches &amp; Locations</h1>
+            <p class="bk-admin-sub">
+                Define the sites your company operates from, then assign employees to a branch on their profile.
+                Attendance reports group by branch (falling back to the employee's city when unassigned).
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <a href="/settings/organization" class="bk-btn bk-btn-secondary">
+                <span class="material-icons-round" style="font-size:16px;">business</span>
+                Company Profile
+            </a>
+        </div>
+    </div>
+
+    @if (_banner != null)
+    {
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;margin-bottom:16px;font-size:13px;font-weight:600;background:@(_bannerIsError ? "#FEE2E2" : "#DCFCE7");color:@(_bannerIsError ? "#991B1B" : "#166534");" role="status">
+            <span class="material-icons-round" style="font-size:18px;">@(_bannerIsError ? "error_outline" : "check_circle")</span>
+            <span>@_banner</span>
+        </div>
+    }
+
+    <div style="display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start;" class="bk-branch-grid">
+        @* ── Create / edit form ── *@
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>@(_editId > 0 ? $"Edit Branch #{_editId}" : "Add Branch")</h3>
+                <p>Name plus optional site details.</p>
+            </div>
+            <div class="bk-admin-card-content">
+                <form method="post" action="/api/branches/save" style="display:flex;flex-direction:column;gap:12px;">
+                    @if (_editId > 0)
+                    {
+                        <input type="hidden" name="Id" value="@_editId" />
+                    }
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:var(--bk-ink);margin-bottom:4px;">Branch name *</label>
+                        <input type="text" name="Name" required maxlength="150" value="@(_edit?.Name ?? "")" placeholder="e.g. Lusaka Head Office"
+                               style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--bk-line);border-radius:10px;font-size:13px;background:#fff;color:var(--bk-ink);" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:var(--bk-ink);margin-bottom:4px;">City</label>
+                        <input type="text" name="City" maxlength="100" value="@(_edit?.City ?? "")" placeholder="e.g. Lusaka"
+                               style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--bk-line);border-radius:10px;font-size:13px;background:#fff;color:var(--bk-ink);" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:var(--bk-ink);margin-bottom:4px;">Address</label>
+                        <input type="text" name="Address" maxlength="250" value="@(_edit?.Address ?? "")" placeholder="Street / building"
+                               style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--bk-line);border-radius:10px;font-size:13px;background:#fff;color:var(--bk-ink);" />
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:700;color:var(--bk-ink);margin-bottom:4px;">Contact phone</label>
+                        <input type="tel" name="ContactPhone" maxlength="100" value="@(_edit?.ContactPhone ?? "")" placeholder="+260 …"
+                               style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--bk-line);border-radius:10px;font-size:13px;background:#fff;color:var(--bk-ink);" />
+                    </div>
+                    <button type="submit" class="bk-btn bk-btn-primary" style="width:100%;">
+                        <span class="material-icons-round" style="font-size:16px;">@(_editId > 0 ? "save" : "add_business")</span>
+                        @(_editId > 0 ? "Save changes" : "Add branch")
+                    </button>
+                    @if (_editId > 0)
+                    {
+                        <a href="/settings/branches" style="text-align:center;font-size:12px;font-weight:600;color:var(--bk-ink-3);text-decoration:none;">Cancel edit</a>
+                    }
+                </form>
+            </div>
+        </div>
+
+        @* ── Branch list ── *@
+        <div class="bk-admin-card">
+            <div class="bk-admin-card-header">
+                <h3>Your Branches (@_branches.Count(b => b.IsActive) active)</h3>
+                <p>Deactivating a branch unassigns its employees (reports then use their city).</p>
+            </div>
+            <div class="bk-admin-card-content">
+                @if (_branches.Count == 0)
+                {
+                    <div style="padding:36px 16px;text-align:center;color:var(--bk-ink-3);">
+                        <span class="material-icons-round" style="font-size:36px;opacity:.5;">location_city</span>
+                        <p style="font-size:13px;margin-top:8px;">No branches yet — add your first location on the left.</p>
+                    </div>
+                }
+                else
+                {
+                    <table class="bk-admin-table">
+                        <thead>
+                            <tr>
+                                <th>Branch</th>
+                                <th>City</th>
+                                <th>Employees</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var b in _branches)
+                            {
+                                <tr style="@(!b.IsActive ? "opacity:.55;" : "")">
+                                    <td>
+                                        <div style="font-weight:600;font-size:13px;">@b.Name</div>
+                                        @if (!string.IsNullOrWhiteSpace(b.Address))
+                                        {
+                                            <div style="font-size:11px;color:var(--bk-ink-3);">@b.Address</div>
+                                        }
+                                    </td>
+                                    <td style="font-size:13px;">@(b.City ?? "—")</td>
+                                    <td style="font-size:13px;">@(_counts.GetValueOrDefault(b.Id))</td>
+                                    <td>
+                                        <span class="bk-admin-pill @(b.IsActive ? "active" : "inactive")">@(b.IsActive ? "Active" : "Inactive")</span>
+                                    </td>
+                                    <td>
+                                        <div style="display:flex;gap:6px;">
+                                            <a href="/settings/branches?edit=@b.Id" class="bk-admin-topbar-icon-btn" style="width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--bk-ink-3);" title="Edit">
+                                                <span class="material-icons-round" style="font-size:15px;">edit</span>
+                                            </a>
+                                            @if (b.IsActive)
+                                            {
+                                                <form method="post" action="/api/branches/delete/@b.Id" style="display:inline;"
+                                                      onsubmit="return confirm('Deactivate branch @(b.Name)? Its employees will be unassigned.');">
+                                                    <button type="submit" class="bk-admin-topbar-icon-btn" style="width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:#dc2626;" title="Deactivate">
+                                                        <span class="material-icons-round" style="font-size:15px;">block</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @@media (max-width: 900px) {
+        .bk-branch-grid { grid-template-columns: 1fr !important; }
+    }
+</style>
+
+@code {
+    private List<Branch> _branches = new();
+    private Dictionary<int, int> _counts = new();
+    private Branch? _edit;
+    private int _editId;
+    private string? _banner;
+    private bool _bannerIsError;
+
+    [SupplyParameterFromQuery] private int? Edit { get; set; }
+    [SupplyParameterFromQuery] private int? Saved { get; set; }
+    [SupplyParameterFromQuery] private string? Error { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
+        if (org == null) return;
+
+        _branches = await Db.Branches.Where(b => b.OrganizationId == org.Id).OrderBy(b => b.Name).ToListAsync();
+        _counts = await Db.Employees
+            .Where(e => e.OrganizationId == org.Id && e.BranchId != null)
+            .GroupBy(e => e.BranchId!.Value)
+            .Select(g => new { BranchId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
+
+        if (Edit is > 0)
+        {
+            _edit = _branches.FirstOrDefault(b => b.Id == Edit.Value);
+            _editId = _edit?.Id ?? 0;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Saved == 1)
+        {
+            _banner = "Branch saved.";
+            _bannerIsError = false;
+        }
+        else if (Saved == 0 || !string.IsNullOrWhiteSpace(Error))
+        {
+            _banner = string.IsNullOrWhiteSpace(Error) ? "Branch could not be saved." : Uri.UnescapeDataString(Error);
+            _bannerIsError = true;
+        }
+        else _banner = null;
+    }
+}

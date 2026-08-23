@@ -656,7 +656,7 @@ else
     {
         try
         {
-            var org = await Db.Organizations.FirstOrDefaultAsync();
+            var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
             if (org == null)
             {
                 _orgMissing = true;

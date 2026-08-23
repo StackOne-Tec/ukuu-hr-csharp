@@ -644,7 +644,7 @@ function ukuuImpStatus(type, html) {
     {
         try
         {
-            var org = await Db.Organizations.FirstOrDefaultAsync();
+            var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
             if (org == null) { _loadError = "No organization found."; return; }
             _loadError = null;
             if (_tab == "daily") _daily = await TimeCardSvc.GetDailyAsync(org.Id, _date);

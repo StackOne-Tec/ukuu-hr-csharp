@@ -76,7 +76,7 @@
                     </div>
                     <div class="bk-admin-kpi-value">@_attendancePct.ToString("0.0")%</div>
                     <div class="bk-admin-kpi-label">Attendance Today</div>
-                    <div class="bk-admin-kpi-sub">@_presentToday present · @_onLeaveToday on leave</div>
+                    <div class="bk-admin-kpi-sub">@_presentToday present · @_lateToday late · @_absentToday absent · @_onLeaveToday on leave</div>
                 </div>
 
                 <div class="bk-admin-kpi-card">
@@ -245,6 +245,8 @@
     private int _onProbation;
     private int _presentToday;
     private int _onLeaveToday;
+    private int _lateToday;
+    private int _absentToday;
     private int _pendingLeave;
     private int _approvedThisMonth;
     private double _attendanceToday;
@@ -291,7 +293,7 @@
             }
 
             // Fallback: if we couldn't find the org via the user's account, use the first org
-            org ??= await Db.Organizations.FirstOrDefaultAsync();
+            org ??= await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
 
             _hasOrg = org != null;
             _orgName = org?.Name;
@@ -321,7 +323,10 @@
             _pendingOvertime = _pendingOvertimeRecords.Count;
             var present = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Present);
             var late = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Late);
-            _presentToday = present + late;
+            _presentToday = present;
+            _lateToday = late;
+            _absentToday = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Absent)
+                + _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.MissingPunch);
             _onLeaveToday = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.OnLeave);
             _attendanceToday = total > 0 ? (present + late) * 100.0 / total : 0;
             _attendancePct = _attendanceToday;

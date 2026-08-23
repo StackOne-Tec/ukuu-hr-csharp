@@ -92,19 +92,32 @@
     {
         <div class="bk-admin-card">
             <div class="bk-admin-card-header">
-                <h3>Step 1: Hikvision Device Setup</h3>
-                <p>The system supports Hikvision biometric terminals via the ISAPI protocol.</p>
+                <h3>Step 1: Device Setup</h3>
+                <p>Connect a biometric or access-control terminal. Hikvision (ISAPI) is fully supported; other vendors sync via their REST APIs or CSV exports.</p>
             </div>
             <div class="bk-admin-card-content">
-                @* Vendor — Hikvision only (auto-selected) *@
+                @* Vendor picker — all registered vendors (Hikvision pre-selected) *@
                 <label class="bk-label">Device Vendor</label>
-                <div style="display:flex;align-items:center;gap:12px;padding:16px;border-radius:10px;border:2px solid #D92136;background:#D921360D;margin-bottom:24px;">
-                    <div style="width:40px;height:40px;border-radius:8px;background:#D92136;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;">HI</div>
-                    <div>
-                        <div style="font-weight:700;font-size:14px;color:var(--bk-ink);">Hikvision</div>
-                        <div style="font-size:11px;color:var(--bk-ink-3);">ISAPI protocol · Face/Fingerprint · REST API</div>
-                    </div>
-                    <span class="material-icons-round" style="margin-left:auto;color:#14a37f;font-size:20px;">check_circle</span>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:24px;">
+                    @foreach (var vendor in Enum.GetValues<DeviceVendor>())
+                    {
+                        var isSelected = _form.Vendor == vendor;
+                        var desc = VendorDescription(vendor);
+                        <button type="button" @onclick="() => _form.Vendor = vendor"
+                                style="padding:14px;border-radius:10px;border:2px solid @(isSelected ? "var(--bk-accent)" : "var(--bk-line)");background:@(isSelected ? "rgba(37,22,63,0.04)" : "transparent");cursor:pointer;text-align:left;transition:all 0.15s ease;font-family:inherit;display:flex;align-items:center;gap:12px;">
+                            <div style="width:36px;height:36px;border-radius:8px;background:@(isSelected ? "rgba(37,22,63,0.08)" : "var(--bk-line)");display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <span class="material-icons-round" style="font-size:18px;color:@(isSelected ? "var(--bk-accent)" : "var(--bk-ink-3)");">sensors</span>
+                            </div>
+                            <div>
+                                <div style="font-weight:700;font-size:13px;color:var(--bk-ink);">@vendor</div>
+                                <div style="font-size:11px;color:var(--bk-ink-3);">@desc</div>
+                            </div>
+                            @if (isSelected)
+                            {
+                                <span class="material-icons-round" style="margin-left:auto;color:var(--bk-accent);font-size:18px;">check_circle</span>
+                            }
+                        </button>
+                    }
                 </div>
 
                 @* Mode picker *@
@@ -439,7 +452,7 @@
     {
         try
         {
-            var org = await Db.Organizations.FirstOrDefaultAsync();
+            var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
             if (org == null)
             {
                 _orgMissing = true;

@@ -148,7 +148,7 @@ public class HikvisionRestConnector : RestConnectorBase, IDeviceConnectorWithEve
 
 // ───────────── ZKTeco REST ─────────────
 
-public class ZKTecoRestConnector : RestConnectorBase, IDeviceConnector
+public class ZKTecoRestConnector : RestConnectorBase, IDeviceConnectorWithEvents
 {
     public DeviceVendor Vendor => DeviceVendor.ZKTeco;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
@@ -166,6 +166,12 @@ public class ZKTecoRestConnector : RestConnectorBase, IDeviceConnector
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         try
         {
@@ -178,15 +184,15 @@ public class ZKTecoRestConnector : RestConnectorBase, IDeviceConnector
             using var req = BuildRequest(device, path);
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
-                return DeviceSyncResult.Fail($"ZKTeco API returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
+                return DeviceSyncResultWithEvents.Fail($"ZKTeco API returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
 
             var json = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseZKTecoJson(json);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"ZKTeco sync error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"ZKTeco sync error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 
@@ -215,7 +221,7 @@ public class ZKTecoRestConnector : RestConnectorBase, IDeviceConnector
 
 // ───────────── Suprema BioStar 2 REST ─────────────
 
-public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
+public class SupremaRestConnector : RestConnectorBase, IDeviceConnectorWithEvents
 {
     public DeviceVendor Vendor => DeviceVendor.Suprema;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
@@ -234,6 +240,12 @@ public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         try
         {
@@ -243,14 +255,14 @@ public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
             using var req = BuildRequest(device, endpoint);
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
-                return DeviceSyncResult.Fail($"BioStar 2 returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
+                return DeviceSyncResultWithEvents.Fail($"BioStar 2 returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
             var json = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseSupremaJson(json);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"Suprema sync error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"Suprema sync error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 
@@ -278,7 +290,7 @@ public class SupremaRestConnector : RestConnectorBase, IDeviceConnector
 
 // ───────────── Dahua REST ─────────────
 
-public class DahuaRestConnector : RestConnectorBase, IDeviceConnector
+public class DahuaRestConnector : RestConnectorBase, IDeviceConnectorWithEvents
 {
     public DeviceVendor Vendor => DeviceVendor.Dahua;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
@@ -296,6 +308,12 @@ public class DahuaRestConnector : RestConnectorBase, IDeviceConnector
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         try
         {
@@ -305,14 +323,14 @@ public class DahuaRestConnector : RestConnectorBase, IDeviceConnector
             using var req = BuildRequest(device, path);
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
-                return DeviceSyncResult.Fail($"Dahua returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
+                return DeviceSyncResultWithEvents.Fail($"Dahua returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
             var body = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseDahuaResponse(body);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"Dahua sync error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"Dahua sync error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 
@@ -336,7 +354,7 @@ public class DahuaRestConnector : RestConnectorBase, IDeviceConnector
 
 // ───────────── Anviz Cloud REST ─────────────
 
-public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
+public class AnvizRestConnector : RestConnectorBase, IDeviceConnectorWithEvents
 {
     public DeviceVendor Vendor => DeviceVendor.Anviz;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
@@ -350,13 +368,19 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         try
         {
             var apiKey = GetDevicePassword(device);
             var deviceSerial = device.DeviceSerial;
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(deviceSerial))
-                return DeviceSyncResult.Fail("Anviz cloud requires API key + device serial.", DateTime.UtcNow - start);
+                return DeviceSyncResultWithEvents.Fail("Anviz cloud requires API key + device serial.", DateTime.UtcNow - start);
             var from = (since ?? DateTime.UtcNow.AddDays(-7)).ToString("yyyy-MM-dd");
             var to = DateTime.UtcNow.ToString("yyyy-MM-dd");
             var url = $"https://cloud.anviz.com/v2/getCheckingRecord?apiKey={Uri.EscapeDataString(apiKey)}&deviceSN={Uri.EscapeDataString(deviceSerial)}&startTime={from}&endTime={to}";
@@ -364,14 +388,14 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
-                return DeviceSyncResult.Fail($"Anviz cloud returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
+                return DeviceSyncResultWithEvents.Fail($"Anviz cloud returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
             var json = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseAnvizJson(json);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"Anviz sync error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"Anviz sync error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 
@@ -399,7 +423,7 @@ public class AnvizRestConnector : RestConnectorBase, IDeviceConnector
 
 // ───────────── Matrix COSEC REST ─────────────
 
-public class MatrixRestConnector : RestConnectorBase, IDeviceConnector
+public class MatrixRestConnector : RestConnectorBase, IDeviceConnectorWithEvents
 {
     public DeviceVendor Vendor => DeviceVendor.Matrix;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
@@ -417,6 +441,12 @@ public class MatrixRestConnector : RestConnectorBase, IDeviceConnector
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         try
         {
@@ -426,14 +456,14 @@ public class MatrixRestConnector : RestConnectorBase, IDeviceConnector
             using var req = BuildRequest(device, path);
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
-                return DeviceSyncResult.Fail($"Matrix COSEC returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
+                return DeviceSyncResultWithEvents.Fail($"Matrix COSEC returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
             var json = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseMatrixJson(json);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"Matrix sync error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"Matrix sync error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 
@@ -461,7 +491,7 @@ public class MatrixRestConnector : RestConnectorBase, IDeviceConnector
 
 // ───────────── eSSL REST ─────────────
 
-public class EsslRestConnector : RestConnectorBase, IDeviceConnector
+public class EsslRestConnector : RestConnectorBase, IDeviceConnectorWithEvents
 {
     public DeviceVendor Vendor => DeviceVendor.eSSL;
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.RestApi;
@@ -479,6 +509,12 @@ public class EsslRestConnector : RestConnectorBase, IDeviceConnector
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         try
         {
@@ -488,14 +524,14 @@ public class EsslRestConnector : RestConnectorBase, IDeviceConnector
             using var req = BuildRequest(device, path);
             using var resp = await SharedClient.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode)
-                return DeviceSyncResult.Fail($"eSSL returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
+                return DeviceSyncResultWithEvents.Fail($"eSSL returned HTTP {resp.StatusCode}", DateTime.UtcNow - start);
             var body = await resp.Content.ReadAsStringAsync(ct);
             var events = ParseEsslResponse(body);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"eSSL sync error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"eSSL sync error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 

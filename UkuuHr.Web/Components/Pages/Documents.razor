@@ -149,7 +149,7 @@
     {
         try
         {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         _orgId = org.Id;
         _docs = await Db.EmployeeDocuments.Where(d => d.OrganizationId == _orgId).OrderByDescending(d => d.UploadedAt).ToListAsync();

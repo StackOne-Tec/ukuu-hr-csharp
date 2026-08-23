@@ -121,9 +121,9 @@
                                 </span>
                             </td>
                             <td>
-                                <button class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;" title="View payslip">
+                                <a href="/payroll/@p.Id/payslip" class="bk-admin-topbar-icon-btn" style="width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--bk-ink-3);" title="View payslip">
                                     <span class="material-icons-round" style="font-size:16px;">receipt</span>
-                                </button>
+                                </a>
                             </td>
                         </tr>
                     }
@@ -241,7 +241,7 @@
     {
         try
         {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         _orgId = org.Id;
         var now = DateTime.Now;

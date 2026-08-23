@@ -134,8 +134,9 @@ public static class HikvisionParser
 
                     if (string.IsNullOrEmpty(empNo) || string.IsNullOrEmpty(time)) continue;
 
-                    var minorStr = AttrIgnoreCase(item, "minor")
+                    var minorStr = AttrIgnoreCase(item, "minor", "minorVersion")
                         ?? ChildLocalValue(item, "minor")
+                        ?? ChildLocalValue(item, "minorVersion")
                         ?? "75";
                     var minor = int.TryParse(minorStr, out var m) ? m : 75;
 
@@ -212,8 +213,11 @@ public static class HikvisionParser
         return events;
     }
 
+    // Case-insensitive on purpose: real Hikvision firmware mixes casings across models
+    // (<employeeNo>, <EmployeeNo>, <eventTime>, <EventTime>, …) and the attribute
+    // counterpart (AttrIgnoreCase) is already case-insensitive.
     private static string? ChildLocalValue(XElement item, string name) =>
-        item.Elements().FirstOrDefault(e => e.Name.LocalName == name)?.Value;
+        item.Elements().FirstOrDefault(e => string.Equals(e.Name.LocalName, name, StringComparison.OrdinalIgnoreCase))?.Value;
 
     /// <summary>Extract the raw text of the first &lt;tag&gt;…&lt;/tag&gt; pair (case-insensitive).</summary>
     public static string? ExtractXmlValue(string xml, string tagName)

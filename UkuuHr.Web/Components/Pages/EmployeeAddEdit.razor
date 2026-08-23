@@ -135,6 +135,16 @@
                             <input type="text" class="bk-input" name="Department" value="@(_model.Department)" placeholder="e.g. Engineering"  />
                         </div>
                         <div class="bk-field">
+                            <label class="bk-label">Branch / Location</label>
+                            <select class="bk-input" name="BranchId">
+                                <option value="">— Unassigned (reports use city) —</option>
+                                @foreach (var b in _branches)
+                                {
+                                    <option value="@b.Id" selected="@(_model.BranchId == b.Id)">@b.Name@(string.IsNullOrWhiteSpace(b.City) ? "" : $" · {b.City}")</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="bk-field">
                             <label class="bk-label">Job Title</label>
                             <input type="text" class="bk-input" name="JobTitle" value="@(_model.JobTitle)" placeholder="e.g. Software Engineer"  />
                         </div>
@@ -166,6 +176,7 @@
     private bool _isEdit => Id.HasValue && Id.Value > 0;
     private Employee _model = new();
     private List<Shift> _availableShifts = new();
+    private List<Branch> _branches = new();
     private int? _selectedShiftId;
     private string _nextEmployeeCode = "";
 
@@ -175,13 +186,19 @@
     {
         try
         {
-            var org = await Db.Organizations.FirstOrDefaultAsync();
+            var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
             if (org == null) return;
 
             // Load available shifts for the dropdown
             _availableShifts = await Db.Shifts
                 .Where(s => s.OrganizationId == org.Id && s.IsActive)
                 .OrderBy(s => s.Name)
+                .ToListAsync();
+
+            // Load active branches for the location dropdown
+            _branches = await Db.Branches
+                .Where(b => b.OrganizationId == org.Id && b.IsActive)
+                .OrderBy(b => b.Name)
                 .ToListAsync();
 
             if (_isEdit)

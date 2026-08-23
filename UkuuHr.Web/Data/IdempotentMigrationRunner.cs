@@ -32,7 +32,48 @@ public static class IdempotentMigrationRunner
             // P2/H-5: Encrypted device password column
             ("AttendanceDevices", "PasswordEncrypted",
                 @"ALTER TABLE ""AttendanceDevices"" ADD COLUMN ""PasswordEncrypted"" varchar(512)"),
+            // Attendance manual-correction support: UpdatedAt audit timestamp
+            ("Attendances", "UpdatedAt",
+                @"ALTER TABLE ""Attendances"" ADD COLUMN ""UpdatedAt"" timestamp NULL"),
+            // Branch/location support: employee branch assignment
+            ("Employees", "BranchId",
+                @"ALTER TABLE ""Employees"" ADD COLUMN ""BranchId"" integer NULL"),
         };
+
+        // New tables (dialect-specific DDL — both support IF NOT EXISTS).
+        if (!await TableExistsAsync(db, "Branches", useSqlite))
+        {
+            try
+            {
+                var createBranches = useSqlite
+                    ? @"CREATE TABLE IF NOT EXISTS ""Branches"" (
+                            ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                            ""OrganizationId"" INTEGER NOT NULL,
+                            ""Name"" TEXT NOT NULL,
+                            ""City"" TEXT NULL,
+                            ""Address"" TEXT NULL,
+                            ""ContactPhone"" TEXT NULL,
+                            ""IsActive"" INTEGER NOT NULL DEFAULT 1,
+                            ""CreatedAt"" TEXT NOT NULL,
+                            ""UpdatedAt"" TEXT NULL)"
+                    : @"CREATE TABLE IF NOT EXISTS ""Branches"" (
+                            ""Id"" serial PRIMARY KEY,
+                            ""OrganizationId"" integer NOT NULL,
+                            ""Name"" varchar(150) NOT NULL,
+                            ""City"" varchar(100) NULL,
+                            ""Address"" varchar(250) NULL,
+                            ""ContactPhone"" varchar(100) NULL,
+                            ""IsActive"" boolean NOT NULL DEFAULT true,
+                            ""CreatedAt"" timestamp NOT NULL,
+                            ""UpdatedAt"" timestamp NULL)";
+                await db.Database.ExecuteSqlRawAsync(createBranches);
+                logger.LogInformation("Migration: created Branches table");
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("Branches table migration failed: {Message}", ex.Message);
+            }
+        }
 
         foreach (var (table, column, addSql) in migrations)
         {
@@ -51,6 +92,25 @@ public static class IdempotentMigrationRunner
                 logger.LogWarning("Migration failed for {Table}.{Column}: {Message}", table, column, ex.Message);
             }
         }
+    }
+
+    /// <summary>
+    /// Returns true when the given table already exists.
+    /// Names passed here are compile-time constants — no SQL-injection surface.
+    /// </summary>
+    public static async Task<bool> TableExistsAsync(UkuuHrDbContext db, string table, bool useSqlite)
+    {
+#pragma warning disable EF1002
+        if (useSqlite)
+        {
+            var names = await db.Database.SqlQueryRaw<string>(
+                $"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'").ToListAsync();
+            return names.Count > 0;
+        }
+        var count = await db.Database.SqlQueryRaw<int>(
+            $"SELECT CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '{table}') THEN 1 ELSE 0 END").ToListAsync();
+        return count.FirstOrDefault() > 0;
+#pragma warning restore EF1002
     }
 
     /// <summary>

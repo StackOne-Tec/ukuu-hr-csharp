@@ -133,7 +133,7 @@
             _saved = uri.Query.Contains("saved=1");
             _error = string.IsNullOrEmpty(uri.Query) ? null : null;
 
-            var org = await Db.Organizations.FirstOrDefaultAsync();
+            var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
             if (org != null)
             {
                 _employees = await Db.Employees.Where(e => e.OrganizationId == org.Id && !e.IsTerminated).ToListAsync();

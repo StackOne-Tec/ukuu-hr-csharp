@@ -30,6 +30,9 @@ public class Attendance
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Set whenever a manual correction is applied (audit support).</summary>
+    public DateTime? UpdatedAt { get; set; }
+
     public string CheckInLabel => CheckIn?.ToString("hh:mm tt") ?? "—";
     public string CheckOutLabel => CheckOut?.ToString("hh:mm tt") ?? "—";
 
@@ -50,7 +53,11 @@ public enum AttendanceStatus
     Remote,
     Late,
     OnLeave,
-    HalfDay
+    HalfDay,
+    /// <summary>Employee has a punch on the day but the in/out pair is incomplete
+    /// (e.g. checked in and never checked out, or a check-out with no check-in).
+    /// Surfaced for manual correction on the attendance page.</summary>
+    MissingPunch
 }
 
 public enum AttendanceSource

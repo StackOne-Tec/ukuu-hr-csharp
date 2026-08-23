@@ -142,6 +142,10 @@ public class AuditLog
         AuditAction.LoginFailed => "Login Failed",
         AuditAction.BulkImport => "Bulk Import",
         AuditAction.BulkExport => "Bulk Export",
+        AuditAction.AttendanceCorrected => "Attendance Corrected",
+        AuditAction.EmployeeDeleted => "Employee Deleted",
+        AuditAction.EmployeeStatusChanged => "Employee Status Changed",
+        AuditAction.EmployeeImported => "Employee Imported",
         _ => "Unknown"
     };
 
@@ -171,6 +175,15 @@ public enum AuditAction
     LoginFailed,
     BulkImport,
     BulkExport,
+    // ───── Module coverage: attendance & employee lifecycle audits ─────
+    /// <summary>A manual correction was made to an attendance record (times/status/notes).</summary>
+    AttendanceCorrected,
+    /// <summary>An employee record was permanently deleted.</summary>
+    EmployeeDeleted,
+    /// <summary>An employee's employment status changed (e.g. Active → Inactive).</summary>
+    EmployeeStatusChanged,
+    /// <summary>Employees were bulk-imported from CSV.</summary>
+    EmployeeImported,
     Unknown
 }
 

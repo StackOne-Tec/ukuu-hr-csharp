@@ -1,0 +1,168 @@
+@page "/payroll/{Id:int}/payslip"
+@attribute [Authorize(Policy = "FinanceOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+
+@* ─────────────────────────────────────────────────────────────────
+   Payslip view — printable breakdown of a single PayrollRun.
+   Static SSR + window.print() so it works without a Blazor circuit.
+   ───────────────────────────────────────────────────────────────── *@
+
+<div style="max-width:760px;margin:0 auto;padding:28px 20px;font-family:'Plus Jakarta Sans',sans-serif;">
+    @if (_run == null)
+    {
+        <div style="padding:48px 24px;text-align:center;background:#FEE2E2;color:#991B1B;border-radius:14px;font-weight:600;">
+            Payslip #@Id not found in your organization.
+        </div>
+    }
+    else
+    {
+        @* Result banner from the email-payslip endpoint *@
+        @if (_banner != null)
+        {
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;margin-bottom:16px;font-size:13px;font-weight:600;background:@(_bannerIsError ? "#FEE2E2" : "#DCFCE7");color:@(_bannerIsError ? "#991B1B" : "#166534");">
+                <span class="material-icons-round" style="font-size:18px;">@(_bannerIsError ? "error_outline" : "check_circle")</span>
+                <span>@_banner</span>
+            </div>
+        }
+
+        @* ── Payslip document ── *@
+        <div id="payslip-doc" style="background:#fff;border:1px solid #E8E4F0;border-radius:18px;overflow:hidden;">
+            @* Header *@
+            <div style="background:#25163F;color:#FCFBFF;padding:26px 32px;display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <div style="font-size:20px;font-weight:800;letter-spacing:.02em;">Ukuu HR</div>
+                    <div style="font-size:11px;opacity:.7;margin-top:2px;">@_orgName</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.7;">Payslip</div>
+                    <div style="font-size:16px;font-weight:800;margin-top:2px;">@_run.PeriodLabel</div>
+                </div>
+            </div>
+
+            @* Employee row *@
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;padding:20px 32px;border-bottom:1px solid #F3F1F6;">
+                <div>
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8a84a0;">Employee</div>
+                    <div style="font-size:14px;font-weight:700;color:#25163F;">@_run.EmployeeName</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8a84a0;">Employee Code</div>
+                    <div style="font-size:13px;color:#25163F;font-family:'JetBrains Mono',monospace;">@(_employee?.EmployeeCode ?? "—")</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8a84a0;">Pay Period</div>
+                    <div style="font-size:13px;color:#25163F;">@_run.PayPeriodStart.ToString("dd MMM yyyy") – @_run.PayPeriodEnd.ToString("dd MMM yyyy")</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8a84a0;">Status</div>
+                    <div style="font-size:13px;font-weight:700;color:@(_run.ApprovalStatus == PayrollApprovalStatus.Approved ? "#166534" : "#92400E");">@_run.ApprovalStatus</div>
+                </div>
+            </div>
+
+            @* Earnings vs deductions *@
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px 32px;">
+                <div>
+                    <div style="font-size:12px;font-weight:800;color:#25163F;margin-bottom:10px;">Earnings</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <tr><td style="padding:6px 0;color:#6b6580;">Basic Salary</td><td style="text-align:right;font-weight:600;">@_run.Currency @_run.Base.ToString("N2")</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b6580;">Allowances (taxable)</td><td style="text-align:right;">@_run.Currency @((@_run.Allowances - @_run.NonTaxableAllowances).ToString("N2"))</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b6580;">Allowances (non-taxable)</td><td style="text-align:right;">@_run.Currency @_run.NonTaxableAllowances.ToString("N2")</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b6580;">Overtime (@_run.OvertimeHours.ToString("0.0")h)</td><td style="text-align:right;">@_run.Currency @_run.OvertimePay.ToString("N2")</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b6580;">Bonuses</td><td style="text-align:right;">@_run.Currency @_run.Bonuses.ToString("N2")</td></tr>
+                        <tr style="border-top:2px solid #E8E4F0;"><td style="padding:8px 0;font-weight:800;color:#25163F;">Gross Pay</td><td style="text-align:right;font-weight:800;color:#25163F;">@_run.Currency @_run.Gross.ToString("N2")</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <div style="font-size:12px;font-weight:800;color:#25163F;margin-bottom:10px;">Deductions</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <tr><td style="padding:6px 0;color:#6b6580;">PAYE @_run.PayePercent.ToString("0.0")%</td><td style="text-align:right;">− @_run.Currency @_run.Paye.ToString("N2")</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b6580;">NAPSA @_run.NapsaPercent.ToString("0")%</td><td style="text-align:right;">− @_run.Currency @_run.Napsa.ToString("N2")</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b6580;">NHIMA @_run.NhimaPercent.ToString("0")%</td><td style="text-align:right;">− @_run.Currency @_run.Nhima.ToString("N2")</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b6580;">Other Deductions</td><td style="text-align:right;">− @_run.Currency @_run.OtherDeductions.ToString("N2")</td></tr>
+                        <tr style="border-top:2px solid #E8E4F0;"><td style="padding:8px 0;font-weight:800;color:#25163F;">Total Deductions</td><td style="text-align:right;font-weight:800;color:#25163F;">@_run.Currency @_run.TotalDeductions.ToString("N2")</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            @* Net pay hero *@
+            <div style="margin:0 32px 20px;background:linear-gradient(135deg,#F3F1F6,#FCFBFF);border:1px solid #E8E4F0;border-radius:14px;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8a84a0;">Net Pay</div>
+                    <div style="font-size:11px;color:#8a84a0;">@_run.PeriodLabel · @_run.Currency</div>
+                </div>
+                <div style="font-size:28px;font-weight:800;color:#25163F;font-family:'JetBrains Mono',monospace;">@_run.Currency @_run.Net.ToString("N2")</div>
+            </div>
+
+            @* Footer meta *@
+            <div style="padding:14px 32px;border-top:1px solid #F3F1F6;display:flex;justify-content:space-between;font-size:11px;color:#8a84a0;">
+                <span>Approved by @(_run.ApprovedByEmail ?? "—")@(_run.ApprovedAt.HasValue ? $" on {_run.ApprovedAt:dd MMM yyyy}" : "")</span>
+                <span>Payslip status: @_run.PayslipDelivery</span>
+            </div>
+        </div>
+
+        @* Actions (hidden when printing) *@
+        <div style="display:flex;gap:12px;margin-top:20px;" class="payslip-actions">
+            <button type="button" onclick="window.print();"
+                    style="display:inline-flex;align-items:center;gap:8px;background:#25163F;color:#fff;border:none;border-radius:12px;padding:12px 22px;font-size:13px;font-weight:700;cursor:pointer;">
+                <span class="material-icons-round" style="font-size:16px;">print</span>
+                Print / Save PDF
+            </button>
+            <form method="post" action="/api/payroll/@Id/email-payslip" style="display:inline;">
+                <button type="submit"
+                        style="display:inline-flex;align-items:center;gap:8px;background:#fff;color:#25163F;border:1.5px solid #25163F;border-radius:12px;padding:12px 22px;font-size:13px;font-weight:700;cursor:pointer;">
+                    <span class="material-icons-round" style="font-size:16px;">mail</span>
+                    Email to Employee
+                </button>
+            </form>
+            <a href="/payroll"
+               style="display:inline-flex;align-items:center;gap:8px;color:#4A3C68;font-weight:700;font-size:13px;text-decoration:none;padding:12px 16px;">
+                Back to Payroll
+            </a>
+        </div>
+    }
+</div>
+
+<style>
+    @@media print {
+        .payslip-actions { display: none !important; }
+        body { background: #fff !important; }
+        #payslip-doc { border: none !important; box-shadow: none !important; }
+    }
+</style>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PayrollRun? _run;
+    private Employee? _employee;
+    private string _orgName = "Ukuu HR";
+    private string? _banner;
+    private bool _bannerIsError;
+
+    [SupplyParameterFromQuery] private int? Emailed { get; set; }
+    [SupplyParameterFromQuery] private string? Error { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.ResolveOrgAsync();
+        if (org != null)
+        {
+            _orgName = org.Name;
+            _run = await Db.PayrollRuns.FirstOrDefaultAsync(p => p.OrganizationId == org.Id && p.Id == Id);
+            if (_run != null)
+                _employee = await Db.Employees.FirstOrDefaultAsync(e => e.OrganizationId == org.Id && e.Id == _run.EmployeeId);
+        }
+
+        if (Emailed == 1)
+        {
+            _banner = "Payslip emailed to the employee.";
+            _bannerIsError = false;
+        }
+        else if (!string.IsNullOrWhiteSpace(Error))
+        {
+            _banner = Uri.UnescapeDataString(Error);
+            _bannerIsError = true;
+        }
+    }
+}

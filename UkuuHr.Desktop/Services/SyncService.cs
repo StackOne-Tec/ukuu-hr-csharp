@@ -491,7 +491,9 @@ public class SyncService : IDisposable
                 deviceInfo = new { name = DeviceName, model = DeviceModel, serial = SerialNo }
             });
 
-            var cloudUrl = settings.CloudUrl!.TrimEnd('/') + "/api/access/save-imported";
+            // P0: route must match the cloud app's endpoint — /api/attendance/save-imported
+            // (a previous /api/access/save-imported value 404'd on every cloud push).
+            var cloudUrl = settings.CloudUrl!.TrimEnd('/') + "/api/attendance/save-imported";
             var request = new HttpRequestMessage(HttpMethod.Post, cloudUrl)
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json")

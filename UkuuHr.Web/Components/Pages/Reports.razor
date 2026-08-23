@@ -16,7 +16,7 @@
                 <option value="90d">Last quarter</option>
                 <option value="ytd">Year to date</option>
             </select>
-            <button class="bk-btn bk-btn-secondary">
+            <button class="bk-btn bk-btn-secondary" type="button" onclick="window.print(); return false;" title="Print this report (or save as PDF from the print dialog)">
                 <span class="material-icons-round" style="font-size:16px;">download</span>
                 Export PDF
             </button>
@@ -220,7 +220,7 @@
     {
         try
         {
-        var org = await Db.Organizations.FirstOrDefaultAsync();
+        var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
         if (org == null) return;
         var emps = await Db.Employees.Where(e => e.OrganizationId == org.Id).ToListAsync();
         _totalEmps = emps.Count;

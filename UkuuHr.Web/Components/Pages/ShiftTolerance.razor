@@ -176,7 +176,7 @@
         // Try to load from DB — if it fails, the defaults above are used.
         try
         {
-            var org = await Db.Organizations.FirstOrDefaultAsync();
+            var org = await Db.ResolveOrgAsync(); /* multi-tenant org resolution */
             if (org != null)
             {
                 _t = await ShiftSvc.GetOrCreateToleranceAsync(org.Id);

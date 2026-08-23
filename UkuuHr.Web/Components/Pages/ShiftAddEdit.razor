@@ -1,0 +1,167 @@
+@page "/shifts/add"
+@attribute [Authorize(Policy = "HrOrAdmin")]
+@page "/shifts/{Id:int}/edit"
+@attribute [Authorize(Policy = "HrOrAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject UkuuHrDbContext Db
+
+@* ─────────────────────────────────────────────────────────────────
+   Shift create/edit page — plain static-SSR form posting to
+   POST /api/shifts/save (works without a Blazor circuit).
+   ───────────────────────────────────────────────────────────────── *@
+
+<div style="max-width:820px;margin:0 auto;padding:32px 24px;font-family:'Plus Jakarta Sans',sans-serif;">
+    <div style="margin-bottom:28px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#6E5F92;">Scheduling</div>
+        <h1 style="font-size:28px;font-weight:800;color:#25163F;margin:6px 0 4px;">@(_isEdit ? "Edit Shift" : "Create Shift")</h1>
+        <p style="font-size:13px;color:#6b6580;margin:0;">
+            @(_isEdit
+                ? $"Update “{_shift?.Name}”. Changes apply to future shift resolutions."
+                : "Define the work window, break, working days and rotation pattern.")
+        </p>
+        @if (_notFound)
+        {
+            <div style="margin-top:12px;padding:12px 16px;border-radius:10px;background:#FEE2E2;color:#991B1B;font-size:13px;font-weight:600;">
+                Shift #@Id was not found.
+            </div>
+        }
+    </div>
+
+    @if (_notFound)
+    {
+        <a href="/shifts" style="display:inline-flex;align-items:center;gap:6px;color:#25163F;font-weight:700;font-size:13px;text-decoration:none;">
+            <span class="material-icons-round" style="font-size:16px;">arrow_back</span> Back to shifts
+        </a>
+    }
+    else
+    {
+        <form method="post" action="/api/shifts/save"
+              style="background:#FCFBFF;border:1px solid #E8E4F0;border-radius:18px;padding:28px;">
+
+            @if (_isEdit)
+            {
+                <input type="hidden" name="Id" value="@Id" />
+            }
+
+            @* ── Basics ── *@
+            <div style="display:grid;grid-template-columns:1fr 160px;gap:16px;margin-bottom:20px;">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Shift name *</label>
+                    <input type="text" name="Name" required maxlength="150" value="@_shift?.Name" placeholder="e.g. Morning Shift"
+                           style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;" />
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Colour</label>
+                    <input type="color" name="Color" value="@(_shift?.Color ?? "#25163F")"
+                           style="width:100%;height:44px;border:1px solid #ddd6e8;border-radius:10px;background:#fff;cursor:pointer;" />
+                </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Description</label>
+                <input type="text" name="Description" maxlength="500" value="@_shift?.Description" placeholder="Optional notes shown on the shift card"
+                       style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;" />
+            </div>
+
+            @* ── Kind + time window ── *@
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:20px;">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Kind</label>
+                    <select name="Kind"
+                            style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;">
+                        @foreach (var kind in new[] { "Fixed", "Rotating", "Flexible", "Overnight" })
+                        {
+                            var sel = (_shift?.Kind.ToString() ?? "Fixed") == kind;
+                            <option value="@kind" selected="@(sel)">@kind</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Start time *</label>
+                    <input type="time" name="StartTime" required value="@_startTime"
+                           style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;" />
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">End time *</label>
+                    <input type="time" name="EndTime" required value="@_endTime"
+                           style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;" />
+                    <div style="font-size:10.5px;color:#8a84a0;margin-top:4px;">End before start = overnight shift</div>
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Break (min)</label>
+                    <input type="number" name="BreakMinutes" min="0" max="240" step="5" value="@(_shift?.BreakMinutes ?? 60)"
+                           style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;" />
+                </div>
+            </div>
+
+            @* ── Working days ── *@
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:8px;">Working days</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    @for (var i = 0; i < _days.Length; i++)
+                    {
+                        <label style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #ddd6e8;border-radius:10px;font-size:12px;font-weight:600;color:#25163F;background:#fff;cursor:pointer;">
+                            <input type="checkbox" name="day@(i)" value="true" checked="@((_mask & (1 << i)) != 0)" style="accent-color:#25163F;" />
+                            @_days[i]
+                        </label>
+                    }
+                </div>
+                <div style="font-size:10.5px;color:#8a84a0;margin-top:4px;">No selection = Monday–Friday.</div>
+            </div>
+
+            @* ── Rotation (relevant for Rotating kind) ── *@
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px;">
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Rotation cycle (days)</label>
+                    <input type="number" name="RotationCycleDays" min="1" max="90" value="@(_shift?.RotationCycleDays ?? 7)"
+                           style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;" />
+                </div>
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:700;color:#25163F;margin-bottom:6px;">Rotation slots</label>
+                    <input type="number" name="RotationSlots" min="1" max="10" value="@(_shift?.RotationSlots ?? 2)"
+                           style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #ddd6e8;border-radius:10px;font-size:14px;background:#fff;color:#25163F;" />
+                </div>
+            </div>
+
+            @* ── Actions ── *@
+            <div style="display:flex;gap:12px;align-items:center;">
+                <button type="submit"
+                        style="display:inline-flex;align-items:center;gap:8px;background:#25163F;color:#fff;border:none;border-radius:12px;padding:12px 22px;font-size:13px;font-weight:700;cursor:pointer;">
+                    <span class="material-icons-round" style="font-size:16px;">save</span>
+                    @(_isEdit ? "Save changes" : "Create shift")
+                </button>
+                <a href="/shifts"
+                   style="display:inline-flex;align-items:center;gap:8px;color:#4A3C68;font-weight:700;font-size:13px;text-decoration:none;padding:12px 16px;">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    }
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private bool _isEdit => Id.HasValue && Id > 0;
+    private bool _notFound;
+    private Shift? _shift;
+    private string _startTime = "08:00";
+    private string _endTime = "17:00";
+    private int _mask = 0b0011111; // Mon–Fri default
+    private readonly string[] _days = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!_isEdit) return;
+
+        _shift = await Db.Shifts.FirstOrDefaultAsync(s => s.Id == Id);
+        if (_shift == null)
+        {
+            _notFound = true;
+            return;
+        }
+        _startTime = $"{_shift.StartMinutes / 60:00}:{_shift.StartMinutes % 60:00}";
+        _endTime = $"{_shift.EndMinutes / 60:00}:{_shift.EndMinutes % 60:00}";
+        _mask = _shift.DaysOfWeekMask;
+    }
+}

@@ -23,7 +23,7 @@ namespace UkuuHr.Services.Devices;
 /// CSV file connector — works for any vendor that exports punch logs as CSV.
 /// File path is read from device.ConnectionJson: { "filePath": "/path/to/export.csv" }
 /// </summary>
-public class CsvConnector : IDeviceConnector
+public class CsvConnector : IDeviceConnectorWithEvents
 {
     public DeviceVendor Vendor => default; // Vendor-agnostic — registered for all vendors.
     public DeviceIntegrationMode Mode => DeviceIntegrationMode.CsvFile;
@@ -38,19 +38,25 @@ public class CsvConnector : IDeviceConnector
 
     public async Task<DeviceSyncResult> SyncAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
     {
+        var result = await SyncWithEventsAsync(device, since, ct);
+        return result.ToDeviceSyncResult();
+    }
+
+    public async Task<DeviceSyncResultWithEvents> SyncWithEventsAsync(AttendanceDevice device, DateTime? since, CancellationToken ct = default)
+    {
         var start = DateTime.UtcNow;
         var path = ExtractFilePath(device);
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return DeviceSyncResult.Fail($"CSV file not found: {path}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"CSV file not found: {path}", DateTime.UtcNow - start);
 
         try
         {
             var events = await Task.Run(() => ParseCsv(path, since), ct);
-            return DeviceSyncResult.Ok(events.Count, 0, 0, DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Ok(events.Count, events, DateTime.UtcNow - start);
         }
         catch (Exception ex)
         {
-            return DeviceSyncResult.Fail($"CSV parse error: {ex.Message}", DateTime.UtcNow - start);
+            return DeviceSyncResultWithEvents.Fail($"CSV parse error: {ex.Message}", DateTime.UtcNow - start);
         }
     }
 
