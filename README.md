@@ -134,13 +134,29 @@ dotnet test UkuuHr.sln -c Release
 
 ---
 
+## 🆕 What's new (Aug 2026)
+
+- **Multi-tenant isolation** — org resolution is principal-aware everywhere (API-key org → cookie user's org → first org); cross-org data access is blocked
+- **API-key scopes enforced** — routes require the matching scope (Read/Write Employees/Attendance/Payroll, LeaveManagement, DeviceManagement, FullAccess); 403 with guidance otherwise
+- **Branches & locations** — Branch entity, management UI (`/settings/branches`), employee assignment, report dimension
+- **Subscriptions** — coupons provision/extend real licenses, activation endpoint, 30-day Professional trial at signup, plan employee limits enforced in Production
+- **Payslips** — printable page per payroll run (`/payroll/{id}/payslip`) + email delivery via Resend
+- **Email channel** — `RESEND_API_KEY` enables payslip/leave/overtime emails and admin alerts for device failures
+- **Employee CSV/XLSX import & export**, deactivate/delete with audit trail
+- **Attendance** — audited manual corrections, missing-punch detection, overnight-shift pairing, early-departure reporting
+- **Device sync** — all vendor REST connectors persist events (ZKTeco, Suprema, Dahua, Anviz, Matrix, eSSL, CSV); desktop LAN bridge route fixed
+- **Reliability** — probe-based idempotent schema migrations (heals missing columns on shared Postgres), encryption service never throws on missing key, `GET /api/admin/backup` JSON snapshot
+
+---
+
 ## 🔧 Configuration
 
 | Env var | Required | Description |
 |---|---|---|
 | `POSTGRES_CONNECTION_STRING` | No | Npgsql-format Postgres connection. Falls back to SQLite if unset. |
 | `SEED_DEMO_DATA` | No | `true` seeds 8 demo employees + sample data. Default: `false`. |
-| `UKUU_ENCRYPTION_KEY` | **Yes (prod)** | 32-byte AES-256 key (64 hex chars) for encrypting bank account numbers / NRCs / TPINs. `openssl rand -hex 32` |
+| `UKUU_ENCRYPTION_KEY` | Recommended (prod) | 32-byte AES-256 key (64 hex chars) for encrypting bank account numbers / NRCs / TPINs. `openssl rand -hex 32`. If unset, the app falls back to a key file (`ukuu-master.key`), then a generated process-stable key — it never crashes. Set it to keep encryption stable across container rebuilds. |
+| `UKUU_KEY_FILE` | No | Override path for the encryption key file (default: `ukuu-master.key` next to the app). |
 | `UKUU_API_KEY` | No | 64-char hex key for `X-API-Key` auth on `/api/*` endpoints. If unset, API falls back to cookie auth. |
 | `RESEND_API_KEY` | No | Resend.com API key for transactional emails (payslips, leave approvals). |
 
