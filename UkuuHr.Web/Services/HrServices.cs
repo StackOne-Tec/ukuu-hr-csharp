@@ -106,6 +106,117 @@ public class EmployeeService
         return true;
     }
 
+    /// <summary>
+    /// Import employees from CSV. Expected columns: FirstName, Surname, Email, EmployeeCode,
+    /// Department, JobTitle, Phone, BasicSalary, Gender, JoiningDate.
+    /// All other fields are optional. Returns (imported, skipped, errors).
+    /// </summary>
+    public async Task<(int imported, int skipped, List<string> errors)> ImportCsvAsync(int orgId, Stream csvStream)
+    {
+        var imported = 0;
+        var skipped = 0;
+        var errors = new List<string>();
+
+        using var reader = new StreamReader(csvStream, System.Text.Encoding.UTF8);
+        using var csv = new CsvHelper.CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture);
+
+        await csv.ReadAsync();
+        csv.ReadHeader();
+        var headers = csv.HeaderRecord?.Select(h => h.Trim().ToLower()).ToList() ?? new();
+
+        // Validate required columns
+        var required = new[] { "firstname", "surname" };
+        foreach (var col in required)
+        {
+            if (!headers.Contains(col))
+            {
+                errors.Add($"Missing required column: {col}");
+                return (0, 0, errors);
+            }
+        }
+
+        // Get existing employee codes to prevent duplicates
+        var existingCodes = await _db.Employees
+            .Where(e => e.OrganizationId == orgId && e.EmployeeCode != null)
+            .Select(e => e.EmployeeCode!)
+            .ToListAsync();
+        var codeSet = existingCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var row = 1;
+        while (await csv.ReadAsync())
+        {
+            row++;
+            try
+            {
+                var firstName = csv.GetField<string>("FirstName")?.Trim();
+                var surname = csv.GetField<string>("Surname")?.Trim();
+
+                if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(surname))
+                {
+                    errors.Add($"Row {row}: FirstName and Surname are required.");
+                    skipped++;
+                    continue;
+                }
+
+                var email = csv.GetField<string>("Email")?.Trim();
+                var employeeCode = csv.GetField<string>("EmployeeCode")?.Trim();
+                var department = csv.GetField<string>("Department")?.Trim();
+                var jobTitle = csv.GetField<string>("JobTitle")?.Trim();
+                var phone = csv.GetField<string>("Phone")?.Trim();
+                var gender = csv.GetField<string>("Gender")?.Trim();
+                var basicSalaryStr = csv.GetField<string>("BasicSalary")?.Trim();
+                var joiningDateStr = csv.GetField<string>("JoiningDate")?.Trim();
+
+                // Generate employee code if not provided
+                if (string.IsNullOrWhiteSpace(employeeCode))
+                    employeeCode = $"EMP-{orgId}-{(codeSet.Count + imported + skipped + 1):D4}";
+
+                // Skip if code already exists
+                if (codeSet.Contains(employeeCode))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var emp = new Employee
+                {
+                    OrganizationId = orgId,
+                    FirstName = firstName,
+                    Surname = surname,
+                    Email = email,
+                    EmployeeCode = employeeCode,
+                    Department = department,
+                    JobTitle = jobTitle,
+                    Phone = phone,
+                    Gender = gender,
+                    Status = EmploymentStatus.Active,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                if (double.TryParse(basicSalaryStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var salary))
+                    emp.BasicSalary = salary;
+
+                if (DateTime.TryParse(joiningDateStr, out var joinDate))
+                    emp.JoiningDate = joinDate;
+
+                EncryptSensitiveFields(emp);
+                _db.Employees.Add(emp);
+                codeSet.Add(employeeCode);
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Row {row}: {ex.Message}");
+                skipped++;
+            }
+        }
+
+        if (imported > 0)
+            await _db.SaveChangesAsync();
+
+        return (imported, skipped, errors);
+    }
+
     public Task<int> CountAsync(int orgId) =>
         _db.Employees.CountAsync(e => e.OrganizationId == orgId);
 

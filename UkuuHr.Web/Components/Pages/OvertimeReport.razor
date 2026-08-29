@@ -1,0 +1,420 @@
+@page "/reports/overtime"
+@rendermode RenderMode.InteractiveServer
+@attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@inject OvertimeService OvertimeSvc
+@inject UkuuHrDbContext Db
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<div class="bk-admin-fade-in">
+    <div class="bk-admin-section-header">
+        <div class="bk-admin-section-header-left">
+            <div class="bk-admin-greeting">Reports · Overtime</div>
+            <h1 class="bk-admin-h1">Overtime Report</h1>
+            <p class="bk-admin-sub">
+                Analyze overtime by employee, department, rate type, and status. Export to CSV or Excel.
+            </p>
+        </div>
+        <div class="bk-admin-actions">
+            <button class="bk-btn bk-btn-secondary" @onclick="GenerateReport" disabled="@(_loading)">
+                <span class="material-icons-round" style="font-size:16px;">refresh</span>
+                Generate
+            </button>
+            <button class="bk-btn bk-btn-secondary" @onclick="ExportCsv" disabled="@(_records == null || _records.Count == 0)">
+                <span class="material-icons-round" style="font-size:16px;">download</span>
+                Export CSV
+            </button>
+            <button class="bk-btn bk-btn-primary" @onclick="ExportXlsx" disabled="@(_records == null || _records.Count == 0)">
+                <span class="material-icons-round" style="font-size:16px;">table_view</span>
+                Export Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bk-admin-card" style="margin-bottom:24px;">
+        <div class="bk-admin-card-header">
+            <h3>Report Filters</h3>
+            <p>Select the period and optional filters for your overtime report.</p>
+        </div>
+        <div class="bk-admin-card-content">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--bk-line);margin-bottom:18px;padding-bottom:12px;">
+                @foreach (var option in _periodOptions)
+                {
+                    var isActive = _selectedPeriod == option.Value;
+                    <button type="button"
+                            @onclick="() => SelectPeriod(option.Value)"
+                            style="display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border:none;border-bottom:2px solid @(isActive ? "var(--bk-accent)" : "transparent");background:transparent;color:@(isActive ? "var(--bk-ink)" : "var(--bk-ink-3)");font-size:14px;font-weight:@(isActive ? "700" : "600");cursor:pointer;">
+                        <span class="material-icons-round" style="font-size:20px;">@option.Icon</span>
+                        <span>@option.Label</span>
+                    </button>
+                }
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;">
+                <div class="bk-field">
+                    <label class="bk-label">Start Date</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">today</span>
+                        <input type="date" class="bk-input" @bind="_fromDate" @bind:event="onchange"
+                               style="padding-left:44px;" />
+                    </div>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">End Date</label>
+                    <div class="bk-input-wrap">
+                        <span class="material-icons-round bk-input-icon">event</span>
+                        <input type="date" class="bk-input" @bind="_toDate" @bind:event="onchange"
+                               style="padding-left:44px;" />
+                    </div>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">Status</label>
+                    <select class="bk-input" @bind="_statusFilter" style="padding-left:16px;">
+                        <option value="">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="AutoApproved">Auto-Approved</option>
+                    </select>
+                </div>
+
+                <div class="bk-field">
+                    <label class="bk-label">Rate Type</label>
+                    <select class="bk-input" @bind="_rateFilter" style="padding-left:16px;">
+                        <option value="">All Rate Types</option>
+                        <option value="Standard">Standard (1.5×)</option>
+                        <option value="RestDay">Rest Day (2.0×)</option>
+                        <option value="PublicHoliday">Public Holiday (2.5×)</option>
+                        <option value="DoubleTime">Double Time (2.0×)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--bk-line);">
+                <span style="font-size:12px;color:var(--bk-ink-3);padding:6px 0;">Quick range:</span>
+                <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="SetLast7">Last 7 days</button>
+                <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="SetLast30">Last 30 days</button>
+                <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="SetLast90">Last 90 days</button>
+                <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="SetThisMonth">This month</button>
+                <button class="bk-btn bk-btn-secondary" style="font-size:11px;padding:4px 10px;min-height:30px;" @onclick="SetLastMonth">Last month</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    @if (_loading)
+    {
+        <div style="display:flex;justify-content:center;padding:60px;">
+            <div class="ukuu-loader"></div>
+        </div>
+    }
+    else if (_records != null && _records.Count > 0)
+    {
+        <!-- Summary KPIs -->
+        <div class="bk-admin-kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:24px;">
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;">@GetFilteredCount()</div>
+                <div class="bk-admin-kpi-label">Total Records</div>
+            </div>
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;color:var(--bk-accent);">@GetFilteredHours().ToString("0.0")<span style="font-size:12px;">h</span></div>
+                <div class="bk-admin-kpi-label">Total OT Hours</div>
+            </div>
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;color:var(--bk-accent-4);">ZMW @GetFilteredPay().ToString("N0")</div>
+                <div class="bk-admin-kpi-label">Total OT Pay</div>
+            </div>
+            <div class="bk-admin-kpi-card" style="padding:14px 16px;">
+                <div class="bk-admin-kpi-value" style="font-size:22px;">@GetFilteredEmployeeCount()</div>
+                <div class="bk-admin-kpi-label">Employees</div>
+            </div>
+        </div>
+
+        <!-- Breakdown by Status -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>By Status</h3>
+                </div>
+                <div style="padding:0 20px 20px;">
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        @{
+                            var pendingCount = GetFilteredByStatus(OvertimeStatus.Pending);
+                            var approvedCount = GetFilteredByStatus(OvertimeStatus.Approved) + GetFilteredByStatus(OvertimeStatus.AutoApproved);
+                            var rejectedCount = GetFilteredByStatus(OvertimeStatus.Rejected);
+                            var total = GetFilteredCount();
+                        }
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:3px;background:#d89c11;"></div>
+                            <span style="flex:1;font-size:13px;color:var(--bk-ink);">Pending</span>
+                            <span style="font-weight:700;font-size:13px;">@pendingCount</span>
+                            <span style="font-size:11px;color:var(--bk-ink-3);width:40px;text-align:right;">@(total > 0 ? (pendingCount * 100.0 / total).ToString("0") : "0")%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:3px;background:#14a37f;"></div>
+                            <span style="flex:1;font-size:13px;color:var(--bk-ink);">Approved</span>
+                            <span style="font-weight:700;font-size:13px;">@approvedCount</span>
+                            <span style="font-size:11px;color:var(--bk-ink-3);width:40px;text-align:right;">@(total > 0 ? (approvedCount * 100.0 / total).ToString("0") : "0")%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:3px;background:#DC2626;"></div>
+                            <span style="flex:1;font-size:13px;color:var(--bk-ink);">Rejected</span>
+                            <span style="font-weight:700;font-size:13px;">@rejectedCount</span>
+                            <span style="font-size:11px;color:var(--bk-ink-3);width:40px;text-align:right;">@(total > 0 ? (rejectedCount * 100.0 / total).ToString("0") : "0")%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bk-admin-card">
+                <div class="bk-admin-card-header">
+                    <h3>By Rate Type</h3>
+                </div>
+                <div style="padding:0 20px 20px;">
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        @{
+                            var standardHours = GetFilteredHoursByRate(OvertimeRateType.Standard);
+                            var restDayHours = GetFilteredHoursByRate(OvertimeRateType.RestDay);
+                            var holidayHours = GetFilteredHoursByRate(OvertimeRateType.PublicHoliday);
+                            var doubleTimeHours = GetFilteredHoursByRate(OvertimeRateType.DoubleTime);
+                            var totalH = standardHours + restDayHours + holidayHours + doubleTimeHours;
+                        }
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:3px;background:#d89c11;"></div>
+                            <span style="flex:1;font-size:13px;color:var(--bk-ink);">Standard (1.5×)</span>
+                            <span style="font-weight:700;font-size:13px;">@standardHours.ToString("0.0")h</span>
+                            <span style="font-size:11px;color:var(--bk-ink-3);width:40px;text-align:right;">@(totalH > 0 ? (standardHours * 100.0 / totalH).ToString("0") : "0")%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:3px;background:#2563EB;"></div>
+                            <span style="flex:1;font-size:13px;color:var(--bk-ink);">Rest Day (2.0×)</span>
+                            <span style="font-weight:700;font-size:13px;">@restDayHours.ToString("0.0")h</span>
+                            <span style="font-size:11px;color:var(--bk-ink-3);width:40px;text-align:right;">@(totalH > 0 ? (restDayHours * 100.0 / totalH).ToString("0") : "0")%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:3px;background:#7B2FBE;"></div>
+                            <span style="flex:1;font-size:13px;color:var(--bk-ink);">Public Holiday (2.5×)</span>
+                            <span style="font-weight:700;font-size:13px;">@holidayHours.ToString("0.0")h</span>
+                            <span style="font-size:11px;color:var(--bk-ink-3);width:40px;text-align:right;">@(totalH > 0 ? (holidayHours * 100.0 / totalH).ToString("0") : "0")%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:3px;background:#DC2626;"></div>
+                            <span style="flex:1;font-size:13px;color:var(--bk-ink);">Double Time (2.0×)</span>
+                            <span style="font-weight:700;font-size:13px;">@doubleTimeHours.ToString("0.0")h</span>
+                            <span style="font-size:11px;color:var(--bk-ink-3);width:40px;text-align:right;">@(totalH > 0 ? (doubleTimeHours * 100.0 / totalH).ToString("0") : "0")%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail table -->
+        <div class="bk-admin-card" style="overflow:hidden;">
+            <div class="bk-admin-card-header">
+                <h3>Detail — @GetFilteredCount() records</h3>
+                <p>@_fromDate.ToString("yyyy-MM-dd") to @_toDate.ToString("yyyy-MM-dd")</p>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="bk-admin-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Hours</th>
+                            <th>Rate</th>
+                            <th>Pay</th>
+                            <th>Status</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in GetFilteredRecords().Take(100))
+                        {
+                            var rateClass = r.RateType switch
+                            {
+                                OvertimeRateType.Standard => "active",
+                                OvertimeRateType.RestDay => "info",
+                                OvertimeRateType.PublicHoliday => "pending",
+                                OvertimeRateType.DoubleTime => "inactive",
+                                _ => ""
+                            };
+                            <tr>
+                                <td style="font-weight:600;font-size:13px;">@r.EmployeeName</td>
+                                <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@r.Date.ToString("dd MMM yyyy")</td>
+                                <td style="font-family:var(--ukuu-font-mono);font-size:12px;">@r.TimeWindow</td>
+                                <td style="font-weight:700;color:#d89c11;">@r.Hours.ToString("0.0")h</td>
+                                <td><span class="bk-admin-pill @rateClass" style="font-size:10px;">@r.RateTypeDisplay</span></td>
+                                <td style="font-weight:600;">ZMW @r.Pay.ToString("N0")</td>
+                                <td><span class="bk-admin-pill @(r.Status == OvertimeStatus.Approved || r.Status == OvertimeStatus.AutoApproved ? "active" : r.Status == OvertimeStatus.Rejected ? "inactive" : "pending")" style="font-size:10px;">@r.StatusDisplay</span></td>
+                                <td style="font-size:11px;color:var(--bk-ink-3);">@r.Source</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (GetFilteredCount() > 100)
+                {
+                    <div style="padding:12px 16px;text-align:center;font-size:12px;color:var(--bk-ink-3);">
+                        Showing 100 of @GetFilteredCount() records. Export to CSV or Excel for the full dataset.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else if (!_loading)
+    {
+        <div class="bk-admin-card">
+            <div style="padding:64px 24px;text-align:center;color:var(--bk-ink-3);">
+                <span class="material-icons-round" style="font-size:64px;opacity:0.4;">schedule</span>
+                <h3 style="margin-top:16px;font-size:18px;color:var(--bk-ink-2);">No overtime records found</h3>
+                <p style="font-size:14px;margin-top:4px;">Adjust your filters or generate overtime records first.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string _selectedPeriod = "Monthly";
+    private DateTime _fromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime _toDate = DateTime.Today;
+    private string _statusFilter = "";
+    private string _rateFilter = "";
+    private List<OvertimeRecord> _records = new();
+    private bool _loading;
+    private int _orgId;
+
+    private readonly (string Value, string Label, string Icon)[] _periodOptions =
+    {
+        ("Monthly", "Monthly", "calendar_view_month"),
+        ("Last7", "Last 7 Days", "date_range"),
+        ("Last30", "Last 30 Days", "date_range"),
+        ("Custom", "Custom", "edit_calendar")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var org = await Db.Organizations.FirstOrDefaultAsync();
+        if (org == null) return;
+        _orgId = org.Id;
+        UpdateDateRange();
+        await GenerateReport();
+    }
+
+    private void SelectPeriod(string period)
+    {
+        _selectedPeriod = period;
+        UpdateDateRange();
+    }
+
+    private void UpdateDateRange()
+    {
+        switch (_selectedPeriod)
+        {
+            case "Monthly":
+                _fromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                _toDate = DateTime.Today;
+                break;
+            case "Last7":
+                _fromDate = DateTime.Today.AddDays(-6);
+                _toDate = DateTime.Today;
+                break;
+            case "Last30":
+                _fromDate = DateTime.Today.AddDays(-29);
+                _toDate = DateTime.Today;
+                break;
+        }
+    }
+
+    private List<OvertimeRecord> GetFilteredRecords()
+    {
+        return _records
+            .Where(r => string.IsNullOrEmpty(_statusFilter) || r.Status.ToString() == _statusFilter)
+            .Where(r => string.IsNullOrEmpty(_rateFilter) || r.RateType.ToString() == _rateFilter)
+            .ToList();
+    }
+
+    private int GetFilteredCount() => GetFilteredRecords().Count;
+    private double GetFilteredHours() => GetFilteredRecords().Sum(r => r.Hours);
+    private double GetFilteredPay() => GetFilteredRecords().Sum(r => r.Pay);
+    private int GetFilteredEmployeeCount() => GetFilteredRecords().Select(r => r.EmployeeId).Distinct().Count();
+    private int GetFilteredByStatus(OvertimeStatus status) => GetFilteredRecords().Count(r => r.Status == status);
+    private double GetFilteredHoursByRate(OvertimeRateType rate) => GetFilteredRecords().Where(r => r.RateType == rate).Sum(r => r.Hours);
+
+    private async Task GenerateReport()
+    {
+        _loading = true;
+        try
+        {
+            var allRecords = await OvertimeSvc.GetAllAsync(_orgId);
+            _records = allRecords.Where(r => r.Date >= _fromDate && r.Date <= _toDate.AddDays(1).AddTicks(-1)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SetLast7()
+    {
+        _fromDate = DateTime.Today.AddDays(-6);
+        _toDate = DateTime.Today;
+        await GenerateReport();
+    }
+
+    private async Task SetLast30()
+    {
+        _fromDate = DateTime.Today.AddDays(-29);
+        _toDate = DateTime.Today;
+        await GenerateReport();
+    }
+
+    private async Task SetLast90()
+    {
+        _fromDate = DateTime.Today.AddDays(-89);
+        _toDate = DateTime.Today;
+        await GenerateReport();
+    }
+
+    private async Task SetThisMonth()
+    {
+        _fromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        _toDate = DateTime.Today;
+        await GenerateReport();
+    }
+
+    private async Task SetLastMonth()
+    {
+        var lastMonth = DateTime.Today.AddMonths(-1);
+        _fromDate = new DateTime(lastMonth.Year, lastMonth.Month, 1);
+        _toDate = _fromDate.AddMonths(1).AddDays(-1);
+        await GenerateReport();
+    }
+
+    private void ExportCsv()
+    {
+        if (_records == null || _records.Count == 0) return;
+        var from = _fromDate.ToString("yyyy-MM-dd");
+        var to = _toDate.ToString("yyyy-MM-dd");
+        var url = $"/api/reports/overtime/csv?orgId={_orgId}&from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}";
+        Nav.NavigateTo(url, forceLoad: true);
+        Snackbar.Add("CSV export downloading...", Severity.Success);
+    }
+
+    private void ExportXlsx()
+    {
+        if (_records == null || _records.Count == 0) return;
+        var from = _fromDate.ToString("yyyy-MM-dd");
+        var to = _toDate.ToString("yyyy-MM-dd");
+        var url = $"/api/reports/overtime/xlsx?orgId={_orgId}&from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}";
+        Nav.NavigateTo(url, forceLoad: true);
+        Snackbar.Add("Excel export downloading...", Severity.Success);
+    }
+}

@@ -48,4 +48,6 @@ UkuuHr-macOS-arm64.zip
 *.dmg
 publish/
 .build/
-tool-results/
+
+# ───────── Node.js ─────────
+node_modules/

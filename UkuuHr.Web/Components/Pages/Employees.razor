@@ -3,6 +3,8 @@
 @using Microsoft.EntityFrameworkCore
 @inject EmployeeService EmployeeSvc
 @inject UkuuHrDbContext Db
+@inject ISnackbar Snackbar
+@inject HttpClient Http
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -645,6 +647,46 @@ function empToggleView(view) {
     }
     ukuuFilterEmployees();
 }
+
+// Employee CSV import
+(function() {
+    var input = document.getElementById('emp-csv-input');
+    if (!input) return;
+    input.addEventListener('change', function(e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!file.name.endsWith('.csv')) {
+            alert('Please select a .csv file.');
+            return;
+        }
+        var formData = new FormData();
+        formData.append('file', file);
+        var btn = document.querySelector('[onclick*="emp-csv-input"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+        fetch('/api/employees/import', { method: 'POST', body: formData })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    alert('Import failed: ' + data.error);
+                } else {
+                    alert(data.message || ('Imported ' + data.imported + ' employee(s).'));
+                    if (data.errors && data.errors.length > 0) {
+                        console.warn('Import warnings:', data.errors);
+                    }
+                    if (data.imported > 0) {
+                        window.location.reload();
+                    }
+                }
+            })
+            .catch(function(err) {
+                alert('Import failed: ' + err.message);
+            })
+            .finally(function() {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round" style="font-size:16px;">upload</span> Import CSV'; }
+                input.value = '';
+            });
+    });
+})();
 </script>
 
 @code {

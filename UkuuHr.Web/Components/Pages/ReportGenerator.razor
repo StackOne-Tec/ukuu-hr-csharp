@@ -31,6 +31,10 @@
                 <span class="material-icons-round" style="font-size:16px;">table_view</span>
                 Export Excel
             </button>
+            <button class="bk-btn bk-btn-secondary" @onclick="ExportPayrollReady" disabled="@(_report == null)" style="border:1px solid #14a37f;color:#14a37f;">
+                <span class="material-icons-round" style="font-size:16px;">receipt_long</span>
+                Payroll Export
+            </button>
         </div>
     </div>
 
@@ -370,6 +374,14 @@
         var url = $"/api/reports/attendance/xlsx?orgId={_orgId}&from={Uri.EscapeDataString(from)}&to={Uri.EscapeDataString(to)}";
         Nav.NavigateTo(url, forceLoad: true);
         Snackbar.Add("Excel export downloading...", Severity.Success);
+    }
+
+    private void ExportPayrollReady()
+    {
+        if (_report == null) return;
+        var url = $"/api/payroll/attendance-summary.xlsx?orgId={_orgId}&year={_fromDate.Year}&month={_fromDate.Month}";
+        Nav.NavigateTo(url, forceLoad: true);
+        Snackbar.Add("Payroll-ready report downloading...", Severity.Success);
     }
 
     private void SetPreset(int days)
