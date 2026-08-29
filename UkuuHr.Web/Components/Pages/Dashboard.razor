@@ -7,6 +7,8 @@
 @inject OvertimeService OvertimeSvc
 @inject UkuuHrDbContext Db
 @inject IHttpContextAccessor HttpAccessor
+@inject ShiftService ShiftSvc
+@inject HolidayService HolidaySvc
 
 <ErrorBoundary @ref="_errorBoundary">
     <ChildContent>
@@ -25,7 +27,6 @@
                         <div class="bk-mobile-hero-stat-value">@_attendancePct.ToString("0")%</div>
                         <div class="bk-mobile-hero-stat-label">Attendance</div>
                     </div>
-
                 </div>
             </div>
 
@@ -108,6 +109,86 @@
                     <div class="bk-admin-kpi-sub">@_pendingOvertimeRecords.Count record(s) awaiting approval</div>
                 </div>
 
+            </div>
+
+            <!-- WORKING HOURS & DEVICE STATUS ROW -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px;">
+                <!-- Working Hours Summary -->
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header">
+                        <div>
+                            <h3>Working Hours Summary</h3>
+                            <p>@DateTime.Now.ToString("MMMM yyyy") · Total hours worked this month</p>
+                        </div>
+                        <a href="/reports/generator" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">Full Report →</a>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:0 20px 20px;">
+                        <div style="text-align:center;">
+                            <div style="font-size:28px;font-weight:800;color:var(--bk-ink);letter-spacing:-0.03em;">@_totalWorkedHours.ToString("0.0")<span style="font-size:14px;font-weight:600;color:var(--bk-ink-3);">h</span></div>
+                            <div style="font-size:11px;font-weight:600;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;margin-top:4px;">Total Worked</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:28px;font-weight:800;color:#d89c11;letter-spacing:-0.03em;">@_totalOvertimeHours.ToString("0.0")<span style="font-size:14px;font-weight:600;color:var(--bk-ink-3);">h</span></div>
+                            <div style="font-size:11px;font-weight:600;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;margin-top:4px;">Overtime</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:28px;font-weight:800;color:#14a37f;letter-spacing:-0.03em;">@_avgHoursPerDay.ToString("0.0")<span style="font-size:14px;font-weight:600;color:var(--bk-ink-3);">h</span></div>
+                            <div style="font-size:11px;font-weight:600;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;margin-top:4px;">Avg/Day</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Device Status -->
+                <div class="bk-admin-card">
+                    <div class="bk-admin-card-header">
+                        <div>
+                            <h3>Device Status</h3>
+                            <p>@_onlineDevices of @_totalDevices device(s) connected</p>
+                        </div>
+                        <a href="/devices" class="bk-btn-text" style="font-size:13px;font-weight:700;color:var(--bk-ink);text-decoration:none;">Manage →</a>
+                    </div>
+                    @if (_totalDevices == 0)
+                    {
+                        <div style="padding:32px 20px;text-align:center;color:var(--bk-ink-3);">
+                            <span class="material-icons-round" style="font-size:36px;opacity:0.4;">devices_other</span>
+                            <p style="font-size:13px;margin-top:8px;">No devices registered yet.</p>
+                            <a href="/devices/add" style="font-size:12px;color:var(--bk-accent);font-weight:600;text-decoration:none;">Add your first device →</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="padding:0 20px 20px;">
+                            <div style="display:flex;gap:12px;margin-bottom:16px;">
+                                <div style="flex:1;background:rgba(20,163,127,0.06);border:1px solid rgba(20,163,127,0.15);border-radius:12px;padding:14px;text-align:center;">
+                                    <div style="font-size:24px;font-weight:800;color:#14a37f;">@_onlineDevices</div>
+                                    <div style="font-size:11px;font-weight:600;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;">Online</div>
+                                </div>
+                                <div style="flex:1;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.15);border-radius:12px;padding:14px;text-align:center;">
+                                    <div style="font-size:24px;font-weight:800;color:#DC2626;">@_offlineDevices</div>
+                                    <div style="font-size:11px;font-weight:600;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;">Offline</div>
+                                </div>
+                                <div style="flex:1;background:rgba(216,156,17,0.06);border:1px solid rgba(216,156,17,0.15);border-radius:12px;padding:14px;text-align:center;">
+                                    <div style="font-size:24px;font-weight:800;color:#d89c11;">@_errorDevices</div>
+                                    <div style="font-size:11px;font-weight:600;color:var(--bk-ink-3);text-transform:uppercase;letter-spacing:0.04em;">Error</div>
+                                </div>
+                            </div>
+                            @if (_deviceList.Any())
+                            {
+                                <div style="display:flex;flex-direction:column;gap:8px;">
+                                    @foreach (var d in _deviceList.Take(5))
+                                    {
+                                        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bk-muted);border-radius:10px;">
+                                            <div style="width:8px;height:8px;border-radius:50%;background:@(d.StatusDisplay == "Online" ? "#14a37f" : d.StatusDisplay == "Error" ? "#d89c11" : "#DC2626");"></div>
+                                            <span style="flex:1;font-size:13px;font-weight:600;color:var(--bk-ink);">@d.Name</span>
+                                            <span style="font-size:11px;color:var(--bk-ink-3);">@d.VendorDisplay</span>
+                                            <span style="font-size:11px;color:var(--bk-ink-3);">@(d.LastSuccessfulSyncDisplay)</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
             </div>
 
             <!-- MAIN GRID — full width (Today's Attendance donut removed per user request) -->
@@ -272,6 +353,18 @@
         _errorBoundary?.Recover();
     }
 
+    // ── Working hours summary ──
+    private double _totalWorkedHours;
+    private double _totalOvertimeHours;
+    private double _avgHoursPerDay;
+
+    // ── Device status ──
+    private int _totalDevices;
+    private int _onlineDevices;
+    private int _offlineDevices;
+    private int _errorDevices;
+    private List<AttendanceDevice> _deviceList = new();
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -323,10 +416,7 @@
             _pendingOvertime = _pendingOvertimeRecords.Count;
             var present = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Present);
             var late = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Late);
-            _presentToday = present;
-            _lateToday = late;
-            _absentToday = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.Absent)
-                + _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.MissingPunch);
+            _presentToday = present + late;
             _onLeaveToday = _attendanceBreakdown.GetValueOrDefault(AttendanceStatus.OnLeave);
             _attendanceToday = total > 0 ? (present + late) * 100.0 / total : 0;
             _attendancePct = _attendanceToday;
@@ -334,6 +424,32 @@
             var leaveReqs = await LeaveSvc.AllAsync(org.Id);
             _pendingLeave = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Pending);
             _approvedThisMonth = leaveReqs.Count(l => l.Status == LeaveRequestStatus.Approved && l.ReviewedAt?.Month == today.Month && l.ReviewedAt?.Year == today.Year);
+
+            // ── Working hours summary (this month) ──
+            var monthStart = new DateTime(today.Year, today.Month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+            var monthAttendance = await Db.Attendances
+                .Where(a => a.OrganizationId == org.Id && a.Date >= monthStart && a.Date <= monthEnd)
+                .ToListAsync();
+            _totalWorkedHours = Math.Round(monthAttendance.Sum(a => a.WorkedHours), 1);
+            var monthOvertime = await Db.OvertimeRecords
+                .Where(o => o.OrganizationId == org.Id && o.Date >= monthStart && o.Date <= monthEnd
+                         && o.Status != OvertimeStatus.Rejected)
+                .ToListAsync();
+            _totalOvertimeHours = Math.Round(monthOvertime.Sum(o => o.Hours), 1);
+            var daysInMonthSoFar = (today - monthStart).Days + 1;
+            _avgHoursPerDay = daysInMonthSoFar > 0 ? Math.Round(_totalWorkedHours / daysInMonthSoFar, 1) : 0;
+
+            // ── Device status ──
+            _deviceList = await Db.AttendanceDevices
+                .Where(d => d.OrganizationId == org.Id && d.IsActive)
+                .OrderBy(d => d.Name)
+                .ToListAsync();
+            _totalDevices = _deviceList.Count;
+            _onlineDevices = _deviceList.Count(d => d.StatusDisplay == "Online");
+            _errorDevices = _deviceList.Count(d => d.StatusDisplay == "Error");
+            _offlineDevices = _totalDevices - _onlineDevices - _errorDevices;
+
         }
         catch (Exception ex)
         {

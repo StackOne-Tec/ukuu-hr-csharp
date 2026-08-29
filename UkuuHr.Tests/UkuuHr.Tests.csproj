@@ -12,15 +12,14 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.4" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\UkuuHr.Web\UkuuHr.Web.csproj" />
     <!-- The desktop app (UkuuHrSync) carries the Hikvision ISAPI parsers that
          ship in the Windows .exe / macOS .dmg — test them directly. -->
-    <ProjectReference Include="..\UkuuHr.Desktop\UkuuHr.Desktop.csproj" />
   </ItemGroup>
 
 </Project>

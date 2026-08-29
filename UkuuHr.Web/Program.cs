@@ -10,6 +10,8 @@ using UkuuHr.Data;
 using UkuuHr.Models;
 using UkuuHr.Services;
 using UkuuHr.Services.Devices;
+using CsvHelper;
+using ClosedXML.Excel;
 
 // Use legacy timestamp behavior so DateTime is treated as 'timestamp without time zone'
 // This avoids the "Cannot apply binary operation on types 'timestamp with time zone' and 'timestamp without time zone'" error
@@ -1104,6 +1106,44 @@ app.MapGet("/api/employees/stats", async (
     });
 }).WithName("EmployeesStats");
 
+// POST /api/employees/import — import employees from CSV
+app.MapPost("/api/employees/import", async (
+    HttpContext ctx,
+    EmployeeService svc,
+    UkuuHrDbContext db,
+    ILogger<Program> logger) =>
+{
+    var oid = (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound(new { error = "No organization found." });
+
+    try
+    {
+        var form = await ctx.Request.ReadFormAsync();
+        var file = form.Files.GetFile("file");
+        if (file == null || file.Length == 0)
+            return Results.BadRequest(new { error = "No file uploaded." });
+
+        using var stream = file.OpenReadStream();
+        var (imported, skipped, errors) = await svc.ImportCsvAsync(oid, stream);
+
+        logger.LogInformation("Employee CSV import: {Imported} imported, {Skipped} skipped, {ErrorCount} errors",
+            imported, skipped, errors.Count);
+
+        return Results.Ok(new
+        {
+            imported,
+            skipped,
+            errors,
+            message = $"Imported {imported} employee(s). {skipped} skipped."
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Employee import failed");
+        return Results.BadRequest(new { error = $"Import failed: {ex.Message}" });
+    }
+}).WithName("EmployeesImport");
+
 // ═════════════════════════════════════════════════════════════════════════════
 // MODULE 2: Attendance Management
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1937,6 +1977,114 @@ app.MapGet("/api/payroll/attendance-summary.csv", async (
     return Results.File(bytes, "text/csv", $"attendance-summary-{y}{m:00}.csv");
 }).WithName("PayrollAttendanceCsv");
 
+// FR-009/FR-010: Payroll-ready XLSX export (attendance + overtime + leave summary)
+app.MapGet("/api/payroll/attendance-summary.xlsx", async (
+    UkuuHrDbContext db,
+    int? orgId,
+    int? year,
+    int? month) =>
+{
+    var today = DateTime.Today;
+    var y = year ?? today.Year;
+    var m = month ?? today.Month;
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    if (oid == 0) return Results.NotFound();
+
+    var from = new DateTime(y, m, 1);
+    var to = from.AddMonths(1).AddTicks(-1);
+
+    var attendance = await db.Attendances
+        .Where(a => a.OrganizationId == oid && a.Date >= from && a.Date <= to)
+        .ToListAsync();
+    var employees = await db.Employees
+        .Where(e => e.OrganizationId == oid && e.Status != EmploymentStatus.Inactive)
+        .ToListAsync();
+    var overtime = await db.OvertimeRecords
+        .Where(o => o.OrganizationId == oid && o.Date >= from && o.Date <= to
+                 && o.Status != OvertimeStatus.Rejected)
+        .ToListAsync();
+    var leaveRequests = await db.LeaveRequests
+        .Where(l => l.OrganizationId == oid && l.Status == LeaveRequestStatus.Approved
+                 && l.StartDate <= to && l.EndDate >= from)
+        .ToListAsync();
+
+    using var wb = new ClosedXML.Excel.XLWorkbook();
+
+    // ─── Sheet 1: Payroll Summary ───
+    var ws = wb.AddWorksheet($"Payroll {y}-{m:00}");
+    ws.Cell(1, 1).Value = $"Ukuu HR — Payroll Attendance Summary ({from:MMMM yyyy})";
+    ws.Cell(1, 1).Style.Font.Bold = true;
+    ws.Cell(1, 1).Style.Font.FontSize = 14;
+    ws.Cell(2, 1).Value = $"Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC";
+    ws.Cell(2, 1).Style.Font.FontColor = ClosedXML.Excel.XLColor.Gray;
+
+    var headers = new[] { "EmployeeCode", "EmployeeName", "Department", "Branch", "WorkedHours", "OvertimeHours", "OvertimePay", "AbsentDays", "LateDays", "LeaveDays", "HalfDays", "BasicSalary", "Currency" };
+    for (int i = 0; i < headers.Length; i++)
+    {
+        ws.Cell(4, i + 1).Value = headers[i];
+        ws.Cell(4, i + 1).Style.Font.Bold = true;
+        ws.Cell(4, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+        ws.Cell(4, i + 1).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+    }
+
+    var row = 5;
+    foreach (var e in employees)
+    {
+        var att = attendance.Where(a => a.EmployeeId == e.Id).ToList();
+        var ot = overtime.Where(o => o.EmployeeId == e.Id).ToList();
+        var leaveDays = leaveRequests.Count(l => l.EmployeeId == e.Id);
+
+        ws.Cell(row, 1).Value = e.EmployeeCode ?? "";
+        ws.Cell(row, 2).Value = e.FullName;
+        ws.Cell(row, 3).Value = e.Department ?? "";
+        ws.Cell(row, 4).Value = e.City ?? "";
+        ws.Cell(row, 5).Value = Math.Round(att.Sum(a => a.WorkedHours), 2);
+        ws.Cell(row, 6).Value = Math.Round(ot.Sum(o => o.Hours), 2);
+        ws.Cell(row, 7).Value = Math.Round(ot.Sum(o => o.Pay), 2);
+        ws.Cell(row, 8).Value = att.Count(a => a.Status == AttendanceStatus.Absent);
+        ws.Cell(row, 9).Value = att.Count(a => a.Status == AttendanceStatus.Late);
+        ws.Cell(row, 10).Value = leaveDays;
+        ws.Cell(row, 11).Value = att.Count(a => a.Status == AttendanceStatus.HalfDay);
+        ws.Cell(row, 12).Value = e.BasicSalary;
+        ws.Cell(row, 13).Value = e.DisplayCurrency;
+        row++;
+    }
+
+    ws.Columns().AdjustToContents();
+    ws.SheetView.FreezeRows(4);
+
+    // ─── Sheet 2: Overtime Detail ───
+    var otWs = wb.AddWorksheet("Overtime Detail");
+    var otHeaders = new[] { "EmployeeCode", "EmployeeName", "Date", "Hours", "RateType", "Multiplier", "Pay", "Status" };
+    for (int i = 0; i < otHeaders.Length; i++)
+    {
+        otWs.Cell(1, i + 1).Value = otHeaders[i];
+        otWs.Cell(1, i + 1).Style.Font.Bold = true;
+        otWs.Cell(1, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+        otWs.Cell(1, i + 1).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+    }
+    var otRow = 2;
+    foreach (var o in overtime.OrderByDescending(o => o.Date))
+    {
+        var emp = employees.FirstOrDefault(e => e.Id == o.EmployeeId);
+        otWs.Cell(otRow, 1).Value = emp?.EmployeeCode ?? "";
+        otWs.Cell(otRow, 2).Value = o.EmployeeName;
+        otWs.Cell(otRow, 3).Value = o.Date.ToString("yyyy-MM-dd");
+        otWs.Cell(otRow, 4).Value = Math.Round(o.Hours, 2);
+        otWs.Cell(otRow, 5).Value = o.RateTypeDisplay;
+        otWs.Cell(otRow, 6).Value = o.RateMultiplier;
+        otWs.Cell(otRow, 7).Value = Math.Round(o.Pay, 2);
+        otWs.Cell(otRow, 8).Value = o.StatusDisplay;
+        otRow++;
+    }
+    otWs.Columns().AdjustToContents();
+    otWs.SheetView.FreezeRows(1);
+
+    using var ms = new MemoryStream();
+    wb.SaveAs(ms);
+    return Results.File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"payroll-attendance-{y}{m:00}.xlsx");
+}).WithName("PayrollAttendanceXlsx");
+
 // FR-013: Modular API — list of available modules + their status.
 app.MapGet("/api/modules", async (UkuuHrDbContext db) =>
 {
@@ -2768,6 +2916,303 @@ app.MapGet("/api/reports/attendance/xlsx/search", async (
     var bytes = reportSvc.ExportXlsx(report);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"attendance-search-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
 }).WithName("DownloadAttendanceSearchXlsx");
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OVERTIME REPORT EXPORT (FR-010)
+// ═════════════════════════════════════════════════════════════════════════════
+
+app.MapGet("/api/reports/overtime/csv", async (
+    OvertimeService overtimeSvc,
+    UkuuHrDbContext db,
+    int? orgId,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    DateTime fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today.AddMonths(-1);
+    DateTime toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
+
+    var records = await overtimeSvc.GetAllAsync(oid);
+    var filtered = records.Where(r => r.Date >= fromDate && r.Date <= toDate.AddDays(1).AddTicks(-1)).ToList();
+
+    var employees = await db.Employees.Where(e => e.OrganizationId == oid).ToListAsync();
+    var empMap = employees.ToDictionary(e => e.Id);
+
+    using var ms = new MemoryStream();
+    using var writer = new StreamWriter(ms, System.Text.Encoding.UTF8);
+    using var csv = new CsvHelper.CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture);
+
+    csv.WriteField("EmployeeCode");
+    csv.WriteField("EmployeeName");
+    csv.WriteField("Department");
+    csv.WriteField("Date");
+    csv.WriteField("DayOfWeek");
+    csv.WriteField("StartTime");
+    csv.WriteField("EndTime");
+    csv.WriteField("Hours");
+    csv.WriteField("RateType");
+    csv.WriteField("RateMultiplier");
+    csv.WriteField("HourlyRate");
+    csv.WriteField("Pay");
+    csv.WriteField("Status");
+    csv.WriteField("Source");
+    csv.WriteField("Reason");
+    csv.NextRecord();
+
+    foreach (var r in filtered.OrderByDescending(r => r.Date))
+    {
+        empMap.TryGetValue(r.EmployeeId, out var emp);
+        csv.WriteField(emp?.EmployeeCode ?? "");
+        csv.WriteField(r.EmployeeName);
+        csv.WriteField(emp?.Department ?? "");
+        csv.WriteField(r.Date.ToString("yyyy-MM-dd"));
+        csv.WriteField(r.Date.ToString("dddd"));
+        csv.WriteField(r.StartTime.ToString("HH:mm"));
+        csv.WriteField(r.EndTime.ToString("HH:mm"));
+        csv.WriteField(r.Hours.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        csv.WriteField(r.RateTypeDisplay);
+        csv.WriteField(r.RateMultiplier.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+        csv.WriteField(r.HourlyRate.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        csv.WriteField(r.Pay.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        csv.WriteField(r.StatusDisplay);
+        csv.WriteField(r.Source);
+        csv.WriteField(r.Reason ?? "");
+        csv.NextRecord();
+    }
+
+    writer.Flush();
+    return Results.File(ms.ToArray(), "text/csv", $"overtime-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+}).WithName("DownloadOvertimeCsv");
+
+app.MapGet("/api/reports/overtime/xlsx", async (
+    OvertimeService overtimeSvc,
+    UkuuHrDbContext db,
+    int? orgId,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    DateTime fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today.AddMonths(-1);
+    DateTime toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
+
+    var records = await overtimeSvc.GetAllAsync(oid);
+    var filtered = records.Where(r => r.Date >= fromDate && r.Date <= toDate.AddDays(1).AddTicks(-1)).ToList();
+
+    var employees = await db.Employees.Where(e => e.OrganizationId == oid).ToListAsync();
+    var empMap = employees.ToDictionary(e => e.Id);
+
+    using var wb = new ClosedXML.Excel.XLWorkbook();
+
+    // ─── Sheet 1: Summary ───
+    var summaryWs = wb.AddWorksheet("Summary");
+    summaryWs.Cell(1, 1).Value = "Ukuu HR — Overtime Report";
+    summaryWs.Cell(1, 1).Style.Font.Bold = true;
+    summaryWs.Cell(1, 1).Style.Font.FontSize = 16;
+    summaryWs.Cell(2, 1).Value = $"Period: {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}";
+
+    summaryWs.Cell(4, 1).Value = "Metric";
+    summaryWs.Cell(4, 2).Value = "Value";
+    summaryWs.Cell(4, 1).Style.Font.Bold = true;
+    summaryWs.Cell(4, 2).Style.Font.Bold = true;
+    summaryWs.Cell(4, 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+    summaryWs.Cell(4, 2).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+    summaryWs.Cell(4, 1).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+    summaryWs.Cell(4, 2).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+
+    var totalHours = filtered.Where(r => r.Status != OvertimeStatus.Rejected).Sum(r => r.Hours);
+    var totalPay = filtered.Where(r => r.Status == OvertimeStatus.Approved || r.Status == OvertimeStatus.AutoApproved).Sum(r => r.Pay);
+    var row = 5;
+    summaryWs.Cell(row, 1).Value = "Total Records"; summaryWs.Cell(row++, 2).Value = filtered.Count;
+    summaryWs.Cell(row, 1).Value = "Total Overtime Hours"; summaryWs.Cell(row++, 2).Value = Math.Round(totalHours, 2);
+    summaryWs.Cell(row, 1).Value = "Total Overtime Pay"; summaryWs.Cell(row++, 2).Value = Math.Round(totalPay, 2);
+    summaryWs.Cell(row, 1).Value = "Distinct Employees"; summaryWs.Cell(row++, 2).Value = filtered.Select(r => r.EmployeeId).Distinct().Count();
+    summaryWs.Cell(row, 1).Value = "Pending"; summaryWs.Cell(row++, 2).Value = filtered.Count(r => r.Status == OvertimeStatus.Pending);
+    summaryWs.Cell(row, 1).Value = "Approved"; summaryWs.Cell(row++, 2).Value = filtered.Count(r => r.Status == OvertimeStatus.Approved || r.Status == OvertimeStatus.AutoApproved);
+    summaryWs.Cell(row, 1).Value = "Rejected"; summaryWs.Cell(row++, 2).Value = filtered.Count(r => r.Status == OvertimeStatus.Rejected);
+    summaryWs.Columns().AdjustToContents();
+
+    // ─── Sheet 2: Detail ───
+    var detailWs = wb.AddWorksheet("Detail");
+    var headers = new[] { "EmployeeCode", "EmployeeName", "Department", "Date", "DayOfWeek", "StartTime", "EndTime", "Hours", "RateType", "RateMultiplier", "HourlyRate", "Pay", "Status", "Source", "Reason" };
+    for (int i = 0; i < headers.Length; i++)
+    {
+        detailWs.Cell(1, i + 1).Value = headers[i];
+        detailWs.Cell(1, i + 1).Style.Font.Bold = true;
+        detailWs.Cell(1, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+        detailWs.Cell(1, i + 1).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+    }
+
+    for (int i = 0; i < filtered.Count; i++)
+    {
+        var r = filtered.OrderByDescending(r => r.Date).ToList()[i];
+        empMap.TryGetValue(r.EmployeeId, out var emp);
+        var x = i + 2;
+        detailWs.Cell(x, 1).Value = emp?.EmployeeCode ?? "";
+        detailWs.Cell(x, 2).Value = r.EmployeeName;
+        detailWs.Cell(x, 3).Value = emp?.Department ?? "";
+        detailWs.Cell(x, 4).Value = r.Date.ToString("yyyy-MM-dd");
+        detailWs.Cell(x, 5).Value = r.Date.ToString("dddd");
+        detailWs.Cell(x, 6).Value = r.StartTime.ToString("HH:mm");
+        detailWs.Cell(x, 7).Value = r.EndTime.ToString("HH:mm");
+        detailWs.Cell(x, 8).Value = Math.Round(r.Hours, 2);
+        detailWs.Cell(x, 9).Value = r.RateTypeDisplay;
+        detailWs.Cell(x, 10).Value = r.RateMultiplier;
+        detailWs.Cell(x, 11).Value = Math.Round(r.HourlyRate, 2);
+        detailWs.Cell(x, 12).Value = Math.Round(r.Pay, 2);
+        detailWs.Cell(x, 13).Value = r.StatusDisplay;
+        detailWs.Cell(x, 14).Value = r.Source.ToString();
+        detailWs.Cell(x, 15).Value = r.Reason ?? "";
+    }
+
+    detailWs.Columns().AdjustToContents();
+    detailWs.SheetView.FreezeRows(1);
+
+    using var ms = new MemoryStream();
+    wb.SaveAs(ms);
+    return Results.File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"overtime-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
+}).WithName("DownloadOvertimeXlsx");
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ABSENCE / LATE REPORT EXPORT (FR-010)
+// ═════════════════════════════════════════════════════════════════════════════
+
+app.MapGet("/api/reports/absence/csv", async (
+    UkuuHrDbContext db,
+    int? orgId,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    DateTime fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today.AddMonths(-1);
+    DateTime toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
+
+    var records = await db.Attendances
+        .Where(a => a.OrganizationId == oid && a.Date >= fromDate && a.Date <= toDate.AddDays(1).AddTicks(-1)
+                 && (a.Status == AttendanceStatus.Absent || a.Status == AttendanceStatus.Late))
+        .OrderByDescending(a => a.Date)
+        .ToListAsync();
+
+    var employees = await db.Employees.Where(e => e.OrganizationId == oid).ToListAsync();
+    var empMap = employees.ToDictionary(e => e.Id);
+
+    using var ms = new MemoryStream();
+    using var writer = new StreamWriter(ms, System.Text.Encoding.UTF8);
+    using var csv = new CsvHelper.CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture);
+
+    csv.WriteField("EmployeeCode");
+    csv.WriteField("EmployeeName");
+    csv.WriteField("Department");
+    csv.WriteField("Branch");
+    csv.WriteField("Date");
+    csv.WriteField("DayOfWeek");
+    csv.WriteField("Status");
+    csv.WriteField("CheckIn");
+    csv.WriteField("CheckOut");
+    csv.WriteField("WorkedHours");
+    csv.WriteField("Notes");
+    csv.NextRecord();
+
+    foreach (var r in records)
+    {
+        empMap.TryGetValue(r.EmployeeId, out var emp);
+        csv.WriteField(emp?.EmployeeCode ?? "");
+        csv.WriteField(r.EmployeeName);
+        csv.WriteField(emp?.Department ?? "");
+        csv.WriteField(emp?.City ?? "");
+        csv.WriteField(r.Date.ToString("yyyy-MM-dd"));
+        csv.WriteField(r.Date.ToString("dddd"));
+        csv.WriteField(r.Status.ToString());
+        csv.WriteField(r.CheckIn?.ToString("HH:mm") ?? "");
+        csv.WriteField(r.CheckOut?.ToString("HH:mm") ?? "");
+        csv.WriteField(r.WorkedHours.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        csv.WriteField(r.Notes ?? "");
+        csv.NextRecord();
+    }
+
+    writer.Flush();
+    return Results.File(ms.ToArray(), "text/csv", $"absence-late-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+}).WithName("DownloadAbsenceCsv");
+
+app.MapGet("/api/reports/absence/xlsx", async (
+    UkuuHrDbContext db,
+    int? orgId,
+    string? from,
+    string? to) =>
+{
+    var oid = orgId ?? (await db.Organizations.FirstOrDefaultAsync())?.Id ?? 0;
+    DateTime fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today.AddMonths(-1);
+    DateTime toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
+
+    var records = await db.Attendances
+        .Where(a => a.OrganizationId == oid && a.Date >= fromDate && a.Date <= toDate.AddDays(1).AddTicks(-1)
+                 && (a.Status == AttendanceStatus.Absent || a.Status == AttendanceStatus.Late))
+        .OrderByDescending(a => a.Date)
+        .ToListAsync();
+
+    var employees = await db.Employees.Where(e => e.OrganizationId == oid).ToListAsync();
+    var empMap = employees.ToDictionary(e => e.Id);
+
+    using var wb = new ClosedXML.Excel.XLWorkbook();
+
+    // ─── Sheet 1: Summary ───
+    var summaryWs = wb.AddWorksheet("Summary");
+    summaryWs.Cell(1, 1).Value = "Ukuu HR — Absence & Late Report";
+    summaryWs.Cell(1, 1).Style.Font.Bold = true;
+    summaryWs.Cell(1, 1).Style.Font.FontSize = 16;
+    summaryWs.Cell(2, 1).Value = $"Period: {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}";
+
+    summaryWs.Cell(4, 1).Value = "Metric";
+    summaryWs.Cell(4, 2).Value = "Value";
+    summaryWs.Cell(4, 1).Style.Font.Bold = true;
+    summaryWs.Cell(4, 2).Style.Font.Bold = true;
+    summaryWs.Cell(4, 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+    summaryWs.Cell(4, 2).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+    summaryWs.Cell(4, 1).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+    summaryWs.Cell(4, 2).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+
+    var row = 5;
+    summaryWs.Cell(row, 1).Value = "Total Records"; summaryWs.Cell(row++, 2).Value = records.Count;
+    summaryWs.Cell(row, 1).Value = "Absent"; summaryWs.Cell(row++, 2).Value = records.Count(r => r.Status == AttendanceStatus.Absent);
+    summaryWs.Cell(row, 1).Value = "Late"; summaryWs.Cell(row++, 2).Value = records.Count(r => r.Status == AttendanceStatus.Late);
+    summaryWs.Cell(row, 1).Value = "Distinct Employees"; summaryWs.Cell(row++, 2).Value = records.Select(r => r.EmployeeId).Distinct().Count();
+    summaryWs.Columns().AdjustToContents();
+
+    // ─── Sheet 2: Detail ───
+    var detailWs = wb.AddWorksheet("Detail");
+    var headers = new[] { "EmployeeCode", "EmployeeName", "Department", "Branch", "Date", "DayOfWeek", "Status", "CheckIn", "CheckOut", "WorkedHours", "Notes" };
+    for (int i = 0; i < headers.Length; i++)
+    {
+        detailWs.Cell(1, i + 1).Value = headers[i];
+        detailWs.Cell(1, i + 1).Style.Font.Bold = true;
+        detailWs.Cell(1, i + 1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#25163F");
+        detailWs.Cell(1, i + 1).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+    }
+
+    for (int i = 0; i < records.Count; i++)
+    {
+        var r = records[i];
+        empMap.TryGetValue(r.EmployeeId, out var emp);
+        var x = i + 2;
+        detailWs.Cell(x, 1).Value = emp?.EmployeeCode ?? "";
+        detailWs.Cell(x, 2).Value = r.EmployeeName;
+        detailWs.Cell(x, 3).Value = emp?.Department ?? "";
+        detailWs.Cell(x, 4).Value = emp?.City ?? "";
+        detailWs.Cell(x, 5).Value = r.Date.ToString("yyyy-MM-dd");
+        detailWs.Cell(x, 6).Value = r.Date.ToString("dddd");
+        detailWs.Cell(x, 7).Value = r.Status.ToString();
+        detailWs.Cell(x, 8).Value = r.CheckIn?.ToString("HH:mm") ?? "";
+        detailWs.Cell(x, 9).Value = r.CheckOut?.ToString("HH:mm") ?? "";
+        detailWs.Cell(x, 10).Value = Math.Round(r.WorkedHours, 2);
+        detailWs.Cell(x, 11).Value = r.Notes ?? "";
+    }
+
+    detailWs.Columns().AdjustToContents();
+    detailWs.SheetView.FreezeRows(1);
+
+    using var ms = new MemoryStream();
+    wb.SaveAs(ms);
+    return Results.File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"absence-late-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
+}).WithName("DownloadAbsenceXlsx");
 
 // FR-013: System metrics endpoint (for monitoring dashboards / NFR — 99.9% availability).
 app.MapGet("/api/system/metrics", (UkuuHrDbContext db) =>

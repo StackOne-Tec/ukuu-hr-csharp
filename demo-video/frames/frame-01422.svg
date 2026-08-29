@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1920 1080"><defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#10091F"/><stop offset="0.55" stop-color="#24133F"/><stop offset="1" stop-color="#0B1126"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F4C85C"/><stop offset="1" stop-color="#C78019"/></linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8C65D6"/><stop offset="1" stop-color="#4B2D81"/></linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#63E4BB"/><stop offset="1" stop-color="#14A37F"/></linearGradient>
+    <linearGradient id="softPanel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#F3F0F8"/></linearGradient>
+    <radialGradient id="orb"><stop stop-color="#9B68FF" stop-opacity=".48"/><stop offset=".55" stop-color="#673CA9" stop-opacity=".18"/><stop offset="1" stop-color="#3B1F64" stop-opacity="0"/></radialGradient>
+    <radialGradient id="goldOrb"><stop stop-color="#F2C84F" stop-opacity=".34"/><stop offset="1" stop-color="#D59B22" stop-opacity="0"/></radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="38"/></filter>
+    <filter id="blurSmall"><feGaussianBlur stdDeviation="13"/></filter>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="28" stdDeviation="25" flood-color="#080412" flood-opacity=".34"/></filter>
+    <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="13" flood-color="#110B20" flood-opacity=".20"/></filter>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M 80 0 L 0 0 0 80" fill="none" stroke="#E9E4F3" stroke-opacity=".055"/></pattern>
+    <clipPath id="panelClip"><rect x="0" y="0" width="1440" height="760" rx="28"/></clipPath>
+  </defs><rect width="1920" height="1080" fill="#F4F1F8"/>
+      <circle cx="1550" cy="140" r="560" fill="#E2D6FF" opacity=".76" filter="url(#blur)"/>
+      <circle cx="260" cy="900" r="470" fill="#FFE5A1" opacity=".58" filter="url(#blur)"/>
+      <rect width="1920" height="1080" fill="url(#grid)"/>
+      <g transform="translate(370.00 178.00) rotate(0.00) scale(1.00)" opacity="0.35"><g transform="translate(0.00 0.00) rotate(0.00) scale(1.00)" filter="url(#shadow)">
+    <rect x="0" y="0" width="1180" height="660" rx="30" fill="#F9F8FB" stroke="#E8E2EF" />
+    <text x="54" y="66" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="800" fill="#25163F" text-anchor="start" letter-spacing="0" >Exceptions, made accountable.</text>
+    <text x="54" y="97" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#857A93" text-anchor="start" letter-spacing="0" >Review the context. Make a correction. Keep the record.</text>
+    <rect x="52" y="145" width="1076" height="150" rx="18" fill="#FFF" stroke="#ECE6F1" />
+    <circle cx="92" cy="202" r="21" fill="#E9C8B0" /><text x="85.16" y="208" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#914A22" text-anchor="start" letter-spacing="0" >TM</text>
+    <text x="126" y="194" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#302240" text-anchor="start" letter-spacing="0" >Thandi Mumba</text>
+    <text x="126" y="218" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#8A7E96" text-anchor="start" letter-spacing="0" >Finance · Day shift 08:00–17:00</text>
+    <rect x="426" y="178" width="126" height="43" rx="12" fill="#FFF2E8" stroke="none" /><text x="440.835" y="205" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="800" fill="#C36620" text-anchor="start" letter-spacing="0" >09:04  +4 min</text>
+    <rect x="584" y="178" width="110" height="43" rx="12" fill="#F2EFF7" stroke="none" /><text x="609.36" y="205" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#5E526B" text-anchor="start" letter-spacing="0" >Check-in</text>
+    <rect x="725" y="178" width="166" height="43" rx="12" fill="#F2EFF7" stroke="none" /><text x="759.835" y="205" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="800" fill="#5E526B" text-anchor="start" letter-spacing="0" >Review needed</text>
+    <rect x="958" y="174" width="134" height="50" rx="14" fill="#E8E2EF" stroke="none" /><text x="999.065" y="205" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="800" fill="#4F435C" text-anchor="start" letter-spacing="0" >Correct</text>
+    <rect x="52" y="332" width="510" height="270" rx="20" fill="#FFF" stroke="#ECE6F1" />
+    <text x="80" y="373" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="#342646" text-anchor="start" letter-spacing="0" >Shift policy</text>
+    <text x="80" y="399" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#63576F" text-anchor="start" letter-spacing="0" >Day shift · 08:00–17:00</text>
+    <line x1="80" y1="432" x2="530" y2="432" stroke="#EDE8F1" stroke-width="1" />
+    <g opacity="1.00"><circle cx="90" cy="469" r="5" fill="#14A37F" /><text x="104" y="473" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#6B6378" text-anchor="start" letter-spacing="0" >5-minute grace period</text></g>
+    <g opacity="1.00"><circle cx="90" cy="507" r="5" fill="#14A37F" /><text x="104" y="511" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#6B6378" text-anchor="start" letter-spacing="0" >Verified clock source</text></g>
+    <g opacity="1.00"><circle cx="90" cy="545" r="5" fill="#7358B7" /><text x="104" y="549" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#6B6378" text-anchor="start" letter-spacing="0" >Reason attached</text></g>
+    <rect x="605" y="332" width="523" height="270" rx="20" fill="#261A3D" stroke="none" />
+    <text x="634" y="374" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="#FFF" text-anchor="start" letter-spacing="0" >Audit trail</text>
+    <text x="634" y="402" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#D5CADF" text-anchor="start" letter-spacing="0" >09:04  ·  Attendance event received</text>
+    <line x1="649" y1="433" x2="649" y2="540" stroke="#6B567E" stroke-width="2" />
+    <circle cx="649" cy="432" r="6" fill="#E5B94D" /><circle cx="649" cy="486" r="6" fill="#60D7B2" /><circle cx="649" cy="540" r="6" fill="#AB92E0" />
+    <text x="671" y="437" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#E7E0EE" text-anchor="start" letter-spacing="0" >Device timestamp preserved</text>
+    <text x="671" y="491" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#E7E0EE" text-anchor="start" letter-spacing="0" >Awaiting review</text>
+    <text x="671" y="545" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#E7E0EE" text-anchor="start" letter-spacing="0" >No detail is lost</text>
+  </g></g>
+      <g opacity="0.00"><rect x="126" y="870" width="1668" height="66" rx="21" fill="#25163F" stroke="none" /><text x="591.78" y="911" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#F7F2FF" text-anchor="start" letter-spacing="0" >A trustworthy record is more than a timestamp — it is the context around it.</text></g></svg>

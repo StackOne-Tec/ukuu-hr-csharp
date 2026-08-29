@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1920 1080"><defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#10091F"/><stop offset="0.55" stop-color="#24133F"/><stop offset="1" stop-color="#0B1126"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F4C85C"/><stop offset="1" stop-color="#C78019"/></linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8C65D6"/><stop offset="1" stop-color="#4B2D81"/></linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#63E4BB"/><stop offset="1" stop-color="#14A37F"/></linearGradient>
+    <linearGradient id="softPanel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#F3F0F8"/></linearGradient>
+    <radialGradient id="orb"><stop stop-color="#9B68FF" stop-opacity=".48"/><stop offset=".55" stop-color="#673CA9" stop-opacity=".18"/><stop offset="1" stop-color="#3B1F64" stop-opacity="0"/></radialGradient>
+    <radialGradient id="goldOrb"><stop stop-color="#F2C84F" stop-opacity=".34"/><stop offset="1" stop-color="#D59B22" stop-opacity="0"/></radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="38"/></filter>
+    <filter id="blurSmall"><feGaussianBlur stdDeviation="13"/></filter>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="28" stdDeviation="25" flood-color="#080412" flood-opacity=".34"/></filter>
+    <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="13" flood-color="#110B20" flood-opacity=".20"/></filter>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M 80 0 L 0 0 0 80" fill="none" stroke="#E9E4F3" stroke-opacity=".055"/></pattern>
+    <clipPath id="panelClip"><rect x="0" y="0" width="1440" height="760" rx="28"/></clipPath>
+  </defs><rect width="1920" height="1080" fill="#F4F1F8"/>
+      <circle cx="1550" cy="140" r="560" fill="#E2D6FF" opacity=".76" filter="url(#blur)"/>
+      <circle cx="260" cy="900" r="470" fill="#FFE5A1" opacity=".58" filter="url(#blur)"/>
+      <rect width="1920" height="1080" fill="url(#grid)"/>
+      <g transform="translate(120.00 162.00) rotate(0.00) scale(1.00)" opacity="0.32">
+        <text x="0" y="0" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="800" fill="#271A3E" text-anchor="start" letter-spacing="0" >One event.</text>
+        <text x="0" y="65" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="800" fill="#7658B8" text-anchor="start" letter-spacing="0" >A clear picture.</text>
+        <text x="0" y="126" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600" fill="#6E627B" text-anchor="start" letter-spacing="0" >UKUU brings every attendance signal into context.</text>
+      </g>
+      <g transform="translate(110.00 335.00) rotate(0.00) scale(0.78)" opacity="0.00"><g transform="translate(0.00 0.00) rotate(0.00) scale(1.00)">
+    <rect x="0" y="50" width="185" height="235" rx="25" fill="#28203B" stroke="#5A4970" stroke-width="2"/>
+    <rect x="20" y="72" width="145" height="118" rx="12" fill="#101020" stroke="none" />
+    <text x="47.825" y="120" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" fill="#E6B743" text-anchor="start" letter-spacing="0" >08:57</text>
+    <text x="48.11000000000001" y="148" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#D6CEE4" text-anchor="start" letter-spacing="0" >Verified entry</text>
+    <circle cx="92" cy="231" r="23" fill="#E3B94E" />
+    <text x="87.155" y="236" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800" fill="#25163F" text-anchor="start" letter-spacing="0" >✓</text>
+    <text x="24.17" y="332" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#EAE5F3" text-anchor="start" letter-spacing="0" >Attendance device</text>
+    <text x="26.165000000000006" y="354" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#AFA5BC" text-anchor="start" letter-spacing="0" >Hikvision / CSV / API</text>
+    <path d="M215 168 C360 168 380 168 500 168 S620 168 785 168" fill="none" stroke="#6E5C8F" stroke-width="2" stroke-dasharray="7 9"/>
+    <circle cx="190" cy="168" r="11.558949600486056" fill="#F0C054" opacity="0.46"/><circle cx="190" cy="168" r="5" fill="#FFF0AE" />
+    <rect x="790" y="0" width="390" height="350" rx="27" fill="#FAF8FC" stroke="#E8E2F0" filter="url(#softShadow)"/>
+    <text x="825" y="53" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" fill="#26183D" text-anchor="start" letter-spacing="0" >UKUU Sync</text>
+    <rect x="1053" y="31" width="91" height="26" rx="13" fill="#E4F7F0" stroke="none" />
+    <text x="1086.6" y="49" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="800" fill="#14A37F" text-anchor="start" letter-spacing="1.3" >LIVE</text>
+    <rect x="824" y="84" width="322" height="74" rx="14" fill="#F4F0F7" stroke="none" />
+    <text x="844" y="113" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#645976" text-anchor="start" letter-spacing="0" >New event received</text>
+    <text x="844" y="139" font-family="Courier New, monospace" font-size="12" font-weight="700" fill="#2A203A" text-anchor="start" >UKU-042  ·  08:57:42</text>
+    <circle cx="1117" cy="121" r="14" fill="#DDF5EC" /><text x="1113.58" y="126" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#159A75" text-anchor="start" letter-spacing="0" >✓</text>
+    <text x="825" y="204" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#3B2D4D" text-anchor="start" letter-spacing="0" >ShiftEngine resolves status</text>
+    <line x1="825" y1="230" x2="1145" y2="230" stroke="#E9E4EF" stroke-width="1" />
+    <g opacity="1.00"><circle cx="840" cy="266" r="5" fill="#14A37F" /><text x="854" y="270" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#6B6378" text-anchor="start" letter-spacing="0" >Shift matched</text></g>
+    <g opacity="1.00"><circle cx="840" cy="300" r="5" fill="#14A37F" /><text x="854" y="304" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#6B6378" text-anchor="start" letter-spacing="0" >On time</text></g>
+    <g opacity="1.00"><circle cx="1005" cy="266" r="5" fill="#7658B8" /><text x="1019" y="270" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#6B6378" text-anchor="start" letter-spacing="0" >Audit ready</text></g>
+    <g opacity="1.00"><circle cx="1005" cy="300" r="5" fill="#2580CB" /><text x="1019" y="304" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#6B6378" text-anchor="start" letter-spacing="0" >Synced</text></g>
+  </g></g>
+      <g opacity="0.00">
+        <rect x="1270" y="816" width="430" height="74" rx="18" fill="#25163F" stroke="none" />
+        <circle cx="1310" cy="852" r="14" fill="#65E2BA" /><text x="1340" y="847" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#FFF" text-anchor="start" letter-spacing="0" >From device to decision.</text><text x="1340" y="870" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#CFC2DC" text-anchor="start" letter-spacing="0" >Accurate by design.</text>
+      </g></svg>
