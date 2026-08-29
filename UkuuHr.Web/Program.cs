@@ -1124,7 +1124,7 @@ app.MapPost("/api/employees/import", async (
             return Results.BadRequest(new { error = "No file uploaded." });
 
         using var stream = file.OpenReadStream();
-        var (imported, skipped, errors) = await svc.ImportCsvAsync(oid, stream);
+        var (imported, skipped, errors) = await svc.ImportCsvSimpleAsync(oid, stream);
 
         logger.LogInformation("Employee CSV import: {Imported} imported, {Skipped} skipped, {ErrorCount} errors",
             imported, skipped, errors.Count);
