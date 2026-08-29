@@ -111,7 +111,7 @@ public class EmployeeService
     /// Department, JobTitle, Phone, BasicSalary, Gender, JoiningDate.
     /// All other fields are optional. Returns (imported, skipped, errors).
     /// </summary>
-    public async Task<(int imported, int skipped, List<string> errors)> ImportCsvAsync(int orgId, Stream csvStream)
+    public async Task<(int imported, int skipped, List<string> errors)> ImportCsvSimpleAsync(int orgId, Stream csvStream)
     {
         var imported = 0;
         var skipped = 0;
