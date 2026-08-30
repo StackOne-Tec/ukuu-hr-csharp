@@ -196,6 +196,7 @@ builder.Services.AddOpenApi();
 
 // ───────────── App services ─────────────
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<GoogleAuthService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<EmployeeService>();
 builder.Services.AddScoped<AttendanceService>();
@@ -904,6 +905,45 @@ app.MapGet("/auth/auto-login", async (HttpContext ctx, AuthService auth, AutoLog
     logger.LogWarning("Auto-login failed for {Email}", credentials.Value.Email);
     return Results.Redirect("/login?error=1");
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Google OAuth 2.0 sign-in endpoints.
+// Production: redirect to Google's consent screen, exchange code, sign in.
+// Demo (no UKUU_GOOGLE_CLIENT_ID env var): create a demo Google user.
+// ─────────────────────────────────────────────────────────────────────────────
+app.MapGet("/auth/google/login", (HttpContext ctx, GoogleAuthService google, ILogger<Program> logger) =>
+{
+    var returnUrl = ctx.Request.Query["returnUrl"].ToString();
+    var safe = !string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith("/") && !returnUrl.StartsWith("//")
+        && !returnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
+        && !returnUrl.StartsWith("/landing", StringComparison.OrdinalIgnoreCase)
+        ? returnUrl : "/dashboard";
+    var loginUrl = google.GetLoginUrl(safe);
+    logger.LogInformation("Google login: redirecting to {Mode} {Url}",
+        GoogleAuthService.IsConfigured ? "PRODUCTION" : "DEMO",
+        GoogleAuthService.IsConfigured ? "(Google OAuth URL)" : loginUrl);
+    return Results.Redirect(loginUrl);
+}).WithName("GoogleLogin");
+
+app.MapGet("/auth/google/callback", async (HttpContext ctx, GoogleAuthService google, ILogger<Program> logger) =>
+{
+    var code = ctx.Request.Query["code"].ToString();
+    var state = ctx.Request.Query["state"].ToString();
+    logger.LogInformation("Google callback received: code={HasCode}, state={HasState}, mode={Mode}",
+        !string.IsNullOrEmpty(code), !string.IsNullOrEmpty(state),
+        GoogleAuthService.IsConfigured ? "PRODUCTION" : "DEMO");
+
+    if (string.IsNullOrEmpty(code))
+        return Results.Redirect("/login?error=1");
+
+    var (success, redirectUrl, error) = await google.HandleCallbackAsync(code, state);
+    if (!success)
+    {
+        logger.LogWarning("Google sign-in failed: {Error}", error);
+        return Results.Redirect("/login?error=1");
+    }
+    return Results.Redirect(redirectUrl);
+}).WithName("GoogleCallback");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modular Architecture — REST API endpoints for the 8 core modules
