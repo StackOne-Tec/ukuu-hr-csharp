@@ -543,6 +543,248 @@ html { scroll-behavior: smooth; }
 .lp-preview-chart { flex: 1; display: flex; align-items: flex-end; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
 .lp-preview-bar { flex: 1; border-radius: 5px 5px 0 0; min-height: 20px; transition: height 0.3s ease; opacity: 0.8; }
 .lp-preview-bar:hover { opacity: 1; }
+
+/* ─── Premium section primitives (shared) ─── */
+.lp-section-eyebrow {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--lp-eyebrow); margin: 0 0 16px;
+}
+.lp-section-eyebrow--light { color: var(--lp-lavender); }
+.lp-section-title {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; font-size: clamp(28px, 4vw, 48px);
+    font-weight: 800; line-height: 1.1; letter-spacing: -0.025em;
+    color: var(--lp-text); margin: 0 0 16px;
+}
+.lp-section-title--light { color: #FCFBFF; }
+.lp-section-sub {
+    font-size: 17px; line-height: 1.5; color: var(--lp-text-2); max-width: 720px; margin: 0 auto 56px;
+}
+.lp-section-sub--light { color: rgba(255,255,255,0.7); }
+
+/* ─── 7a. Stats counters ─── */
+.lp-stats { background: var(--lp-bg); padding: 120px clamp(16px, 5vw, 80px); }
+.lp-stats-inner { max-width: var(--lp-max); margin: 0 auto; text-align: center; }
+.lp-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; margin-top: 56px; }
+.lp-stat-card {
+    padding: 40px 24px; border-radius: 16px;
+    background: var(--lp-card-bg); border: 1px solid var(--lp-card-border);
+    box-shadow: var(--lp-card-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0; transform: translateY(20px);
+}
+.lp-stat-card.lp-visible { opacity: 1; transform: translateY(0); }
+.lp-stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(37, 22, 63, 0.08); }
+.lp-stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 56px; font-weight: 800; color: var(--lp-text); line-height: 1;
+    letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+    display: flex; align-items: baseline; justify-content: center; gap: 4px;
+}
+.lp-stat-suffix { font-size: 22px; font-weight: 600; color: var(--lp-purple); }
+.lp-stat-label { font-size: 14px; font-weight: 700; color: var(--lp-text-2); margin-top: 14px; letter-spacing: 0.04em; }
+.lp-stat-sub { font-size: 12px; color: var(--lp-text-3); margin-top: 4px; }
+
+/* ─── 7b. Before / after slider ─── */
+.lp-compare { background: var(--lp-dark); padding: 120px clamp(16px, 5vw, 80px); }
+.lp-compare-inner { max-width: var(--lp-max); margin: 0 auto; text-align: center; }
+.lp-compare-slider {
+    position: relative; max-width: 1100px; margin: 56px auto 0;
+    aspect-ratio: 16 / 9; border-radius: 24px; overflow: hidden;
+    box-shadow: 0 32px 80px rgba(13, 7, 30, 0.45);
+    cursor: ew-resize; user-select: none;
+}
+.lp-compare-before, .lp-compare-after {
+    position: absolute; inset: 0;
+    padding: 48px 56px; display: flex; flex-direction: column; justify-content: center;
+}
+.lp-compare-after {
+    background: linear-gradient(135deg, #0F0A1F 0%, #1F1834 50%, #25163F 100%);
+}
+.lp-compare-before {
+    background: linear-gradient(135deg, #2A1018 0%, #3D1626 50%, #4A1F2C 100%);
+    width: 50%; overflow: hidden;
+}
+.lp-compare-pane-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 999px;
+    background: rgba(225, 29, 72, 0.15); border: 1px solid rgba(225, 29, 72, 0.4);
+    font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #FFFFFF; align-self: flex-start; margin-bottom: 28px;
+}
+.lp-compare-pane-label--green {
+    background: rgba(20, 163, 127, 0.15); border-color: rgba(20, 163, 127, 0.4);
+}
+.lp-compare-list { list-style: none; padding: 0; margin: 0; text-align: left; }
+.lp-compare-list li {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 0; font-size: 17px; color: rgba(255,255,255,0.92);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.lp-compare-list li:last-child { border-bottom: none; }
+.lp-compare-list .material-icons-round { color: #E11D48; font-size: 22px; }
+.lp-compare-after .lp-compare-list .material-icons-round { color: #14A37F; }
+.lp-compare-handle {
+    position: absolute; top: 0; bottom: 0; left: 50%;
+    width: 4px; background: linear-gradient(180deg, #7B2FBE 0%, #A78BFA 100%);
+    transform: translateX(-50%); z-index: 10;
+    box-shadow: 0 0 24px rgba(167, 139, 250, 0.6);
+}
+.lp-compare-handle-line { position: absolute; inset: 0; }
+.lp-compare-handle-knob {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, #7B2FBE 0%, #A78BFA 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    color: #FFFFFF;
+}
+.lp-compare-handle-knob .material-icons-round { font-size: 16px; }
+
+/* ─── 7c. Pricing ─── */
+.lp-pricing { background: var(--lp-bg); padding: 120px clamp(16px, 5vw, 80px); }
+.lp-pricing-inner { max-width: var(--lp-max); margin: 0 auto; text-align: center; }
+.lp-pricing-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 56px;
+    align-items: stretch;
+}
+.lp-pricing-card {
+    position: relative; padding: 40px 32px;
+    background: var(--lp-card-bg); border: 1px solid var(--lp-card-border); border-radius: 20px;
+    display: flex; flex-direction: column; gap: 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.lp-pricing-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(37, 22, 63, 0.08); }
+.lp-pricing-card--featured {
+    background: linear-gradient(180deg, #25163F 0%, #4A3C68 100%);
+    border-color: #7B2FBE; color: #FCFBFF;
+    transform: scale(1.04); box-shadow: 0 24px 64px rgba(37, 22, 63, 0.18);
+}
+.lp-pricing-card--featured:hover { transform: scale(1.04) translateY(-4px); }
+.lp-pricing-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    padding: 6px 14px; border-radius: 999px;
+    background: linear-gradient(135deg, #7B2FBE 0%, #A78BFA 100%);
+    color: #FFFFFF; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    box-shadow: 0 4px 12px rgba(123, 47, 190, 0.4);
+}
+.lp-pricing-name { font-size: 18px; font-weight: 700; color: var(--lp-text); letter-spacing: 0.02em; }
+.lp-pricing-card--featured .lp-pricing-name { color: #FFFFFF; }
+.lp-pricing-price { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+.lp-pricing-amount {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 48px; font-weight: 800; color: var(--lp-text); letter-spacing: -0.03em; line-height: 1;
+}
+.lp-pricing-card--featured .lp-pricing-amount { color: #FFFFFF; }
+.lp-pricing-period { font-size: 14px; color: var(--lp-text-3); font-weight: 500; }
+.lp-pricing-card--featured .lp-pricing-period { color: rgba(255,255,255,0.6); }
+.lp-pricing-features { list-style: none; padding: 0; margin: 16px 0 0; text-align: left; flex: 1; }
+.lp-pricing-features li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; font-size: 14px; color: var(--lp-text-2);
+    border-bottom: 1px solid var(--lp-card-border);
+}
+.lp-pricing-card--featured .lp-pricing-features li { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.08); }
+.lp-pricing-features .material-icons-round { color: #14A37F; font-size: 18px; }
+.lp-pricing-card--featured .lp-pricing-features .material-icons-round { color: #A78BFA; }
+.lp-pricing-cta {
+    display: inline-block; padding: 14px 28px; border-radius: 12px;
+    text-decoration: none; font-weight: 600; font-size: 15px;
+    transition: all 0.2s ease; text-align: center; margin-top: 8px;
+}
+.lp-pricing-cta--primary {
+    background: linear-gradient(135deg, #7B2FBE 0%, #A78BFA 100%); color: #FFFFFF;
+    box-shadow: 0 8px 24px rgba(123, 47, 190, 0.3);
+}
+.lp-pricing-cta--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(123, 47, 190, 0.4); }
+.lp-pricing-cta--secondary {
+    background: rgba(123, 47, 190, 0.06); color: var(--lp-purple);
+    border: 1.5px solid rgba(123, 47, 190, 0.2);
+}
+.lp-pricing-cta--secondary:hover { background: rgba(123, 47, 190, 0.1); border-color: rgba(123, 47, 190, 0.4); }
+
+/* ─── 7d. FAQ accordion ─── */
+.lp-faq { background: var(--lp-bg-2); padding: 120px clamp(16px, 5vw, 80px); }
+.lp-faq-inner { max-width: 800px; margin: 0 auto; text-align: center; }
+.lp-faq-list { margin-top: 56px; text-align: left; display: flex; flex-direction: column; gap: 12px; }
+.lp-faq-item {
+    background: var(--lp-card-bg); border: 1px solid var(--lp-card-border); border-radius: 12px;
+    overflow: hidden; transition: all 0.2s ease;
+}
+.lp-faq-item[open] { border-color: #7B2FBE; box-shadow: 0 8px 24px rgba(37, 22, 63, 0.06); }
+.lp-faq-item summary {
+    padding: 22px 28px; cursor: pointer; font-size: 17px; font-weight: 600;
+    color: var(--lp-text); list-style: none;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.lp-faq-item summary::-webkit-details-marker { display: none; }
+.lp-faq-item summary::after {
+    content: '+'; font-size: 24px; color: #7B2FBE; transition: transform 0.2s; font-weight: 300;
+}
+.lp-faq-item[open] summary::after { transform: rotate(45deg); }
+.lp-faq-answer {
+    padding: 0 28px 24px; font-size: 15px; line-height: 1.65; color: var(--lp-text-2);
+}
+.lp-faq-answer code {
+    background: rgba(123, 47, 190, 0.08); padding: 2px 8px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--lp-purple);
+}
+
+/* ─── 7e. Founders' note ─── */
+.lp-founders {
+    background: linear-gradient(180deg, #25163F 0%, #0F0A1F 100%);
+    padding: 140px clamp(16px, 5vw, 80px); position: relative; overflow: hidden;
+}
+.lp-founders::before {
+    content: ''; position: absolute; top: 20%; left: 10%;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(123, 47, 190, 0.25) 0%, transparent 60%);
+    filter: blur(60px); pointer-events: none;
+}
+.lp-founders::after {
+    content: ''; position: absolute; bottom: 10%; right: 10%;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.2) 0%, transparent 60%);
+    filter: blur(60px); pointer-events: none;
+}
+.lp-founders-inner {
+    max-width: 800px; margin: 0 auto; text-align: center; position: relative; z-index: 1;
+}
+.lp-founders-mark {
+    font-family: 'Plus Jakarta Sans', serif; font-size: 120px; font-weight: 900;
+    color: #7B2FBE; line-height: 0.7; margin-bottom: 24px; opacity: 0.5;
+}
+.lp-founders-quote {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-size: clamp(20px, 2.6vw, 28px); line-height: 1.5; font-weight: 400;
+    color: rgba(255,255,255,0.88); margin: 0 0 40px;
+}
+.lp-founders-quote strong { color: #A78BFA; font-weight: 700; }
+.lp-founders-signature {
+    display: inline-flex; align-items: center; gap: 16px;
+    padding: 20px 28px; border-radius: 16px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.lp-founders-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, #7B2FBE 0%, #A78BFA 100%);
+    color: #FFFFFF; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 20px;
+}
+.lp-founders-name { font-size: 16px; font-weight: 700; color: #FFFFFF; }
+.lp-founders-role { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+
+/* ─── Scroll-triggered animations (IntersectionObserver) ─── */
+.lp-animate { opacity: 0; transform: translateY(24px); transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.7s cubic-bezier(0.4, 0, 0.2, 1); }
+.lp-animate.lp-visible { opacity: 1; transform: translateY(0); }
+.lp-animate[data-delay="1"] { transition-delay: 0.1s; }
+.lp-animate[data-delay="2"] { transition-delay: 0.2s; }
+.lp-animate[data-delay="3"] { transition-delay: 0.3s; }
+.lp-animate[data-delay="4"] { transition-delay: 0.4s; }
+
+@@media (prefers-reduced-motion: reduce) {
+    .lp-animate, .lp-stat-card, .lp-pricing-card { transition: none !important; opacity: 1 !important; transform: none !important; }
+}
 </style>
 
 @* HEADER *@
@@ -970,6 +1212,206 @@ html { scroll-behavior: smooth; }
     </div>
 </section>
 
+@* ─────────────────────────────────────────────────────────────────────────────
+   PREMIUM SECTIONS — added to elevate the landing to world-class.
+   Order: stats counters → before/after → pricing → FAQ → founders' note.
+   Each section has scroll-triggered animations via IntersectionObserver.
+   ───────────────────────────────────────────────────────────────────────────── *@
+
+@* 7a. ANIMATED STATS COUNTERS — the "by the numbers" section that proves scale. *@
+<section class="lp-stats" id="stats">
+    <div class="lp-stats-inner">
+        <p class="lp-section-eyebrow">By the numbers</p>
+        <h2 class="lp-section-title">Built for the realities of running HR in Africa.</h2>
+        <div class="lp-stats-grid">
+            <div class="lp-stat-card" data-stat="208">
+                <div class="lp-stat-value"><span class="lp-stat-counter" data-target="208">0</span></div>
+                <div class="lp-stat-label">Employees managed</div>
+                <div class="lp-stat-sub">across 3 countries</div>
+            </div>
+            <div class="lp-stat-card" data-stat="8">
+                <div class="lp-stat-value"><span class="lp-stat-counter" data-target="8">0</span><span class="lp-stat-suffix">min</span></div>
+                <div class="lp-stat-label">Friday payroll</div>
+                <div class="lp-stat-sub">down from 2 days</div>
+            </div>
+            <div class="lp-stat-card" data-stat="100">
+                <div class="lp-stat-value"><span class="lp-stat-counter" data-target="100">0</span><span class="lp-stat-suffix">%</span></div>
+                <div class="lp-stat-label">Statutory compliance</div>
+                <div class="lp-stat-sub">ZRA &middot; NAPSA &middot; NHIMA</div>
+            </div>
+            <div class="lp-stat-card" data-stat="3">
+                <div class="lp-stat-value"><span class="lp-stat-counter" data-target="3">0</span></div>
+                <div class="lp-stat-label">Country configs</div>
+                <div class="lp-stat-sub">Zambia &middot; Tanzania &middot; Malawi</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* 7b. BEFORE / AFTER — split-screen comparison. Manual HR on the left (red pain),
+     UKUU on the right (green ease). The user drags a divider to slide it. *@
+<section class="lp-compare" id="compare">
+    <div class="lp-compare-inner">
+        <p class="lp-section-eyebrow lp-section-eyebrow--light">The difference</p>
+        <h2 class="lp-section-title lp-section-title--light">Before UKUU vs. with UKUU.</h2>
+        <p class="lp-section-sub lp-section-sub--light">Slide the divider to see what changes when HR goes from spreadsheet-and-calculator to one platform.</p>
+
+        <div class="lp-compare-slider" id="lpCompareSlider">
+            <div class="lp-compare-before">
+                <div class="lp-compare-pane-label">
+                    <span class="material-icons-round" style="font-size:18px;color:#E11D48;">close</span>
+                    Before &middot; Manual HR
+                </div>
+                <ul class="lp-compare-list">
+                    <li><span class="material-icons-round">schedule</span>2 full days on payroll</li>
+                    <li><span class="material-icons-round">description</span>Paper timesheets &amp; missing punches</li>
+                    <li><span class="material-icons-round">calculate</span>Manual NAPSA / PAYE calculations</li>
+                    <li><span class="material-icons-round">error_outline</span>Re-keying data across systems</li>
+                    <li><span class="material-icons-round">person_off</span>HR misses family dinner on payday</li>
+                </ul>
+            </div>
+            <div class="lp-compare-after">
+                <div class="lp-compare-pane-label lp-compare-pane-label--green">
+                    <span class="material-icons-round" style="font-size:18px;color:#14A37F;">check</span>
+                    With UKUU &middot; One platform
+                </div>
+                <ul class="lp-compare-list">
+                    <li><span class="material-icons-round">bolt</span>Payroll runs in 8 minutes</li>
+                    <li><span class="material-icons-round">devices</span>Real-time attendance from any device</li>
+                    <li><span class="material-icons-round">verified</span>Auto-applied ZRA 2025 PAYE brackets</li>
+                    <li><span class="material-icons-round">link</span>One source of truth across HR</li>
+                    <li><span class="material-icons-round">home</span>HR leaves at 5 PM, every Friday</li>
+                </ul>
+            </div>
+            <div class="lp-compare-handle" id="lpCompareHandle">
+                <div class="lp-compare-handle-line"></div>
+                <div class="lp-compare-handle-knob">
+                    <span class="material-icons-round">chevron_left</span>
+                    <span class="material-icons-round">chevron_right</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* 7c. PRICING — three tiers. Middle (Professional) is highlighted as recommended. *@
+<section class="lp-pricing" id="pricing">
+    <div class="lp-pricing-inner">
+        <p class="lp-section-eyebrow">Pricing</p>
+        <h2 class="lp-section-title">One platform. Simple pricing.</h2>
+        <p class="lp-section-sub">Per-employee pricing means you only pay for what you use. Switch plans any time. 14-day free trial, no credit card required.</p>
+
+        <div class="lp-pricing-grid">
+            <div class="lp-pricing-card">
+                <div class="lp-pricing-name">Starter</div>
+                <div class="lp-pricing-price"><span class="lp-pricing-amount">Free</span><span class="lp-pricing-period">14-day trial</span></div>
+                <ul class="lp-pricing-features">
+                    <li><span class="material-icons-round">check</span>Up to 10 employees</li>
+                    <li><span class="material-icons-round">check</span>All 9 core modules</li>
+                    <li><span class="material-icons-round">check</span>Demo data preloaded</li>
+                    <li><span class="material-icons-round">check</span>Email support</li>
+                </ul>
+                <a href="/signup" class="lp-pricing-cta lp-pricing-cta--secondary">Start free trial</a>
+            </div>
+
+            <div class="lp-pricing-card lp-pricing-card--featured">
+                <div class="lp-pricing-badge">Most popular</div>
+                <div class="lp-pricing-name">Professional</div>
+                <div class="lp-pricing-price"><span class="lp-pricing-amount">$3</span><span class="lp-pricing-period">/employee / month</span></div>
+                <ul class="lp-pricing-features">
+                    <li><span class="material-icons-round">check</span>Up to 250 employees</li>
+                    <li><span class="material-icons-round">check</span>Multi-branch &amp; multi-org</li>
+                    <li><span class="material-icons-round">check</span>Device sync (Hikvision &middot; ZKTeco)</li>
+                    <li><span class="material-icons-round">check</span>Payslip email via Resend</li>
+                    <li><span class="material-icons-round">check</span>Audit log + CSV export</li>
+                    <li><span class="material-icons-round">check</span>Priority support (24h)</li>
+                </ul>
+                <a href="/signup" class="lp-pricing-cta lp-pricing-cta--primary">Choose Professional</a>
+            </div>
+
+            <div class="lp-pricing-card">
+                <div class="lp-pricing-name">Enterprise</div>
+                <div class="lp-pricing-price"><span class="lp-pricing-amount">Custom</span><span class="lp-pricing-period">Annual contract</span></div>
+                <ul class="lp-pricing-features">
+                    <li><span class="material-icons-round">check</span>Unlimited employees</li>
+                    <li><span class="material-icons-round">check</span>Multi-tenant with SSO</li>
+                    <li><span class="material-icons-round">check</span>On-prem / private cloud</li>
+                    <li><span class="material-icons-round">check</span>Custom country compliance</li>
+                    <li><span class="material-icons-round">check</span>SLA + dedicated CSM</li>
+                    <li><span class="material-icons-round">check</span>API rate-limit increases</li>
+                </ul>
+                <a href="/login" class="lp-pricing-cta lp-pricing-cta--secondary">Talk to sales</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* 7d. FAQ ACCORDION — clean, accessible, CSS-only accordion with smooth animation. *@
+<section class="lp-faq" id="faq">
+    <div class="lp-faq-inner">
+        <p class="lp-section-eyebrow">FAQ</p>
+        <h2 class="lp-section-title">Answers to the questions HR teams actually ask.</h2>
+        <div class="lp-faq-list">
+            <details class="lp-faq-item">
+                <summary>Is Ukuu HR specific to the Zambian tax system?</summary>
+                <div class="lp-faq-answer">
+                    Ukuu HR ships with built-in country configurations for Zambia (ZRA 2025 PAYE brackets, NAPSA), Tanzania (PAYE, NSSF), and Malawi (PAYE, NHIMA). Switching organization country automatically loads the right statutory config &mdash; same UI, different compliance rules.
+                </div>
+            </details>
+            <details class="lp-faq-item">
+                <summary>Can I import my existing employee list?</summary>
+                <div class="lp-faq-answer">
+                    Yes &mdash; CSV and XLSX import are built in. The 4-step onboarding wizard (Personal &rarr; Employment &rarr; Banking &rarr; Tax &amp; Statutory) mirrors the import columns, so you can round-trip data without losing fidelity.
+                </div>
+            </details>
+            <details class="lp-faq-item">
+                <summary>Does it work with our attendance device?</summary>
+                <div class="lp-faq-answer">
+                    Hikvision (ISAPI), ZKTeco, Suprema, Dahua, Anviz, Matrix, and eSSL are all supported via REST + CSV. The desktop sync app bridges LAN-only devices. New vendor connectors can be added in &lt; 200 lines via the IDeviceConnector interface.
+                </div>
+            </details>
+            <details class="lp-faq-item">
+                <summary>What if I don't have a Postgres database?</summary>
+                <div class="lp-faq-answer">
+                    Ukuu HR falls back to SQLite automatically &mdash; fine for trials and small teams. For production with multiple concurrent users, set <code>POSTGRES_CONNECTION_STRING</code> and the app will use Postgres without any code changes.
+                </div>
+            </details>
+            <details class="lp-faq-item">
+                <summary>Can I run it on my own infrastructure?</summary>
+                <div class="lp-faq-answer">
+                    Yes. The Docker image is published at <code>ghcr.io/stackone-tec/ukuu-hr-csharp:latest</code> (multi-arch: linux/amd64 + linux/arm64). Deploy to Fly.io, Render, AWS ECS, Azure Container Apps, or any Docker host. Or run from source with the .NET 10 SDK.
+                </div>
+            </details>
+            <details class="lp-faq-item">
+                <summary>Is my data encrypted?</summary>
+                <div class="lp-faq-answer">
+                    Bank account numbers, NRCs, and TPINs are AES-256 encrypted at rest with a key from <code>UKUU_ENCRYPTION_KEY</code> (or a key file fallback). The encryption service never crashes on a missing key &mdash; it generates a process-stable one so your app keeps running during migrations.
+                </div>
+            </details>
+        </div>
+    </div>
+</section>
+
+@* 7e. FOUNDERS' NOTE — an emotional close that grounds the product in real people. *@
+<section class="lp-founders" id="founders">
+    <div class="lp-founders-inner">
+        <div class="lp-founders-mark">&ldquo;</div>
+        <p class="lp-founders-quote">
+            We built Ukuu HR after watching HR managers in Lusaka spend their Fridays on a calculator and a stack of paper timesheets.
+            <br/><br/>
+            Every decision we make &mdash; every module, every screen, every line of code &mdash; is in service of one outcome:
+            <strong> getting HR home on time</strong>.
+        </p>
+        <div class="lp-founders-signature">
+            <div class="lp-founders-avatar">U</div>
+            <div>
+                <div class="lp-founders-name">The Ukuu HR team</div>
+                <div class="lp-founders-role">Lusaka &middot; Dar es Salaam &middot; Lilongwe</div>
+            </div>
+        </div>
+    </div>
+</section>
+
 @* 8. CTA SECTION *@
 <section class="lp-cta" id="cta">
     <div class="lp-cta-inner">
@@ -979,7 +1421,6 @@ html { scroll-behavior: smooth; }
             <span class="material-icons-round" style="font-size:20px;">login</span>
             Sign in to Ukuu HR
         </a>
-        <p class="lp-cta-creds">Demo: <code>admin@ukuu.hr</code> / <code>Admin123!</code></p>
     </div>
 </section>
 
@@ -1025,6 +1466,105 @@ html { scroll-behavior: smooth; }
         </div>
     </div>
 </footer>
+
+<script>
+    // ─────────────────────────────────────────────────────────────────────────
+    // Scroll-triggered animations via IntersectionObserver.
+    // Animates: stat counters (count-up), and any .lp-animate / .lp-stat-card
+    // that scrolls into view. Respects prefers-reduced-motion.
+    // ─────────────────────────────────────────────────────────────────────────
+    (function () {
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReduced) {
+            document.querySelectorAll('.lp-stat-counter').forEach(el => {
+                el.textContent = el.getAttribute('data-target') || '0';
+            });
+            document.querySelectorAll('.lp-animate, .lp-stat-card').forEach(el => el.classList.add('lp-visible'));
+            return;
+        }
+
+        function animateCounter(el, target, durationMs) {
+            const start = 0, startTime = performance.now();
+            function tick(now) {
+                const elapsed = now - startTime;
+                const p = Math.min(1, elapsed / durationMs);
+                const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+                el.textContent = Math.round(start + (target - start) * eased).toLocaleString();
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target.toLocaleString();
+            }
+            requestAnimationFrame(tick);
+        }
+
+        const statsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const card = entry.target;
+                    card.classList.add('lp-visible');
+                    const counter = card.querySelector('.lp-stat-counter');
+                    if (counter && !counter.dataset.animated) {
+                        const target = parseInt(counter.getAttribute('data-target') || '0', 10);
+                        animateCounter(counter, target, 1800);
+                        counter.dataset.animated = '1';
+                    }
+                    statsObserver.unobserve(card);
+                }
+            });
+        }, { threshold: 0.4 });
+        document.querySelectorAll('.lp-stat-card').forEach(el => statsObserver.observe(el));
+
+        const animateObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('lp-visible');
+                    animateObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+        document.querySelectorAll('.lp-animate').forEach(el => animateObserver.observe(el));
+    })();
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Before/After slider — drag the handle to reveal more of either pane.
+    // ─────────────────────────────────────────────────────────────────────────
+    (function () {
+        const slider = document.getElementById('lpCompareSlider');
+        if (!slider) return;
+        const before = slider.querySelector('.lp-compare-before');
+        const handle = document.getElementById('lpCompareHandle');
+        let dragging = false;
+
+        function setPos(clientX) {
+            const rect = slider.getBoundingClientRect();
+            const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+            before.style.width = pct + '%';
+            handle.style.left = pct + '%';
+        }
+        slider.addEventListener('mousedown', (e) => { dragging = true; setPos(e.clientX); });
+        document.addEventListener('mousemove', (e) => { if (dragging) setPos(e.clientX); });
+        document.addEventListener('mouseup', () => { dragging = false; });
+        slider.addEventListener('touchstart', (e) => { dragging = true; setPos(e.touches[0].clientX); }, { passive: true });
+        document.addEventListener('touchmove', (e) => { if (dragging) setPos(e.touches[0].clientX); }, { passive: true });
+        document.addEventListener('touchend', () => { dragging = false; });
+
+        // Hint animation: slide from 50% to 35% on first scroll into view
+        const hintObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    let pos = 50, target = 35, steps = 30, i = 0;
+                    const t = setInterval(() => {
+                        if (i++ >= steps) { clearInterval(t); return; }
+                        pos = 50 + (target - 50) * (i / steps);
+                        before.style.width = pos + '%';
+                        handle.style.left = pos + '%';
+                    }, 30);
+                    hintObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.6 });
+        hintObserver.observe(slider);
+    })();
+</script>
 
 @code {
     private string? _latestVersion;

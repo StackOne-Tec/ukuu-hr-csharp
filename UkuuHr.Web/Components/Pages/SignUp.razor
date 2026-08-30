@@ -275,22 +275,12 @@
             @* Divider *@
             <div class="bk-divider"><span>or continue with</span></div>
 
-            @* Social buttons *@
-            <div class="bk-social-grid">
-                <button type="button" class="bk-social-btn" @onclick="ShowGoogleComingSoon">
+            @* Social buttons — Google only (per product direction) *@
+            <div class="bk-social-grid bk-social-grid--single">
+                <a href="/auth/google/login?returnUrl=/dashboard" class="bk-social-btn" aria-label="Continue with Google">
                     <span class="bk-social-icon bk-social-icon-google"></span>
-                    Google
-                </button>
-                <button type="button" class="bk-social-btn" @onclick="ShowMicrosoftComingSoon">
-                    <span class="bk-social-icon bk-social-icon-ms">
-                        <span></span><span></span><span></span><span></span>
-                    </span>
-                    Microsoft
-                </button>
-                <button type="button" class="bk-social-btn" @onclick="ShowGitHubComingSoon">
-                    <span class="bk-social-icon" style="background:#24292e;color:white;font-size:14px;font-weight:700;border-radius:50%;display:flex;align-items:center;justify-content:center;">G</span>
-                    GitHub
-                </button>
+                    Continue with Google
+                </a>
             </div>
 
             @* Feature highlights *@
@@ -380,6 +370,9 @@
     .bk-divider::before,
     .bk-divider::after { content: ''; flex: 1; height: 1px; background: var(--bk-line); }
     .bk-social-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    /* Single-button variant — when only Google is shown, the button is centered */
+    .bk-social-grid--single { grid-template-columns: 1fr; max-width: 320px; margin: 0 auto; }
+    .bk-social-grid--single .bk-social-btn { padding: 0 18px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 10px; color: inherit; }
     .bk-social-btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border: 1.5px solid var(--bk-line); border-radius: 10px; background: var(--bk-card-bg); font-family: inherit; font-size: 12px; font-weight: 600; color: var(--bk-ink); cursor: pointer; transition: all 0.2s ease; }
     .bk-social-btn:hover { border-color: var(--bk-accent); background: rgba(37,22,63,0.04); }
     .bk-social-icon { width: 18px; height: 18px; flex-shrink: 0; }
@@ -430,10 +423,6 @@
     private string _passwordHint = "Use at least 8 characters with uppercase, lowercase, and numbers";
 
     private void TogglePasswordVisibility() => _showPassword = !_showPassword;
-
-    private void ShowGoogleComingSoon() => Snackbar.Add("Google sign-up coming soon.", Severity.Info);
-    private void ShowMicrosoftComingSoon() => Snackbar.Add("Microsoft sign-up coming soon.", Severity.Info);
-    private void ShowGitHubComingSoon() => Snackbar.Add("GitHub sign-up coming soon.", Severity.Info);
 
     private void ComputePasswordStrength()
     {
