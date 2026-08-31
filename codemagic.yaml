@@ -1,0 +1,170 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Codemagic CI/CD configuration for Ukuu HR — Desktop Bridge app
+#
+# Builds the UkuuHrSync desktop app (Avalonia UI) for:
+#   1. Windows x64  — self-contained single-file .exe (no .NET runtime needed)
+#   2. macOS arm64  — .app bundle wrapped in an ad-hoc signed .dmg
+#
+# Triggers:
+#   - On push to main (build only, no release)
+#   - On tag push matching v* (build + publish to GitHub Releases)
+#   - Manual dispatch via the Codemagic UI
+#
+# Required environment variables (set in Codemagic → App → Environment):
+#   - GH_TOKEN         — GitHub PAT with `repo` scope (used by `gh release` to
+#                        attach artifacts to the GitHub Release on tag pushes)
+#
+# Artifacts produced:
+#   - UkuuHr-Windows-x64.exe    (~50 MB, self-contained, SmartScreen warning expected)
+#   - UkuuHr-macOS-arm64.dmg    (~45 MB, ad-hoc signed, LSUIElement=true background app)
+#
+# The landing page links to these via:
+#   /downloads/UkuuHr-Windows-x64.exe   (served from wwwroot/downloads/)
+#   /downloads/UkuuHr-macOS-arm64       (served from wwwroot/downloads/)
+# ─────────────────────────────────────────────────────────────────────────────
+
+workflows:
+  # ── Workflow: Windows .exe (x64) ──────────────────────────────────────────
+  windows-app:
+    name: UkuuHrSync Windows .exe
+    instance_type: linux
+    max_build_duration: 30
+    environment:
+      vars:
+        DOTNET_VERSION: "10.0.x"
+    triggering:
+      events:
+        - push
+      branch_include:
+        - main
+      tag_include:
+        - "v*"
+      cancel_previous_builds: true
+    scripts:
+      - name: Install .NET 10 SDK
+        script: |
+          wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
+          chmod +x /tmp/dotnet-install.sh
+          /tmp/dotnet-install.sh --channel 10.0 --install-dir $HOME/.dotnet
+          echo "export PATH=$HOME/.dotnet:$PATH" >> $CM_ENV
+      - name: Restore NuGet packages
+        script: |
+          export PATH="$HOME/.dotnet:$PATH"
+          dotnet restore UkuuHr.Desktop/UkuuHr.Desktop.csproj
+      - name: Publish Windows x64 single-file exe
+        script: |
+          export PATH="$HOME/.dotnet:$PATH"
+          dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj \
+            -c Release -r win-x64 --self-contained true \
+            -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
+            -o ./publish/windows
+          # Rename to match the Dockerfile + GitHub Actions output name
+          mv ./publish/windows/UkuuHrSync.exe ./publish/windows/UkuuHr-Windows-x64.exe
+      - name: Verify the .exe
+        script: |
+          ls -lh ./publish/windows/UkuuHr-Windows-x64.exe
+          file ./publish/windows/UkuuHr-Windows-x64.exe
+    artifacts:
+      - publish/windows/UkuuHr-Windows-x64.exe
+    publishing:
+      # On tag pushes, attach to the GitHub Release (uses Codemagic's built-in
+      # GitHub integration if configured, OR falls back to `gh release` CLI).
+      github:
+        tags:
+          - "v*"
+
+  # ── Workflow: macOS .dmg (arm64) ──────────────────────────────────────────
+  # Requires a macOS runner. Codemagic's `instance_type: macos` selects the
+  # Apple Silicon (M1/M2) runner, which lets us publish osx-arm64 natively and
+  # use `hdiutil` to create the .dmg.
+  macos-app:
+    name: UkuuHrSync macOS .dmg
+    instance_type: macos   # Apple Silicon runner
+    max_build_duration: 45
+    environment:
+      vars:
+        DOTNET_VERSION: "10.0.x"
+    triggering:
+      events:
+        - push
+      branch_include:
+        - main
+      tag_include:
+        - "v*"
+      cancel_previous_builds: true
+    scripts:
+      - name: Install .NET 10 SDK
+        script: |
+          curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+          chmod +x /tmp/dotnet-install.sh
+          /tmp/dotnet-install.sh --channel 10.0 --install-dir $HOME/.dotnet
+          echo "export PATH=$HOME/.dotnet:$PATH" >> $CM_ENV
+      - name: Restore NuGet packages
+        script: |
+          export PATH="$HOME/.dotnet:$PATH"
+          dotnet restore UkuuHr.Desktop/UkuuHr.Desktop.csproj
+      - name: Publish macOS arm64 single-file binary
+        script: |
+          export PATH="$HOME/.dotnet:$PATH"
+          dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj \
+            -c Release -r osx-arm64 --self-contained true \
+            -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
+            -o ./publish/macos
+      - name: Stage .app bundle with brand icon + Info.plist
+        script: |
+          set -e
+          APP=./dmg/UkuuHrSync.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp ./publish/macos/UkuuHrSync "$APP/Contents/MacOS/UkuuHrSync"
+          chmod +x "$APP/Contents/MacOS/UkuuHrSync"
+          cp ./UkuuHr.Desktop/Ukuu_brand_mark.icns "$APP/Contents/Resources/UkuuHrSync.icns"
+
+          cat > "$APP/Contents/Info.plist" <<PLISTEOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key><string>Ukuu HR Sync</string>
+              <key>CFBundleDisplayName</key><string>Ukuu HR Sync</string>
+              <key>CFBundleIdentifier</key><string>com.ukuuhr.syncbridge</string>
+              <key>CFBundleVersion</key><string>3.0.0</string>
+              <key>CFBundleShortVersionString</key><string>3.0.0</string>
+              <key>CFBundleExecutable</key><string>UkuuHrSync</string>
+              <key>CFBundleIconFile</key><string>UkuuHrSync</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+              <key>LSMinimumSystemVersion</key><string>11.0</string>
+              <key>NSHighResolutionCapable</key><true/>
+              <key>LSUIElement</key><true/>
+          </dict>
+          </plist>
+          PLISTEOF
+
+          # Create Applications symlink for drag-to-install
+          mkdir -p ./dmg/Applications
+          ln -s /Applications ./dmg/Applications
+      - name: Ad-hoc codesign the .app bundle
+        script: |
+          # Ad-hoc sign (-s -) the app and all nested code (frameworks, dylibs).
+          # This prevents the macOS "app is damaged and can't be opened" error.
+          codesign --force --deep -s - ./dmg/UkuuHrSync.app
+          codesign --verify --verbose ./dmg/UkuuHrSync.app 2>&1 || true
+          echo "Ad-hoc codesign of .app complete"
+      - name: Create .dmg
+        script: |
+          hdiutil create -volname "Ukuu HR Sync" -srcfolder ./dmg \
+            -ov -format UDZO UkuuHr-macOS-arm64.dmg
+      - name: Ad-hoc codesign the .dmg
+        script: |
+          codesign --force -s - UkuuHr-macOS-arm64.dmg
+          codesign --verify --verbose UkuuHr-macOS-arm64.dmg 2>&1 || true
+          echo "DMG codesign complete"
+      - name: Verify .dmg
+        script: |
+          hdiutil verify UkuuHr-macOS-arm64.dmg
+          ls -lh UkuuHr-macOS-arm64.dmg
+    artifacts:
+      - UkuuHr-macOS-arm64.dmg
+    publishing:
+      github:
+        tags:
+          - "v*"

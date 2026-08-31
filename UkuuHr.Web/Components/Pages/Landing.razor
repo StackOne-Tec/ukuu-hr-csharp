@@ -785,6 +785,23 @@ html { scroll-behavior: smooth; }
 @@media (prefers-reduced-motion: reduce) {
     .lp-animate, .lp-stat-card, .lp-pricing-card { transition: none !important; opacity: 1 !important; transform: none !important; }
 }
+
+/* ─── Build status banner (in the download section) ─── */
+.lp-build-status {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
+    margin-bottom: 40px; padding: 14px 20px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.lp-build-status-item {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.75);
+}
+.lp-build-badge { height: 18px; width: auto; border-radius: 3px; }
+
 </style>
 
 @* HEADER *@
@@ -1027,6 +1044,23 @@ html { scroll-behavior: smooth; }
         <p class="lp-download-eyebrow">Get Started</p>
         <h2 class="lp-download-title">Run Ukuu HR anywhere.</h2>
         <p class="lp-download-sub">Desktop apps, Docker container, or browser PWA &mdash; choose what works for you.</p>
+
+        @* ── Build status banner (links to Codemagic + GitHub Actions) ── *@
+        <div class="lp-build-status">
+            <div class="lp-build-status-item">
+                <img src="https://api.codemagic.io/apps/status?icon_only=true" alt="Codemagic build status" class="lp-build-badge" onerror="this.style.display='none'" />
+                <span>Built via Codemagic CI</span>
+            </div>
+            <div class="lp-build-status-item">
+                <img src="https://github.com/StackOne-Tec/ukuu-hr-csharp/actions/workflows/desktop-build.yml/badge.svg" alt="GitHub Actions build status" class="lp-build-badge" />
+                <span>Windows + macOS</span>
+            </div>
+            <div class="lp-build-status-item">
+                <span class="material-icons-round" style="font-size:14px;color:var(--lp-green);">verified</span>
+                <span>Ad-hoc signed &middot; Self-contained</span>
+            </div>
+        </div>
+
         <div class="lp-download-cards">
             <div class="lp-dl-card">
                 <div class="lp-dl-icon"><span class="material-icons-round">desktop_windows</span></div>
