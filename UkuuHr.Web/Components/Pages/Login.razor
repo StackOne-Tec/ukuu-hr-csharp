@@ -1319,7 +1319,7 @@
             </div>
 
             @* Login form with exact Blazor bindings *@
-            <form method="post" action="/auth/login@(_returnUrlEncoded)">
+            <form method="post" action="/auth/login@(_returnUrlEncoded)" @formname="auth-login">
                 <Antiforgery />
 
                 @if (_error != null)

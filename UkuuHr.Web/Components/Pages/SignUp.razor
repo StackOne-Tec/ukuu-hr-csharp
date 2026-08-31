@@ -86,7 +86,7 @@
                 </div>
             }
 
-            <form method="post" action="/auth/signup" class="bk-form">
+            <form method="post" action="/auth/signup" @formname="auth-signup" class="bk-form">
                 <Antiforgery />
 
                 @* Name row *@
