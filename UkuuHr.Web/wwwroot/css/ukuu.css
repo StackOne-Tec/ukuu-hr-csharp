@@ -2744,6 +2744,40 @@ html[data-theme="dark"] select.bk-input:focus {
     white-space: nowrap;
 }
 
+/* ── Super Admin section — visually distinct from regular Administration ── */
+.bk-admin-sidebar-nav--super {
+    border-top: 1px solid rgba(167, 139, 250, 0.15);
+    padding-top: 8px;
+    margin-top: 4px;
+}
+.bk-admin-sidebar-section-label--super {
+    color: rgba(167, 139, 250, 0.85);
+    background: rgba(123, 47, 190, 0.08);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin: 8px 8px 4px;
+    display: flex;
+    align-items: center;
+}
+.bk-admin-sidebar-item--super {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.08), rgba(167, 139, 250, 0.04));
+    border: 1px solid rgba(123, 47, 190, 0.12);
+    border-radius: 10px;
+    margin: 4px 8px;
+    padding: 10px 12px !important;
+}
+.bk-admin-sidebar-item--super:hover {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.15), rgba(167, 139, 250, 0.08));
+    border-color: rgba(167, 139, 250, 0.25);
+}
+.bk-admin-sidebar-item--super.active {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.2), rgba(167, 139, 250, 0.1));
+    border-color: rgba(167, 139, 250, 0.35);
+}
+.bk-admin-sidebar-item--super .bk-admin-sidebar-item-icon {
+    color: rgba(167, 139, 250, 0.9);
+}
+
 .bk-admin-sidebar-item {
     display: flex;
     align-items: center;
