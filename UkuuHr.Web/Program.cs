@@ -213,12 +213,8 @@ builder.Services.AddScoped<TimeCardService>();
 builder.Services.AddHttpClient("KeepAlive");
 // Default HttpClient for Blazor pages that @inject HttpClient (e.g. Import From Device, API Keys page)
 // IMPORTANT: In Blazor Server, the injected HttpClient does NOT automatically forward
-// the user's auth cookies. We add a DelegatingHandler that copies the Cookie header
-// from the current HttpContext (via IHttpContextAccessor) to every HttpClient request.
-builder.Services.AddHttpClient<HttpClientForwardingHandler>(client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
+// the user's auth cookies. We use a custom DelegatingHandler to copy cookies.
+builder.Services.AddTransient<HttpClientForwardingHandler>();
 builder.Services.AddScoped<HttpClient>(sp =>
 {
     var handler = sp.GetRequiredService<HttpClientForwardingHandler>();
