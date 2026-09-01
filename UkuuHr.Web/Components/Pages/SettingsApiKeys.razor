@@ -673,7 +673,7 @@
         _loading = true;
         try
         {
-            var response = await Http.GetAsync("/api/api-keys");
+            var response = await Http.GetAsync(Nav.ToAbsoluteUri("/api/api-keys"));
             if (response.IsSuccessStatusCode)
             {
                 _keys = await response.Content.ReadFromJsonAsync<List<ApiKeyViewModel>>() ?? new();
@@ -728,7 +728,7 @@
         _creating = true;
         try
         {
-            var response = await Http.PostAsJsonAsync("/api/api-keys/create", new
+            var response = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri("/api/api-keys/create"), new
             {
                 Name = _createForm.Name,
                 Scopes = _createForm.Scopes,
@@ -762,7 +762,7 @@
     {
         try
         {
-            var response = await Http.PostAsJsonAsync($"/api/api-keys/revoke/{id}", new { Reason = "Revoked via Settings UI" });
+            var response = await Http.PostAsJsonAsync(Nav.ToAbsoluteUri($"/api/api-keys/revoke/{id}"), new { Reason = "Revoked via Settings UI" });
             if (response.IsSuccessStatusCode)
             {
                 Snackbar.Add("API key revoked.", Severity.Success);
@@ -783,7 +783,7 @@
     {
         try
         {
-            var response = await Http.PostAsync($"/api/api-keys/rotate/{id}", null);
+            var response = await Http.PostAsync(Nav.ToAbsoluteUri($"/api/api-keys/rotate/{id}"), null);
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<RotateKeyResponse>();
@@ -806,7 +806,7 @@
     {
         try
         {
-            var response = await Http.DeleteAsync($"/api/api-keys/{id}");
+            var response = await Http.DeleteAsync(Nav.ToAbsoluteUri($"/api/api-keys/{id}"));
             if (response.IsSuccessStatusCode)
             {
                 Snackbar.Add($"API key '{name}' deleted.", Severity.Success);
