@@ -212,7 +212,18 @@ builder.Services.AddScoped<OvertimeService>();
 builder.Services.AddScoped<TimeCardService>();
 builder.Services.AddHttpClient("KeepAlive");
 // Default HttpClient for Blazor pages that @inject HttpClient (e.g. Import From Device, API Keys page)
-builder.Services.AddHttpClient();
+// IMPORTANT: In Blazor Server, the injected HttpClient does NOT automatically forward
+// the user's auth cookies. We add a DelegatingHandler that copies the Cookie header
+// from the current HttpContext (via IHttpContextAccessor) to every HttpClient request.
+builder.Services.AddHttpClient<HttpClientForwardingHandler>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<HttpClient>(sp =>
+{
+    var handler = sp.GetRequiredService<HttpClientForwardingHandler>();
+    return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+});
 
 // ───── Phase 1: FR-003 / FR-004 / FR-005 — Shifts & Tolerance ─────
 builder.Services.AddScoped<ShiftService>();
