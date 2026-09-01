@@ -519,12 +519,18 @@ app.Use(async (ctx, next) =>
         // ── Try database API key first ──────────────────────────────────────
         if (!string.IsNullOrEmpty(providedKey))
         {
-            var db = ctx.RequestServices.GetRequiredService<UkuuHrDbContext>();
+            // IMPORTANT: create a NEW DbContext scope for the API key lookup + usage
+            // update. The request's scoped DbContext is also used by the endpoint
+            // handler — using it here causes "A second operation was started on this
+            // context instance before a previous operation completed" when the
+            // fire-and-forget SaveAsync runs concurrently with the endpoint's query.
+            using var keyScope = ctx.RequestServices.CreateScope();
+            var keyDb = keyScope.ServiceProvider.GetRequiredService<UkuuHrDbContext>();
             var keyHash = Convert.ToHexString(
                 System.Security.Cryptography.SHA256.HashData(
                     System.Text.Encoding.UTF8.GetBytes(providedKey))).ToLowerInvariant();
 
-            var keyRecord = await db.ApiKeys.FirstOrDefaultAsync(k => k.KeyHash == keyHash && k.RevokedAt == null);
+            var keyRecord = await keyDb.ApiKeys.FirstOrDefaultAsync(k => k.KeyHash == keyHash && k.RevokedAt == null);
 
             if (keyRecord != null && (keyRecord.ExpiresAt == null || keyRecord.ExpiresAt > DateTime.UtcNow))
             {
@@ -555,7 +561,7 @@ app.Use(async (ctx, next) =>
                         keyRecord.LastUsedAt = DateTime.UtcNow;
                         keyRecord.LastUsedIp = clientIp;
                         keyRecord.TotalRequestCount++;
-                        await db.SaveChangesAsync();
+                        await keyDb.SaveChangesAsync();
                     }
                     catch { /* non-critical — don't fail the request */ }
                 });
