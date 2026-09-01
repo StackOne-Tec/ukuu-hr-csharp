@@ -211,7 +211,7 @@ builder.Services.AddScoped<HikvisionSyncService>();
 builder.Services.AddScoped<OvertimeService>();
 builder.Services.AddScoped<TimeCardService>();
 builder.Services.AddHttpClient("KeepAlive");
-// Default HttpClient for Blazor pages that @inject HttpClient (e.g. Import From Device)
+// Default HttpClient for Blazor pages that @inject HttpClient (e.g. Import From Device, API Keys page)
 builder.Services.AddHttpClient();
 
 // ───── Phase 1: FR-003 / FR-004 / FR-005 — Shifts & Tolerance ─────
