@@ -162,8 +162,56 @@ workflows:
         script: |
           hdiutil verify UkuuHr-macOS-arm64.dmg
           ls -lh UkuuHr-macOS-arm64.dmg
+      - name: Publish macOS x64 (Intel) single-file binary
+        script: |
+          export PATH="$HOME/.dotnet:$PATH"
+          dotnet publish UkuuHr.Desktop/UkuuHr.Desktop.csproj \
+            -c Release -r osx-x64 --self-contained true \
+            -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true \
+            -o ./publish/macos-x64
+      - name: Stage Intel .app bundle
+        script: |
+          set -e
+          APP=./dmg-x64/UkuuHrSync.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp ./publish/macos-x64/UkuuHrSync "$APP/Contents/MacOS/UkuuHrSync"
+          chmod +x "$APP/Contents/MacOS/UkuuHrSync"
+          cp ./UkuuHr.Desktop/Ukuu_brand_mark.icns "$APP/Contents/Resources/UkuuHrSync.icns"
+          cat > "$APP/Contents/Info.plist" <<PLISTEOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key><string>Ukuu HR Sync</string>
+              <key>CFBundleDisplayName</key><string>Ukuu HR Sync</string>
+              <key>CFBundleIdentifier</key><string>com.ukuuhr.syncbridge</string>
+              <key>CFBundleVersion</key><string>3.0.0</string>
+              <key>CFBundleShortVersionString</key><string>3.0.0</string>
+              <key>CFBundleExecutable</key><string>UkuuHrSync</string>
+              <key>CFBundleIconFile</key><string>UkuuHrSync</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+              <key>LSMinimumSystemVersion</key><string>11.0</string>
+              <key>NSHighResolutionCapable</key><true/>
+              <key>LSUIElement</key><true/>
+          </dict>
+          </plist>
+          PLISTEOF
+          mkdir -p ./dmg-x64/Applications
+          ln -s /Applications ./dmg-x64/Applications
+      - name: Ad-hoc codesign Intel .app
+        script: |
+          codesign --force --deep -s - ./dmg-x64/UkuuHrSync.app
+          codesign --verify --verbose ./dmg-x64/UkuuHrSync.app 2>&1 || true
+      - name: Create Intel .dmg
+        script: |
+          hdiutil create -volname "Ukuu HR Sync (Intel)" -srcfolder ./dmg-x64 \
+            -ov -format UDZO UkuuHr-macOS-x64.dmg
+          codesign --force -s - UkuuHr-macOS-x64.dmg
+          hdiutil verify UkuuHr-macOS-x64.dmg
+          ls -lh UkuuHr-macOS-x64.dmg
     artifacts:
       - UkuuHr-macOS-arm64.dmg
+      - UkuuHr-macOS-x64.dmg
     publishing:
       github:
         tags:

@@ -633,7 +633,8 @@ app.MapGet("/api/downloads/{filename}", (string filename, HttpContext ctx) =>
         "UkuuHr-macOS-arm64",
         "UkuuHr-macOS-x64",
         "UkuuHr-Linux-x64",
-        "UkuuHr-macOS-arm64.dmg"
+        "UkuuHr-macOS-arm64.dmg",
+        "UkuuHr-macOS-x64.dmg"
     };
 
     if (!allowed.Contains(filename))
