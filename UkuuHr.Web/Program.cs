@@ -134,8 +134,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = builder.Environment.IsProduction()
             ? CookieSecurePolicy.Always
             : CookieSecurePolicy.SameAsRequest;
-        // P2/M-2: SameSite=Strict — cookie only sent for same-site requests (strongest CSRF defense)
-        options.Cookie.SameSite = SameSiteMode.Strict;
+        // SameSite=Lax — cookie is sent on top-level navigations (GET redirects after
+        // POST, e.g. signup → /dashboard) but NOT on cross-site POST requests (CSRF-safe).
+        // Strict was too aggressive: it blocked the auth cookie on the 302 redirect
+        // after signup/login, so users appeared unauthenticated immediately after
+        // creating an account.
+        options.Cookie.SameSite = SameSiteMode.Lax;
         // P2/M-7: Cap maximum session lifetime to 24 hours (prevent infinite sliding sessions)
         options.Events = new CookieAuthenticationEvents
         {
