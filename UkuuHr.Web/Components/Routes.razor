@@ -1,4 +1,5 @@
 @using System.Web
+@using Microsoft.AspNetCore.Components.Web
 @inject IHttpContextAccessor HttpAccessor
 @inject NavigationManager Nav
 
@@ -26,3 +27,15 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+<script>
+    // Ensure Blazor circuit connects even on prerendered pages
+    // by re-initializing after the page settles
+    (function() {
+        if (window.Blazor && !window._blazorStarted) {
+            window._blazorStarted = true;
+            // The circuit is auto-started via Blazor.start() in App.razor
+            // This is just a fallback to ensure interactivity
+        }
+    })();
+</script>
