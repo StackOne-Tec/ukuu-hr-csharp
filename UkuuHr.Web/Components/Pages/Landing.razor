@@ -802,7 +802,52 @@ html { scroll-behavior: smooth; }
 }
 .lp-build-badge { height: 18px; width: auto; border-radius: 3px; }
 
+/* ─── Video frame — cinematic product reel ─── */
+.lp-video-frame {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(123,47,190,0.2);
+    transition: box-shadow 0.4s ease;
+}
+.lp-video-frame:hover {
+    box-shadow: 0 50px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(167,139,250,0.35);
+}
+.lp-video-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.15);
+    opacity: 0; transition: opacity 0.3s ease;
+    cursor: pointer;
+}
+.lp-video-play-btn {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid rgba(255,255,255,0.2);
+    color: #fff;
+    transition: all 0.25s ease;
+}
+.lp-video-play-btn:hover {
+    background: rgba(123,47,190,0.4);
+    border-color: rgba(167,139,250,0.5);
+    transform: scale(1.08);
+}
+
+/* ─── Scroll progress indicator ─── */
+.lp-scroll-progress {
+    position: fixed; top: 0; left: 0; height: 3px; z-index: 9999;
+    background: linear-gradient(90deg, #7B2FBE 0%, #A78BFA 50%, #e85d75 100%);
+    width: 0%;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 8px rgba(167,139,250,0.5);
+}
+
 </style>
+
+@* Scroll progress indicator — shows reading progress at the top of the page *@
+<div class="lp-scroll-progress" id="lpScrollProgress"></div>
 
 @* HEADER *@
 <header class="lp-header">
@@ -873,24 +918,33 @@ html { scroll-behavior: smooth; }
         </div>
     </div>
 
-    @* Demo Video — cinematic product reel *@
+    @* Demo Video — cinematic product reel with robust playback + cache-busting *@
     <div class="lp-hero-preview" style="animation: lpFadeUp 0.8s ease-out 0.5s both;">
-        <div style="position:relative;border-radius:18px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,0.5),0 0 0 1px rgba(123,47,190,0.2);">
+        <div class="lp-video-frame" id="lpVideoFrame">
             <video
+                id="lpHeroVideo"
                 autoplay
                 muted
                 loop
                 playsinline
-                poster="/ukuu-brand-mark.png"
+                preload="auto"
+                poster="/ukuu-brand-mark.png?v=@_videoVersion"
                 style="width:100%;height:auto;display:block;border-radius:18px;"
-                preload="metadata"
+                onerror="this.style.display='none';document.getElementById('lpVideoFallback').style.display='flex';"
             >
-                <source src="/UKUU_Demo_Reel.mp4" type="video/mp4" />
+                <source src="/UKUU_Demo_Reel.mp4?v=@_videoVersion" type="video/mp4" />
+                <source src="/ukuu-demo-reel.mp4?v=@_videoVersion" type="video/mp4" />
             </video>
-            @* Play button overlay *@
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.15);opacity:0;transition:opacity 0.3s ease;cursor:pointer;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'" onclick="this.previousElementSibling.play();this.style.display='none';">
-                <div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.15);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.2);">
-                    <span style="font-size:32px;color:#fff;margin-left:4px;">▶</span>
+            @* Fallback — shows the brand mark + "Demo video loading..." if the video fails *@
+            <div id="lpVideoFallback" style="display:none;width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#0E0620 0%,#1A0D42 50%,#2D1B69 100%);border-radius:18px;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+                <img src="/ukuu-brand-mark.png?v=@_videoVersion" alt="Ukuu HR" style="width:80px;height:80px;opacity:0.6;" />
+                <span style="color:rgba(255,255,255,0.5);font-size:14px;">Demo video loading…</span>
+                <a href="/UKUU_Demo_Reel.mp4?v=@_videoVersion" style="color:var(--lp-lavender);font-size:13px;text-decoration:none;">Click here to play manually</a>
+            </div>
+            @* Play button overlay — fades in on hover, fades out on play *@
+            <div class="lp-video-overlay" id="lpVideoOverlay" onclick="(function(v,o){if(v.paused){v.play();o.style.opacity='0';}else{v.pause();o.style.opacity='1';}})(document.getElementById('lpHeroVideo'),this);" onmouseover="this.style.opacity='1'" onmouseout="if(!document.getElementById('lpHeroVideo').paused)this.style.opacity='0'">
+                <div class="lp-video-play-btn">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                 </div>
             </div>
         </div>
@@ -1503,6 +1557,22 @@ html { scroll-behavior: smooth; }
 
 <script>
     // ─────────────────────────────────────────────────────────────────────────
+    // Scroll progress indicator — updates the bar width as the user scrolls.
+    // ─────────────────────────────────────────────────────────────────────────
+    (function () {
+        const bar = document.getElementById('lpScrollProgress');
+        if (!bar) return;
+        function updateProgress() {
+            const scrollTop = window.scrollY || document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const pct = scrollHeight > 0 ? Math.min(100, (scrollTop / scrollHeight) * 100) : 0;
+            bar.style.width = pct + '%';
+        }
+        window.addEventListener('scroll', updateProgress, { passive: true });
+        updateProgress();
+    })();
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Scroll-triggered animations via IntersectionObserver.
     // Animates: stat counters (count-up), and any .lp-animate / .lp-stat-card
     // that scrolls into view. Respects prefers-reduced-motion.
@@ -1604,6 +1674,10 @@ html { scroll-behavior: smooth; }
     private string? _latestVersion;
     private string _winFileSize = "calculating\u2026";
     private string _macFileSize = "calculating\u2026";
+    // Cache-busting version for the demo video + images.
+    // Uses the assembly build timestamp so every deploy generates a new URL,
+    // forcing browsers to fetch fresh assets instead of serving stale cache.
+    private string _videoVersion = System.IO.File.GetLastWriteTime(typeof(Program).Assembly.Location).ToString("yyyyMMddHHmmss");
 
     protected override void OnInitialized()
     {
