@@ -125,8 +125,60 @@
 .att-custom-header p { font-size:12px; color:var(--bk-ink-3); margin:2px 0 0; }
 
 /* ─── Responsive ─── */
-@@media (max-width:900px) { .att-stats { grid-template-columns:repeat(2,1fr); } .att-header { flex-direction:column; } .att-header-actions { width:100%; } }
-@@media (max-width:600px) { .att-stats { grid-template-columns:1fr; gap:12px; } .att-stat { padding:16px; } .att-stat-value { font-size:22px; } .att-filter { flex-direction:column; align-items:stretch; } .att-tabs { flex-wrap:nowrap; overflow-x:auto; } }
+@@media (max-width:900px) { .att-stats { grid-template-columns:repeat(2,1fr); } .att-header { flex-direction:column; } .att-header-actions { width:100%; } .att-filter-bar { flex-direction:column; } .att-filter-divider { display:none; } }
+@@media (max-width:600px) { .att-stats { grid-template-columns:1fr; gap:12px; } .att-stat { padding:16px; } .att-stat-value { font-size:22px; } .att-filter-bar { flex-direction:column; } .att-filter-section--inline { flex-direction:column; } .att-search-wrap { min-width:100%; } .att-filter-select { width:100%; } .att-tabs { flex-wrap:nowrap; overflow-x:auto; } }
+
+/* ─── Enhanced Filter Bar ─── */
+.att-filter-bar {
+    display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap;
+    background:var(--bk-bg); border:1px solid var(--bk-line); border-radius:16px;
+    padding:16px 20px; margin-bottom:16px;
+    animation:attSlideUp 0.5s ease-out 0.25s both;
+}
+.att-filter-section { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.att-filter-section--inline { flex:1; min-width:300px; gap:8px; }
+.att-filter-divider { width:1px; align-self:stretch; background:var(--bk-line); margin:0 4px; }
+.att-search-wrap {
+    position:relative; display:flex; align-items:center; gap:6px;
+    flex:1; min-width:200px;
+    background:var(--bk-muted); border:1px solid var(--bk-line); border-radius:10px;
+    padding:0 12px; height:40px;
+    transition:all 0.2s ease;
+}
+.att-search-wrap:focus-within { border-color:var(--bk-accent); background:#fff; box-shadow:0 0 0 3px rgba(123,47,190,0.1); }
+.att-search-input {
+    flex:1; border:none; background:transparent; outline:none;
+    font-family:inherit; font-size:13px; color:var(--bk-ink); height:100%;
+}
+.att-search-input::placeholder { color:var(--bk-ink-3); }
+.att-filter-select {
+    height:40px; border:1px solid var(--bk-line); border-radius:10px;
+    background:var(--bk-muted); padding:0 28px 0 12px;
+    font-family:inherit; font-size:13px; color:var(--bk-ink); outline:none;
+    cursor:pointer; transition:all 0.2s ease;
+    appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%238B7DAB'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 8px center;
+}
+.att-filter-select:focus { border-color:var(--bk-accent); background-color:#fff; box-shadow:0 0 0 3px rgba(123,47,190,0.1); }
+.att-clear-btn {
+    display:inline-flex; align-items:center; gap:4px; padding:8px 14px;
+    border-radius:10px; font-size:12px; font-weight:600;
+    color:var(--bk-ink-3); border:1px solid var(--bk-line);
+    background:transparent; cursor:pointer; transition:all 0.2s ease; white-space:nowrap;
+}
+.att-clear-btn:hover { background:var(--bk-muted); border-color:var(--bk-line-strong); color:var(--bk-ink); }
+.att-result-count {
+    font-size:13px; color:var(--bk-ink-3); margin-bottom:16px; padding:0 4px;
+    animation:attSlideUp 0.4s ease-out 0.35s both;
+}
+.att-result-count strong { color:var(--bk-ink); font-weight:700; }
+.att-table tr.att-hidden { display:none; }
+.att-no-results {
+    padding:40px 20px; text-align:center; color:var(--bk-ink-3);
+    background:var(--bk-bg); border:1px solid var(--bk-line); border-radius:12px;
+}
+.att-no-results .material-icons-round { font-size:48px; opacity:0.3; margin-bottom:12px; display:block; }
 </style>
 
 <div class="att-page">
@@ -215,47 +267,84 @@
             </a>
         </div>
 
-        @* ── Date Filter ─ *@
-        <div class="att-filter">
-            <div class="att-filter-label">
-                <span class="material-icons-round">filter_list</span>
-                <span>Filter by date:</span>
-            </div>
-            @if (_tab == "custom")
-            {
-                <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <input type="hidden" name="tab" value="custom" />
-                    <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">From:</label>
-                    <input type="date" name="from" value="@_fromDateStr" class="att-date-input" />
-                    <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">To:</label>
-                    <input type="date" name="to" value="@_toDateStr" class="att-date-input" />
-                    <button type="submit" class="att-apply-btn">
-                        <span class="material-icons-round" style="font-size:14px;">search</span>
-                        Apply
-                    </button>
-                </form>
-            }
-            else
-            {
-                <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;">
-                    <input type="hidden" name="tab" value="@_tab" />
-                    <input type="date" name="date" value="@_dateStr" class="att-date-input" />
-                    <button type="submit" class="att-apply-btn">
-                        <span class="material-icons-round" style="font-size:14px;">search</span>
-                        Apply
-                    </button>
-                </form>
-                <div style="margin-left:auto;display:flex;gap:6px;">
-                    <a href="/attendance-logs?tab=@_tab&date=@_prevDateStr" class="att-nav-btn">
-                        <span class="material-icons-round" style="font-size:14px;">chevron_left</span>
-                        @(_tab == "daily" ? "Prev Day" : _tab == "weekly" ? "Prev Week" : "Prev Month")
-                    </a>
-                    <a href="/attendance-logs?tab=@_tab&date=@_nextDateStr" class="att-nav-btn">
-                        @(_tab == "daily" ? "Next Day" : _tab == "weekly" ? "Next Week" : "Next Month")
-                        <span class="material-icons-round" style="font-size:14px;">chevron_right</span>
-                    </a>
+        @* ── Enhanced Filter Bar: date + employee search + department + status ── *@
+        <div class="att-filter-bar">
+            @* Date section *@
+            <div class="att-filter-section">
+                <div class="att-filter-label">
+                    <span class="material-icons-round">filter_list</span>
+                    <span>Date:</span>
                 </div>
-            }
+                @if (_tab == "custom")
+                {
+                    <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <input type="hidden" name="tab" value="custom" />
+                        <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">From:</label>
+                        <input type="date" name="from" value="@_fromDateStr" class="att-date-input" />
+                        <label style="font-size:12px;color:var(--bk-ink-3);font-weight:600;">To:</label>
+                        <input type="date" name="to" value="@_toDateStr" class="att-date-input" />
+                        <button type="submit" class="att-apply-btn">
+                            <span class="material-icons-round" style="font-size:14px;">search</span>
+                            Apply
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <form method="get" action="/attendance-logs" style="display:flex;gap:8px;align-items:center;">
+                        <input type="hidden" name="tab" value="@_tab" />
+                        <input type="date" name="date" value="@_dateStr" class="att-date-input" />
+                        <button type="submit" class="att-apply-btn">
+                            <span class="material-icons-round" style="font-size:14px;">search</span>
+                            Apply
+                        </button>
+                    </form>
+                    <div style="display:flex;gap:6px;">
+                        <a href="/attendance-logs?tab=@_tab&date=@_prevDateStr" class="att-nav-btn">
+                            <span class="material-icons-round" style="font-size:14px;">chevron_left</span>
+                            @(_tab == "daily" ? "Prev Day" : _tab == "weekly" ? "Prev Week" : "Prev Month")
+                        </a>
+                        <a href="/attendance-logs?tab=@_tab&date=@_nextDateStr" class="att-nav-btn">
+                            @(_tab == "daily" ? "Next Day" : _tab == "weekly" ? "Next Week" : "Next Month")
+                            <span class="material-icons-round" style="font-size:14px;">chevron_right</span>
+                        </a>
+                    </div>
+                }
+            </div>
+
+            @* Divider *@
+            <div class="att-filter-divider"></div>
+
+            @* Employee search + department + status filters (client-side, JS-powered) *@
+            <div class="att-filter-section att-filter-section--inline">
+                <div class="att-search-wrap">
+                    <span class="material-icons-round" style="font-size:16px;color:var(--bk-ink-3);">search</span>
+                    <input type="text" id="attEmployeeSearch" placeholder="Search employee…" class="att-search-input" oninput="filterAttendanceTable()" />
+                </div>
+                <select id="attDeptFilter" class="att-filter-select" onchange="filterAttendanceTable()">
+                    <option value="">All Departments</option>
+                    @foreach (var dept in _departments)
+                    {
+                        <option value="@dept">@dept</option>
+                    }
+                </select>
+                <select id="attStatusFilter" class="att-filter-select" onchange="filterAttendanceTable()">
+                    <option value="">All Status</option>
+                    <option value="PRESENT">Present</option>
+                    <option value="LEAVE">On Leave</option>
+                    <option value="HOLIDAY">Holiday</option>
+                    <option value="ABSENT">Absent</option>
+                </select>
+                <button class="att-clear-btn" onclick="clearAttendanceFilters()" title="Clear all filters">
+                    <span class="material-icons-round" style="font-size:14px;">clear</span>
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        @* Result count indicator *@
+        <div class="att-result-count" id="attResultCount">
+            Showing <strong id="attVisibleCount">@(_tab == "daily" ? _daily.Count : _tab == "weekly" ? _weekly.Count : _tab == "monthly" ? _monthly.Count : _customRows.Count)</strong> of <strong>@(_tab == "daily" ? _daily.Count : _tab == "weekly" ? _weekly.Count : _tab == "monthly" ? _monthly.Count : _customRows.Count)</strong> records
         </div>
 
         @* ── Legend ─ *@
@@ -522,6 +611,74 @@
 </div>
 
 <script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Client-side filter for attendance tables — searches by employee name,
+// filters by department and status dropdowns. Works on the Daily table
+// (which is the most common view). For Weekly/Monthly, filters by employee
+// name in the first column.
+// ─────────────────────────────────────────────────────────────────────────────
+function filterAttendanceTable() {
+    const search = (document.getElementById('attEmployeeSearch')?.value || '').toLowerCase().trim();
+    const dept = document.getElementById('attDeptFilter')?.value || '';
+    const status = document.getElementById('attStatusFilter')?.value || '';
+    const rows = document.querySelectorAll('.att-table tbody tr');
+    let visible = 0;
+    rows.forEach(function(row) {
+        let show = true;
+        // Search by name (first two cells = first name + last name)
+        if (search) {
+            const name = (row.cells[0]?.textContent + ' ' + row.cells[1]?.textContent).toLowerCase();
+            if (name.indexOf(search) < 0) show = false;
+        }
+        // Filter by status (the status cell has a .att-status span)
+        if (show && status) {
+            const statusCell = row.querySelector('.att-status');
+            const statusText = statusCell ? statusCell.textContent.trim().toUpperCase() : '';
+            if (statusText !== status) show = false;
+        }
+        // Department filter: the daily table doesn't have a department column visible,
+        // but if the row has a data-dept attribute, filter on it.
+        // For now, department filter works on rows that have a data-dept attribute.
+        if (show && dept) {
+            const rowDept = row.getAttribute('data-dept') || '';
+            if (rowDept !== dept) show = false;
+        }
+        row.classList.toggle('att-hidden', !show);
+        if (show) visible++;
+    });
+    // Update the count
+    const countEl = document.getElementById('attVisibleCount');
+    if (countEl) countEl.textContent = visible;
+    // Show/hide "no results" message
+    const tableWrap = document.querySelector('.att-table-wrap');
+    let noResults = document.getElementById('attNoResults');
+    if (visible === 0) {
+        if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'attNoResults';
+            noResults.className = 'att-no-results';
+            noResults.innerHTML = '<span class="material-icons-round">search_off</span>No matching records. Try adjusting your filters.';
+            if (tableWrap) tableWrap.parentNode.insertBefore(noResults, tableWrap.nextSibling);
+        }
+        noResults.style.display = 'block';
+        if (tableWrap) tableWrap.style.display = 'none';
+    } else {
+        if (noResults) noResults.style.display = 'none';
+        if (tableWrap) tableWrap.style.display = '';
+    }
+}
+function clearAttendanceFilters() {
+    const search = document.getElementById('attEmployeeSearch');
+    const dept = document.getElementById('attDeptFilter');
+    const status = document.getElementById('attStatusFilter');
+    if (search) search.value = '';
+    if (dept) dept.value = '';
+    if (status) status.value = '';
+    filterAttendanceTable();
+}
+</script>
+
+<script>
 function ukuuOpenImportModal() { var m = document.getElementById('ukuu-import-modal'); if (m) m.style.display = 'flex'; }
 function ukuuCloseImportModal() { var m = document.getElementById('ukuu-import-modal'); if (m) m.style.display = 'none'; }
 
@@ -603,6 +760,7 @@ function ukuuImpStatus(type, html) {
     private List<WeeklyAttendanceRow> _weekly = new();
     private List<MonthlyAttendanceRow> _monthly = new();
     private List<WeeklyAttendanceRow> _customRows = new();
+    private List<string> _departments = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -651,6 +809,15 @@ function ukuuImpStatus(type, html) {
             else if (_tab == "weekly") _weekly = await TimeCardSvc.GetWeeklyAsync(org.Id, _date);
             else if (_tab == "monthly") _monthly = await TimeCardSvc.GetMonthlyAsync(org.Id, _date);
             else if (_tab == "custom") _customRows = await TimeCardSvc.GetCustomRangeAsync(org.Id, _fromDate, _toDate);
+
+            // Populate the department filter dropdown
+            _departments = await Db.Employees
+                .Where(e => e.OrganizationId == org.Id && e.Department != null && e.Department != "")
+                .Select(e => e.Department!)
+                .Distinct()
+                .OrderBy(d => d)
+                .ToListAsync();
+
             StateHasChanged();
         }
         catch (Exception ex)
