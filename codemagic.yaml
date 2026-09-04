@@ -32,14 +32,6 @@ workflows:
     environment:
       vars:
         DOTNET_VERSION: "10.0.x"
-    triggering:
-      events:
-        - push
-      branch_include:
-        - main
-      tag_include:
-        - "v*"
-      cancel_previous_builds: true
     scripts:
       - name: Install .NET 10 SDK
         script: |
@@ -66,12 +58,6 @@ workflows:
           file ./publish/windows/UkuuHr-Windows-x64.exe
     artifacts:
       - publish/windows/UkuuHr-Windows-x64.exe
-    publishing:
-      # On tag pushes, attach to the GitHub Release (uses Codemagic's built-in
-      # GitHub integration if configured, OR falls back to `gh release` CLI).
-      github:
-        tags:
-          - "v*"
 
   # ── Workflow: macOS .dmg (arm64) ──────────────────────────────────────────
   # Requires a macOS runner. Codemagic's `instance_type: macos` selects the
@@ -84,14 +70,6 @@ workflows:
     environment:
       vars:
         DOTNET_VERSION: "10.0.x"
-    triggering:
-      events:
-        - push
-      branch_include:
-        - main
-      tag_include:
-        - "v*"
-      cancel_previous_builds: true
     scripts:
       - name: Install .NET 10 SDK
         script: |
@@ -212,7 +190,3 @@ workflows:
     artifacts:
       - UkuuHr-macOS-arm64.dmg
       - UkuuHr-macOS-x64.dmg
-    publishing:
-      github:
-        tags:
-          - "v*"
