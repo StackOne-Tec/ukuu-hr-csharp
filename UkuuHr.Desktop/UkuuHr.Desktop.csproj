@@ -7,14 +7,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>UkuuHr.Sync</RootNamespace>
     <AssemblyName>UkuuHrSync</AssemblyName>
-    <Version>3.0.0</Version>
+    <Version>3.4.0</Version>
     <Company>Ukuu HR</Company>
     <Product>Ukuu HR Access Sync Bridge</Product>
     <Description>Ukuu HR Access Sync Bridge — connects to Hikvision devices via ISAPI and syncs access data to the cloud</Description>
 
     <ApplicationIcon>Ukuu_brand_mark.ico</ApplicationIcon>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 
     <!-- Self-contained single-file publish for distribution -->
     <PublishSingleFile>true</PublishSingleFile>
@@ -23,6 +22,10 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/ukuu-mark-white.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.1" />

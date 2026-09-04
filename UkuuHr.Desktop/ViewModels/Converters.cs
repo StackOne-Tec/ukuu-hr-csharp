@@ -29,3 +29,21 @@ public class LogLevelConverter : IValueConverter
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => AvaloniaProperty.UnsetValue;
 }
+
+/// <summary>
+/// Maps a connection boolean to a status color — green when connected,
+/// amber when offline/failed.
+/// </summary>
+public class StatusBrushConverter : IValueConverter
+{
+    public static readonly StatusBrushConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var ok = value is true;
+        return new SolidColorBrush(Color.Parse(ok ? "#34D399" : "#FBBF24"));
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => AvaloniaProperty.UnsetValue;
+}

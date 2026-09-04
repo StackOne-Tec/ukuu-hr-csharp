@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,8 +29,8 @@ public partial class MainViewModel : ObservableObject
 
         // Apply initial date range
         var (from, to) = _settings.GetDateRange();
-        _customFromDate = from.ToString("yyyy-MM-dd");
-        _customToDate = to.ToString("yyyy-MM-dd");
+        CustomFrom = new DateTimeOffset(from);
+        CustomTo = new DateTimeOffset(to);
 
         // Subscribe to sync service events
         _syncService.LogAdded += entry =>
@@ -48,9 +49,7 @@ public partial class MainViewModel : ObservableObject
         {
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                LastSyncResult = result;
-                LastSyncTime = DateTime.Now;
-                TotalRecordsSynced = _syncService.TotalRecordsSynced;
+                UpdateSyncResult(result);
                 IsSyncing = false;
             });
         };
@@ -86,6 +85,36 @@ public partial class MainViewModel : ObservableObject
     // ── Navigation ───────────────────────────────────────────────────────────
     [ObservableProperty] private int _selectedTabIndex;
 
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsDashboardTab));
+        OnPropertyChanged(nameof(IsSyncTab));
+        OnPropertyChanged(nameof(IsSettingsTab));
+        OnPropertyChanged(nameof(PageTitle));
+        OnPropertyChanged(nameof(PageSubtitle));
+    }
+
+    public bool IsDashboardTab => SelectedTabIndex == 0;
+    public bool IsSyncTab => SelectedTabIndex == 1;
+    public bool IsSettingsTab => SelectedTabIndex == 2;
+
+    public string PageTitle => SelectedTabIndex switch
+    {
+        0 => "Dashboard",
+        1 => "Sync Center",
+        _ => "Settings"
+    };
+
+    public string PageSubtitle => SelectedTabIndex switch
+    {
+        0 => "Live overview of device sync activity",
+        1 => "Pull access records from your device and push them to Ukuu HR",
+        _ => "Configure device, cloud and retrieval settings"
+    };
+
+    // Sidebar navigation items (SelectedIndex drives SelectedTabIndex)
+    public List<NavItem> NavItems { get; } = new() { new("Dashboard"), new("Sync Center"), new("Settings") };
+
     // ── Device Connection ────────────────────────────────────────────────────
     [ObservableProperty] private string _deviceIp = "192.168.1.137";
     [ObservableProperty] private int _devicePort = 80;
@@ -112,6 +141,14 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasSyncError));
     }
 
+    partial void OnLastSyncTimeChanged(DateTime value) => OnPropertyChanged(nameof(LastSyncShort));
+    public string LastSyncShort => LastSyncTime == default ? "—" : LastSyncTime.ToString("HH:mm:ss");
+
+    // ── Last Result Counters (KPI cards) ─────────────────────────────────────
+    [ObservableProperty] private int _lastFetched;
+    [ObservableProperty] private int _lastImported;
+    [ObservableProperty] private int _lastMatched;
+
     // ── Date Range ───────────────────────────────────────────────────────────
     [ObservableProperty] private DateRangePreset _selectedDatePreset = DateRangePreset.Last7Days;
 
@@ -120,9 +157,38 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsCustomDateRange));
         ApplyDateRange();
     }
-    [ObservableProperty] private string _customFromDate = "";
-    [ObservableProperty] private string _customToDate = "";
+
+    // Combo box selection uses the wrapper item type so the bound types always
+    // match — the old enum-vs-item mismatch silently broke preset selection.
+    [ObservableProperty] private DateRangePresetItem? _selectedDatePresetItem;
+
+    partial void OnSelectedDatePresetItemChanged(DateRangePresetItem? value)
+    {
+        if (value is null) return;
+        SelectedDatePreset = value.Preset;   // raises IsCustomDateRange + applies the range
+    }
+
+    // Real calendar pickers for the Custom preset — no free-text date parsing,
+    // so malformed input can never reach the query path.
+    [ObservableProperty] private DateTimeOffset? _customFrom;
+    [ObservableProperty] private DateTimeOffset? _customTo;
+
+    partial void OnCustomFromChanged(DateTimeOffset? value) => RefreshCustomRangeDisplay();
+    partial void OnCustomToChanged(DateTimeOffset? value) => RefreshCustomRangeDisplay();
+
     [ObservableProperty] private string _dateRangeDisplay = "";
+
+    private void RefreshCustomRangeDisplay()
+    {
+        if (SelectedDatePreset != DateRangePreset.Custom) return;
+        if (CustomFrom is null || CustomTo is null) return;
+        DateRangeDisplay = $"{CustomFrom.Value.DateTime:yyyy-MM-dd HH:mm}  to  {CustomTo.Value.DateTime:yyyy-MM-dd HH:mm}";
+    }
+
+    private static DateTimeOffset? ParseDate(string? value) =>
+        DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)
+            ? new DateTimeOffset(dt)
+            : null;
 
     // ── Activity Log ─────────────────────────────────────────────────────────
     public ObservableCollection<SyncLogEntry> LogEntries { get; } = new();
@@ -233,6 +299,7 @@ public partial class MainViewModel : ObservableObject
     {
         SaveSettingsFromUi();
         var (from, to) = _settings.GetDateRange();
+        if (from > to) (from, to) = (to, from);   // never allow an inverted window
         DateRangeDisplay = $"{from:yyyy-MM-dd HH:mm}  to  {to:yyyy-MM-dd HH:mm}";
         StatusMessage = $"Date range: {DateRangeDisplay}";
     }
@@ -260,8 +327,10 @@ public partial class MainViewModel : ObservableObject
         AutoSyncEnabled = _settings.AutoSyncEnabled;
         SyncIntervalMinutes = _settings.SyncIntervalMinutes;
         SelectedDatePreset = _settings.DateRangePreset;
-        CustomFromDate = _settings.CustomFromDate ?? DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd");
-        CustomToDate = _settings.CustomToDate ?? DateTime.UtcNow.ToString("yyyy-MM-dd");
+        CustomFrom = ParseDate(_settings.CustomFromDate) ?? new DateTimeOffset(DateTime.UtcNow.AddDays(-7));
+        CustomTo = ParseDate(_settings.CustomToDate) ?? new DateTimeOffset(DateTime.UtcNow);
+        // Sync the combo box to the loaded preset (item type, matching the ItemsSource).
+        SelectedDatePresetItem = DateRangePresets.FirstOrDefault(p => p.Preset == _settings.DateRangePreset);
 
         var (from, to) = _settings.GetDateRange();
         DateRangeDisplay = $"{from:yyyy-MM-dd HH:mm}  to  {to:yyyy-MM-dd HH:mm}";
@@ -279,8 +348,8 @@ public partial class MainViewModel : ObservableObject
         _settings.AutoSyncEnabled = AutoSyncEnabled;
         _settings.SyncIntervalMinutes = SyncIntervalMinutes;
         _settings.DateRangePreset = SelectedDatePreset;
-        _settings.CustomFromDate = CustomFromDate;
-        _settings.CustomToDate = CustomToDate;
+        if (CustomFrom is not null) _settings.CustomFromDate = CustomFrom.Value.ToString("yyyy-MM-dd");
+        if (CustomTo is not null) _settings.CustomToDate = CustomTo.Value.ToString("yyyy-MM-dd");
     }
 
     private void UpdateSyncResult(SyncResult result)
@@ -288,6 +357,9 @@ public partial class MainViewModel : ObservableObject
         LastSyncResult = result;
         LastSyncTime = DateTime.Now;
         TotalRecordsSynced = _syncService.TotalRecordsSynced;
+        LastFetched = result.RecordsFetched;
+        LastImported = result.RecordsImported;
+        LastMatched = result.EmployeesMatched;
 
         // Update fetched records table
         FetchedRecords.Clear();
@@ -328,3 +400,6 @@ public partial class MainViewModel : ObservableObject
 
 /// <summary>Display item for date range preset combo box.</summary>
 public record DateRangePresetItem(DateRangePreset Preset, string DisplayName);
+
+/// <summary>Sidebar navigation entry.</summary>
+public record NavItem(string Label);

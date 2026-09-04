@@ -4,410 +4,703 @@
         xmlns:svc="using:UkuuHr.Sync.Services"
         x:DataType="vm:MainViewModel"
         x:Class="UkuuHr.Sync.Views.MainWindow"
-        Title="Ukuu HR — Access Sync Bridge v3.0"
-        Width="960" Height="700"
-        MinWidth="800" MinHeight="560"
+        Title="Ukuu HR — Access Sync Bridge"
+        Width="1160" Height="780"
+        MinWidth="980" MinHeight="640"
         WindowStartupLocation="CenterScreen"
-        Background="#0F172A">
+        Background="#0D0B1A">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="CardBg">#1E293B</SolidColorBrush>
-        <SolidColorBrush x:Key="InputBg">#0F172A</SolidColorBrush>
-        <SolidColorBrush x:Key="BorderBrush">#475569</SolidColorBrush>
-        <SolidColorBrush x:Key="PrimaryBrush">#3B82F6</SolidColorBrush>
-        <SolidColorBrush x:Key="PrimaryDarkBrush">#2563EB</SolidColorBrush>
-        <SolidColorBrush x:Key="SuccessBrush">#10B981</SolidColorBrush>
-        <SolidColorBrush x:Key="ErrorBrush">#EF4444</SolidColorBrush>
-        <SolidColorBrush x:Key="WarningBrush">#F59E0B</SolidColorBrush>
-        <SolidColorBrush x:Key="TextPrimary">#F8FAFC</SolidColorBrush>
-        <SolidColorBrush x:Key="TextSecondary">#94A3B8</SolidColorBrush>
-        <SolidColorBrush x:Key="TextMuted">#64748B</SolidColorBrush>
-        <SolidColorBrush x:Key="SurfaceLight">#334155</SolidColorBrush>
+        <!-- Palette -->
+        <SolidColorBrush x:Key="BgBrush">#0D0B1A</SolidColorBrush>
+        <SolidColorBrush x:Key="SidebarBrush">#141029</SolidColorBrush>
+        <SolidColorBrush x:Key="CardBrush">#1A1533</SolidColorBrush>
+        <SolidColorBrush x:Key="CardAltBrush">#201A40</SolidColorBrush>
+        <SolidColorBrush x:Key="StrokeBrush">#2D2650</SolidColorBrush>
+        <SolidColorBrush x:Key="Stroke2Brush">#3D3470</SolidColorBrush>
+        <SolidColorBrush x:Key="TextBrush">#F3F0FC</SolidColorBrush>
+        <SolidColorBrush x:Key="TextDimBrush">#ABA4CF</SolidColorBrush>
+        <SolidColorBrush x:Key="TextFaintBrush">#6F679E</SolidColorBrush>
+        <SolidColorBrush x:Key="PurpleBrush">#7B2FBE</SolidColorBrush>
+        <SolidColorBrush x:Key="PurpleDeepBrush">#5B1F96</SolidColorBrush>
+        <SolidColorBrush x:Key="PurpleSoftBrush">#A78BFA</SolidColorBrush>
+        <SolidColorBrush x:Key="GreenBrush">#34D399</SolidColorBrush>
+        <SolidColorBrush x:Key="AmberBrush">#FBBF24</SolidColorBrush>
+        <SolidColorBrush x:Key="RedBrush">#F87171</SolidColorBrush>
+        <SolidColorBrush x:Key="VioletBrush">#D8B4FE</SolidColorBrush>
+        <SolidColorBrush x:Key="OnPurpleBrush">#FFFFFF</SolidColorBrush>
+
+        <!-- Gradients -->
+        <LinearGradientBrush x:Key="BrandGradBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#9F4BE2"/>
+            <GradientStop Offset="0.55" Color="#7B2FBE"/>
+            <GradientStop Offset="1" Color="#4E1880"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="CtaGradBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+            <GradientStop Offset="0" Color="#A78BFA"/>
+            <GradientStop Offset="0.5" Color="#7B2FBE"/>
+            <GradientStop Offset="1" Color="#5B1F96"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccPurpleBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+            <GradientStop Offset="0" Color="#C4B5FD"/>
+            <GradientStop Offset="1" Color="#7B2FBE"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccGreenBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+            <GradientStop Offset="0" Color="#6EE7B7"/>
+            <GradientStop Offset="1" Color="#059669"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccAmberBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+            <GradientStop Offset="0" Color="#FDE68A"/>
+            <GradientStop Offset="1" Color="#D97706"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccVioletBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+            <GradientStop Offset="0" Color="#F5D0FE"/>
+            <GradientStop Offset="1" Color="#A21CAF"/>
+        </LinearGradientBrush>
+
+        <!-- Converters -->
+        <vm:StatusBrushConverter x:Key="StatusBrush"/>
+        <vm:LogLevelConverter x:Key="LogLevelBrush"/>
     </Window.Resources>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Window.Styles>
 
-        <!-- ═══ Header Bar ═══ -->
-        <Border Grid.Row="0" Background="#1E293B" Padding="20,14" BorderBrush="#334155" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <TextBlock Text="UKUU HR" FontSize="20" FontWeight="Bold" Foreground="#3B82F6"/>
-                    <TextBlock Text="Access Sync Bridge" FontSize="20" FontWeight="Light" Foreground="#94A3B8"/>
-                    <Border Background="#334155" CornerRadius="4" Padding="8,3" Margin="8,0,0,0">
-                        <TextBlock Text="v3.0" FontSize="11" Foreground="#94A3B8"/>
+        <!-- Card surfaces -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="18"/>
+        </Style>
+
+        <!-- Eyebrow label -->
+        <Style Selector="TextBlock.eyebrow">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}"/>
+            <Setter Property="LetterSpacing" Value="1.4"/>
+        </Style>
+
+        <!-- Card heading -->
+        <Style Selector="TextBlock.cardTitle">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        </Style>
+
+        <!-- Form label -->
+        <Style Selector="TextBlock.fieldLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Primary pill button -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{StaticResource PurpleBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Padding" Value="18,9"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Big gradient CTA -->
+        <Style Selector="Button.cta">
+            <Setter Property="Background" Value="{StaticResource CtaGradBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="46,15"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Ghost / secondary button -->
+        <Style Selector="Button.ghost">
+            <Setter Property="Background" Value="#221B42"/>
+            <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Stroke2Brush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ghost:pointerover">
+            <Setter Property="Background" Value="#2B2350"/>
+        </Style>
+
+        <!-- Inputs -->
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="DatePicker">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <!-- Info chip -->
+        <Style Selector="Border.chip">
+            <Setter Property="Background" Value="#26204A"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Stroke2Brush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="999"/>
+            <Setter Property="Padding" Value="12,5"/>
+        </Style>
+
+        <!-- Sidebar navigation -->
+        <Style Selector="ListBox.nav">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.nav > ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="12,11"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalContentAlignment="Left"
+                                          VerticalContentAlignment="Center"/>
                     </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox.nav > ListBoxItem:pointerover">
+            <Setter Property="Background" Value="#241D49"/>
+            <Setter Property="Foreground" Value="#E4DEF7"/>
+        </Style>
+        <Style Selector="ListBox.nav > ListBoxItem:selected">
+            <Setter Property="Background" Value="{StaticResource CtaGradBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="ListBox.nav > ListBoxItem:selected:pointerover">
+            <Setter Property="Background" Value="{StaticResource CtaGradBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+    </Window.Styles>
+
+    <Grid ColumnDefinitions="238,*" Background="{StaticResource BgBrush}">
+
+        <!-- ═══════════ Sidebar ═══════════ -->
+        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}"
+                BorderBrush="{StaticResource StrokeBrush}" BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20,24,16,18">
+
+                <!-- Brand -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="4,0,0,26">
+                    <Border Width="40" Height="40" CornerRadius="11"
+                            Background="{StaticResource BrandGradBrush}" ClipToBounds="True">
+                        <Image Source="avares://UkuuHrSync/Assets/ukuu-mark-white.png"
+                               Width="22" Height="29" Stretch="Uniform"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="UKUU HR" FontSize="16.5" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="ACCESS SYNC BRIDGE · v3.4" FontSize="9.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextFaintBrush}" LetterSpacing="0.8"/>
+                    </StackPanel>
                 </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding ConnectionStatus}" FontSize="12" Foreground="#94A3B8"/>
-                    <TextBlock Text="{Binding DeviceInfoText}" FontSize="11" Foreground="#64748B"/>
-                </StackPanel>
+
+                <!-- Nav label -->
+                <TextBlock Grid.Row="1" Text="WORKSPACE" Classes="eyebrow" Margin="4,0,0,8"/>
+
+                <!-- Navigation -->
+                <ListBox Grid.Row="2" Classes="nav"
+                         ItemsSource="{Binding NavItems}"
+                         SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
+                         Margin="0,0,4,0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavItem">
+                            <TextBlock Text="{Binding Label}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Device status card -->
+                <Border Grid.Row="3" Classes="card" Padding="13" CornerRadius="12">
+                    <StackPanel Spacing="7">
+                        <TextBlock Text="DEVICE" Classes="eyebrow"/>
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                     Fill="{Binding IsDeviceConnected, Converter={StaticResource StatusBrush}}"/>
+                            <TextBlock Text="{Binding ConnectionStatus}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{Binding IsDeviceConnected, Converter={StaticResource StatusBrush}}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding DeviceInfoText}" FontSize="11"
+                                   Foreground="{StaticResource TextFaintBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
-        <!-- ═══ Main Tabs ═══ -->
-        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}"
-                    Margin="16,12,16,0" Background="Transparent">
+        <!-- ═══════════ Main Column ═══════════ -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
 
-            <!-- ─── Dashboard ─── -->
-            <TabItem Header="  Dashboard  ">
-                <ScrollViewer>
-                    <StackPanel Margin="4,8" Spacing="10">
-
-                        <!-- Stats Row -->
-                        <UniformGrid Columns="4" Margin="0,0,0,4">
-                            <Border Background="#1E293B" CornerRadius="8" Padding="16,12" Margin="0,0,4,0">
-                                <StackPanel>
-                                    <TextBlock Text="RECORDS SYNCED" FontSize="11" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                    <TextBlock Text="{Binding TotalRecordsSynced}" FontSize="28" FontWeight="Bold" Foreground="#3B82F6"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#1E293B" CornerRadius="8" Padding="16,12" Margin="4,0,4,0">
-                                <StackPanel>
-                                    <TextBlock Text="LAST SYNC" FontSize="11" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                    <TextBlock Text="{Binding LastSyncTime, StringFormat='{}{0:HH:mm:ss}'}" FontSize="28" FontWeight="Bold" Foreground="#10B981"/>
-                                    <TextBlock Text="{Binding LastSyncTime, StringFormat='{}{0:yyyy-MM-dd}'}" FontSize="11" Foreground="#64748B"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#1E293B" CornerRadius="8" Padding="16,12" Margin="4,0,4,0">
-                                <StackPanel>
-                                    <TextBlock Text="FETCHED" FontSize="11" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                    <TextBlock Text="{Binding LastSyncResult.RecordsFetched}" FontSize="28" FontWeight="Bold" Foreground="#F59E0B"/>
-                                    <TextBlock Text="records" FontSize="11" Foreground="#64748B"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#1E293B" CornerRadius="8" Padding="16,12" Margin="4,0,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="IMPORTED" FontSize="11" Foreground="#94A3B8" Margin="0,0,0,4"/>
-                                    <TextBlock Text="{Binding LastSyncResult.RecordsImported}" FontSize="28" FontWeight="Bold" Foreground="#8B5CF6"/>
-                                    <TextBlock Text="to cloud" FontSize="11" Foreground="#64748B"/>
-                                </StackPanel>
-                            </Border>
-                        </UniformGrid>
-
-                        <!-- Fetched Records Table -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <DockPanel>
-                                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="ACCESS RECORDS" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                                        <Border Background="#334155" CornerRadius="4" Padding="6,2">
-                                            <TextBlock Text="{Binding FetchedRecordCount}" FontSize="11" Foreground="#3B82F6" FontWeight="Bold"/>
-                                        </Border>
-                                        <TextBlock Text="records" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Grid>
-                                <DataGrid ItemsSource="{Binding FetchedRecords}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="True"
-                                          SelectionMode="Extended"
-                                          GridLinesVisibility="Horizontal"
-                                          HeadersVisibility="Column"
-                                          Background="#0F172A"
-                                          RowBackground="#1E293B"
-                                          BorderThickness="0"
-                                          MaxHeight="350"
-                                          FontSize="12">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Employee No" Binding="{Binding EmployeeNo}" Width="*">
-                                        </DataGridTextColumn>
-                                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="2*">
-                                        </DataGridTextColumn>
-                                        <DataGridTextColumn Header="Event" Binding="{Binding EventType}" Width="90">
-                                        </DataGridTextColumn>
-                                        <DataGridTextColumn Header="Minor" Binding="{Binding Minor}" Width="60">
-                                        </DataGridTextColumn>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </DockPanel>
+            <!-- Header -->
+            <Border Grid.Row="0" Padding="26,18" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="{Binding PageTitle}" FontSize="21" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="{Binding PageSubtitle}" FontSize="12.5" Foreground="{StaticResource TextDimBrush}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                        <Border Classes="chip">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                         Fill="{Binding IsDeviceConnected, Converter={StaticResource StatusBrush}}"/>
+                                <TextBlock Text="Live connection" FontSize="11.5" FontWeight="SemiBold"
+                                           Foreground="{Binding IsDeviceConnected, Converter={StaticResource StatusBrush}}"/>
+                            </StackPanel>
                         </Border>
+                        <TextBlock Text="{Binding DeviceInfoText}" FontSize="11.5"
+                                   Foreground="{StaticResource TextFaintBrush}" VerticalAlignment="Center"
+                                   MaxWidth="240" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-                        <!-- Sync Result -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="LAST SYNC RESULT" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,0,0,8"/>
-                                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,4">
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Status:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="#F8FAFC" TextWrapping="Wrap"/>
+            <!-- ═══ Page: Dashboard ═══ -->
+            <ScrollViewer Grid.Row="1" IsVisible="{Binding IsDashboardTab}">
+                <StackPanel Margin="26,20,26,24" Spacing="16">
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Date Range:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DateRangeDisplay}" FontSize="12" Foreground="#F8FAFC"/>
+                    <!-- KPI cards -->
+                    <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+                        <!-- Records synced -->
+                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                            <StackPanel>
+                                <Border Height="3" Background="{StaticResource AccPurpleBrush}"/>
+                                <StackPanel Margin="16,14,16,16" Spacing="3">
+                                    <TextBlock Text="RECORDS SYNCED" Classes="eyebrow"/>
+                                    <TextBlock Text="{Binding TotalRecordsSynced}" FontSize="27" FontWeight="Bold"
+                                               Foreground="White" Margin="0,3,0,0"/>
+                                    <TextBlock Text="Pushed to your Ukuu HR cloud" FontSize="11.5"
+                                               Foreground="{StaticResource TextFaintBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <!-- Last sync -->
+                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                            <StackPanel>
+                                <Border Height="3" Background="{StaticResource AccGreenBrush}"/>
+                                <StackPanel Margin="16,14,16,16" Spacing="3">
+                                    <TextBlock Text="LAST SYNC" Classes="eyebrow"/>
+                                    <TextBlock Text="{Binding LastSyncShort}" FontSize="27" FontWeight="Bold"
+                                               Foreground="{StaticResource GreenBrush}" Margin="0,3,0,0"/>
+                                    <TextBlock Text="Most recent completed run" FontSize="11.5"
+                                               Foreground="{StaticResource TextFaintBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <!-- Fetched -->
+                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                            <StackPanel>
+                                <Border Height="3" Background="{StaticResource AccAmberBrush}"/>
+                                <StackPanel Margin="16,14,16,16" Spacing="3">
+                                    <TextBlock Text="FETCHED" Classes="eyebrow"/>
+                                    <TextBlock Text="{Binding LastFetched}" FontSize="27" FontWeight="Bold"
+                                               Foreground="{StaticResource AmberBrush}" Margin="0,3,0,0"/>
+                                    <TextBlock Text="Access records from device" FontSize="11.5"
+                                               Foreground="{StaticResource TextFaintBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <!-- Imported -->
+                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                            <StackPanel>
+                                <Border Height="3" Background="{StaticResource AccVioletBrush}"/>
+                                <StackPanel Margin="16,14,16,16" Spacing="3">
+                                    <TextBlock Text="IMPORTED" Classes="eyebrow"/>
+                                    <TextBlock Text="{Binding LastImported}" FontSize="27" FontWeight="Bold"
+                                               Foreground="{StaticResource VioletBrush}" Margin="0,3,0,0"/>
+                                    <TextBlock Text="Matched to employee codes" FontSize="11.5"
+                                               Foreground="{StaticResource TextFaintBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="AcsEvent JSON:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LastSyncResult.Tier1Status}" FontSize="12" Foreground="#CBD5E1"/>
+                    <!-- Access records -->
+                    <Border Classes="card">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Spacing="9">
+                                    <TextBlock Text="Latest access records" Classes="cardTitle" VerticalAlignment="Center"/>
+                                    <Border Background="#2A214F" CornerRadius="999" Padding="9,2">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="{Binding FetchedRecordCount}" FontSize="11" FontWeight="Bold"
+                                                       Foreground="{StaticResource PurpleSoftBrush}"/>
+                                            <TextBlock Text="records" FontSize="11" Foreground="{StaticResource TextFaintBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding DateRangeDisplay}" FontSize="11.5"
+                                           Foreground="{StaticResource TextFaintBrush}" VerticalAlignment="Center"/>
+                            </Grid>
+                            <DataGrid ItemsSource="{Binding FetchedRecords}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      SelectionMode="Single"
+                                      GridLinesVisibility="Horizontal"
+                                      HeadersVisibility="Column"
+                                      Background="Transparent"
+                                      RowBackground="#16112E"
+                                      BorderThickness="0"
+                                      MaxHeight="232"
+                                      FontSize="12.5">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="EMPLOYEE NO" Binding="{Binding EmployeeNo}" Width="*"/>
+                                    <DataGridTextColumn Header="TIME" Binding="{Binding Time}" Width="2*"/>
+                                    <DataGridTextColumn Header="EVENT" Binding="{Binding EventType}" Width="110"/>
+                                    <DataGridTextColumn Header="MINOR" Binding="{Binding Minor}" Width="70"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="AcsEvent XML:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastSyncResult.Tier2Status}" FontSize="12" Foreground="#CBD5E1"/>
+                    <!-- Last result + Activity log -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Border Classes="card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="LAST SYNC RESULT" Classes="cardTitle"/>
+                                <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="7">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" FontSize="12"
+                                               Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}" TextWrapping="Wrap"/>
 
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Cloud:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastSyncResult.CloudStatus}" FontSize="12" Foreground="#CBD5E1" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Window" FontSize="12"
+                                               Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DateRangeDisplay}" FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Fetched" FontSize="12"
+                                               Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LastFetched}" FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Matched" FontSize="12"
+                                               Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastMatched}" FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Imported" FontSize="12"
+                                               Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastImported}" FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}"/>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Cloud" FontSize="12"
+                                               Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1"
+                                               Text="{Binding LastSyncResult.CloudStatus, FallbackValue=Not attempted}"
+                                               FontSize="12.5" Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap"/>
                                 </Grid>
-                                <!-- Error box -->
-                                <Border Background="#7F1D1D" CornerRadius="4" Padding="10,8" IsVisible="{Binding HasSyncError}">
-                                    <TextBlock Text="{Binding LastSyncResult.ErrorMessage}" Foreground="#FCA5A5" FontSize="12" TextWrapping="Wrap"/>
+                                <Border Background="#3B1026" CornerRadius="9" Padding="12,9" IsVisible="{Binding HasSyncError}">
+                                    <TextBlock Text="{Binding LastSyncResult.ErrorMessage}" Foreground="#FCA5A5"
+                                               FontSize="12" TextWrapping="Wrap"/>
                                 </Border>
                             </StackPanel>
                         </Border>
 
-                        <!-- Activity Log -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
+                        <Border Classes="card">
                             <DockPanel>
                                 <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock Text="ACTIVITY LOG" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8"/>
-                                    <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,4"
-                                            Background="#334155" Foreground="#94A3B8" CornerRadius="4"
+                                    <TextBlock Text="ACTIVITY LOG" Classes="cardTitle"/>
+                                    <Button Grid.Column="1" Content="Clear" Classes="ghost" Padding="10,4" FontSize="11"
                                             Command="{Binding ClearLogCommand}"/>
                                 </Grid>
-                                <ItemsControl ItemsSource="{Binding LogEntries}" MaxHeight="220">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="svc:SyncLogEntry">
-                                            <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,1">
-                                                <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss}'}"
-                                                           Foreground="#64748B" FontSize="11" Margin="0,0,8,0"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding Level}" FontSize="10" Margin="0,0,8,0"
-                                                           Foreground="{Binding Level, Converter={x:Static vm:LogLevelConverter.Instance}}"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Message}" Foreground="#CBD5E1" FontSize="12" TextTrimming="CharacterEllipsis"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <ScrollViewer MaxHeight="224">
+                                    <ItemsControl ItemsSource="{Binding LogEntries}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="svc:SyncLogEntry">
+                                                <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,2.5" ColumnSpacing="8">
+                                                    <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss}'}"
+                                                               Foreground="{StaticResource TextFaintBrush}" FontSize="11"
+                                                               VerticalAlignment="Center"/>
+                                                    <Border Background="{Binding Level, Converter={StaticResource LogLevelBrush}}"
+                                                            CornerRadius="4" Padding="5,1.5" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Level, StringFormat='{}{0}'}" FontSize="9.5"
+                                                                   FontWeight="Bold" Foreground="#241D49"/>
+                                                    </Border>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Message}"
+                                                               Foreground="{StaticResource TextDimBrush}" FontSize="12"
+                                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
                             </DockPanel>
                         </Border>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
 
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
+            <!-- ═══ Page: Sync Center ═══ -->
+            <ScrollViewer Grid.Row="1" IsVisible="{Binding IsSyncTab}">
+                <StackPanel Margin="26,20,26,24" Spacing="16">
 
-            <!-- ─── Settings ─── -->
-            <TabItem Header="  Settings  ">
-                <ScrollViewer>
-                    <StackPanel Margin="4,8" Spacing="16">
+                    <!-- Hero -->
+                    <Border Classes="card" Padding="30,26" Background="#1C1440">
+                        <StackPanel Spacing="18" HorizontalAlignment="Center">
+                            <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                <TextBlock Text="MANUAL SYNC" Classes="eyebrow" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{Binding DateRangeDisplay}" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Pulls the full event history in this window from the device, then pushes matches to your Ukuu HR cloud."
+                                           FontSize="12" Foreground="{StaticResource TextDimBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
 
-                        <!-- Device Connection -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="DEVICE CONNECTION" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,0,0,8"/>
-                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Device IP Address" FontSize="12" Foreground="#94A3B8"/>
-                                        <TextBox Text="{Binding DeviceIp}" PlaceholderText="192.168.1.137"
-                                                 Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                                 CornerRadius="4" Padding="8,6"/>
-                                    </StackPanel>
-                                    <StackPanel Margin="12,0,0,0" Width="100" Spacing="4">
-                                        <TextBlock Text="Port" FontSize="12" Foreground="#94A3B8"/>
-                                        <TextBox Text="{Binding DevicePort}" PlaceholderText="80"
-                                                 Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                                 CornerRadius="4" Padding="8,6"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Username" FontSize="12" Foreground="#94A3B8"/>
-                                        <TextBox Text="{Binding DeviceUsername}" PlaceholderText="admin"
-                                                 Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                                 CornerRadius="4" Padding="8,6"/>
-                                    </StackPanel>
-                                    <StackPanel Margin="12,0,0,0" Width="200" Spacing="4">
-                                        <TextBlock Text="Password" FontSize="12" Foreground="#94A3B8"/>
-                                        <TextBox Text="{Binding DevicePassword}" PasswordChar="*"
-                                                 Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                                 CornerRadius="4" Padding="8,6"/>
-                                    </StackPanel>
-                                </Grid>
-                                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
-                                    <CheckBox Content="Use HTTPS" IsChecked="{Binding UseHttps}" Foreground="#CBD5E1"/>
-                                    <Button Content="Test Connection" Background="#3B82F6" Foreground="White"
-                                            FontWeight="SemiBold" CornerRadius="6" Padding="16,8"
-                                            Command="{Binding TestConnectionCommand}"/>
+                            <Button Content="Sync Now" Classes="cta" HorizontalAlignment="Center"
+                                    Command="{Binding SyncNowCommand}" Margin="0,4,0,0"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="14" HorizontalAlignment="Center">
+                                <ToggleButton Content="Auto-sync"
+                                              IsChecked="{Binding AutoSyncEnabled, Mode=OneWay}"
+                                              Command="{Binding ToggleAutoSyncCommand}"
+                                              Foreground="{StaticResource TextDimBrush}" FontSize="12.5"/>
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Text="Every" FontSize="12" Foreground="{StaticResource TextFaintBrush}"/>
+                                    <TextBlock Text="{Binding SyncIntervalMinutes}" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextDimBrush}"/>
+                                    <TextBlock Text="minutes when enabled" FontSize="12" Foreground="{StaticResource TextFaintBrush}"/>
                                 </StackPanel>
                             </StackPanel>
-                        </Border>
 
-                        <!-- Cloud API -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="CLOUD API" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,0,0,8"/>
+                            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsSyncing}" Height="5" Width="420"
+                                         Margin="0,2,0,0" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Sync status -->
+                    <Border Classes="card">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="SYNC STATUS" Classes="cardTitle"/>
+                            <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Status" FontSize="12"
+                                           Foreground="{StaticResource TextDimBrush}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12.5"
+                                           Foreground="{StaticResource TextBrush}" TextWrapping="Wrap"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Last completed" FontSize="12"
+                                           Foreground="{StaticResource TextDimBrush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LastSyncShort}" FontSize="12.5"
+                                           Foreground="{StaticResource TextBrush}"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Fetched" FontSize="12"
+                                           Foreground="{StaticResource TextDimBrush}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LastFetched}" FontSize="12.5"
+                                           Foreground="{StaticResource TextBrush}"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Matched" FontSize="12"
+                                           Foreground="{StaticResource TextDimBrush}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastMatched}" FontSize="12.5"
+                                           Foreground="{StaticResource TextBrush}"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Imported" FontSize="12"
+                                           Foreground="{StaticResource TextDimBrush}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastImported}" FontSize="12.5"
+                                           Foreground="{StaticResource TextBrush}"/>
+                            </Grid>
+                            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsSyncing}" Height="4"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Error details -->
+                    <Border Classes="card" Background="#2A0E1C" IsVisible="{Binding HasSyncError}">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="ERROR DETAILS" Classes="cardTitle" Foreground="{StaticResource RedBrush}"/>
+                            <TextBlock Text="{Binding LastSyncResult.ErrorMessage}" Foreground="#FCA5A5" FontSize="12.5"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="Common fixes:  ·  verify the API key is set in Settings  ·  confirm the Cloud URL  ·  make sure the device is on the same network  ·  try a different date range"
+                                       Foreground="{StaticResource TextFaintBrush}" FontSize="11.5" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ═══ Page: Settings ═══ -->
+            <ScrollViewer Grid.Row="1" IsVisible="{Binding IsSettingsTab}">
+                <StackPanel Margin="26,20,26,24" Spacing="16">
+
+                    <!-- Device connection -->
+                    <Border Classes="card">
+                        <StackPanel Spacing="14">
+                            <TextBlock Text="DEVICE CONNECTION" Classes="cardTitle"/>
+                            <Grid ColumnDefinitions="*,140" ColumnSpacing="12">
                                 <StackPanel Spacing="4">
-                                    <TextBlock Text="Cloud URL" FontSize="12" Foreground="#94A3B8"/>
-                                    <TextBox Text="{Binding CloudUrl}" PlaceholderText="https://ukuuhr.com"
-                                             Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                             CornerRadius="4" Padding="8,6"/>
+                                    <TextBlock Text="Device IP address" Classes="fieldLabel"/>
+                                    <TextBox Text="{Binding DeviceIp}" PlaceholderText="192.168.1.137"/>
                                 </StackPanel>
                                 <StackPanel Spacing="4">
-                                    <TextBlock Text="API Key (X-API-Key)" FontSize="12" Foreground="#94A3B8"/>
-                                    <TextBox Text="{Binding ApiKey}" PasswordChar="*"
-                                             PlaceholderText="Enter your API key"
-                                             Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                             CornerRadius="4" Padding="8,6"/>
+                                    <TextBlock Text="Port" Classes="fieldLabel"/>
+                                    <TextBox Text="{Binding DevicePort}" PlaceholderText="80"/>
                                 </StackPanel>
-                                <Border Background="#1E3A5F" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
-                                    <TextBlock Text="Your API key is required for cloud sync. Get it from your Ukuu HR dashboard under Settings > API Keys."
-                                               Foreground="#93C5FD" FontSize="11" TextWrapping="Wrap"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Username" Classes="fieldLabel"/>
+                                    <TextBox Text="{Binding DeviceUsername}" PlaceholderText="admin"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Password" Classes="fieldLabel"/>
+                                    <TextBox Text="{Binding DevicePassword, Mode=TwoWay}" PasswordChar="*"
+                                             PlaceholderText="Device password"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="16">
+                                <CheckBox Content="Use HTTPS" IsChecked="{Binding UseHttps}"
+                                          Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
+                                <Button Content="Test Connection" Classes="primary"
+                                        Command="{Binding TestConnectionCommand}"/>
+                                <TextBlock Text="{Binding ConnectionStatus}" FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{Binding IsDeviceConnected, Converter={StaticResource StatusBrush}}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Cloud API -->
+                    <Border Classes="card">
+                        <StackPanel Spacing="14">
+                            <TextBlock Text="CLOUD API" Classes="cardTitle"/>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Cloud URL" Classes="fieldLabel"/>
+                                <TextBox Text="{Binding CloudUrl}" PlaceholderText="https://ukuuhr.com"/>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="API key" Classes="fieldLabel"/>
+                                <TextBox Text="{Binding ApiKey, Mode=TwoWay}" PasswordChar="*"
+                                         PlaceholderText="Your X-API-Key"/>
+                            </StackPanel>
+                            <Border Background="#1E1442" CornerRadius="9" Padding="12,9">
+                                <TextBlock Text="Your API key is required for cloud sync. Get it from your Ukuu HR dashboard under Settings → API Keys."
+                                           Foreground="#B9A6F5" FontSize="11.5" TextWrapping="Wrap"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Retrieval window (date range) -->
+                    <Border Classes="card">
+                        <StackPanel Spacing="14">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="RETRIEVAL WINDOW" Classes="cardTitle"/>
+                                <TextBlock Text="Choose how much device history each sync pulls. Pick a preset, or switch to Custom Range and choose exact dates on the calendar."
+                                           FontSize="12" Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="260,*" ColumnSpacing="18">
+                                <!-- Preset selector -->
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Preset" Classes="fieldLabel"/>
+                                    <ComboBox ItemsSource="{Binding DateRangePresets}"
+                                              SelectedItem="{Binding SelectedDatePresetItem, Mode=TwoWay}"
+                                              PlaceholderText="Select a range"
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:DateRangePresetItem">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="13"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Custom calendar dates -->
+                                <StackPanel Spacing="4" IsVisible="{Binding IsCustomDateRange}">
+                                    <TextBlock Text="Exact dates (calendar)" Classes="fieldLabel"/>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                        <StackPanel Spacing="5">
+                                            <TextBlock Text="From" FontSize="11.5" Foreground="{StaticResource TextFaintBrush}"/>
+                                            <DatePicker SelectedDate="{Binding CustomFrom, Mode=TwoWay}"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="5">
+                                            <TextBlock Text="To" FontSize="11.5" Foreground="{StaticResource TextFaintBrush}"/>
+                                            <DatePicker SelectedDate="{Binding CustomTo, Mode=TwoWay}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button Content="Apply window" Classes="primary" Command="{Binding ApplyDateRangeCommand}"/>
+                                <Border Classes="chip" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DateRangeDisplay}" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextBrush}"/>
                                 </Border>
                             </StackPanel>
-                        </Border>
 
-                        <!-- Date Range -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="DATE RANGE" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,0,0,8"/>
-                                <TextBlock Text="Select the date range for data retrieval from the Hikvision device" FontSize="12" Foreground="#94A3B8"/>
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Preset" FontSize="12" Foreground="#94A3B8"/>
-                                    <ComboBox ItemsSource="{Binding DateRangePresets}"
-                                              SelectedItem="{Binding SelectedDatePreset}"
-                                              DisplayMemberBinding="{Binding DisplayName}"
-                                              HorizontalAlignment="Stretch"/>
-                                </StackPanel>
-                                <!-- Custom date fields (shown when Custom is selected) -->
-                                <Grid ColumnDefinitions="*,*" Margin="0,4,0,0" IsVisible="{Binding IsCustomDateRange}">
-                                    <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
-                                        <TextBlock Text="From Date" FontSize="12" Foreground="#94A3B8"/>
-                                        <TextBox Text="{Binding CustomFromDate}" PlaceholderText="yyyy-MM-dd"
-                                                 Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                                 CornerRadius="4" Padding="8,6"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Spacing="4">
-                                        <TextBlock Text="To Date" FontSize="12" Foreground="#94A3B8"/>
-                                        <TextBox Text="{Binding CustomToDate}" PlaceholderText="yyyy-MM-dd"
-                                                 Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                                 CornerRadius="4" Padding="8,6"/>
-                                    </StackPanel>
-                                </Grid>
-                                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
-                                    <Button Content="Apply Date Range" Background="#3B82F6" Foreground="White"
-                                            FontWeight="SemiBold" CornerRadius="6" Padding="16,8"
-                                            Command="{Binding ApplyDateRangeCommand}"/>
-                                    <TextBlock Text="{Binding DateRangeDisplay}" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
+                            <TextBlock Text="Presets apply instantly. Custom ranges are validated automatically — an inverted window is corrected before syncing."
+                                       FontSize="11" Foreground="{StaticResource TextFaintBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Sync schedule -->
+                    <Border Classes="card">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="SYNC SCHEDULE" Classes="cardTitle" Margin="0,0,0,8"/>
+                                <TextBlock Text="Sync interval (minutes)" Classes="fieldLabel"/>
+                                <TextBox Text="{Binding SyncIntervalMinutes}" Width="130" HorizontalAlignment="Left"/>
                             </StackPanel>
-                        </Border>
-
-                        <!-- Sync Schedule -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="SYNC SCHEDULE" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,0,0,8"/>
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Sync Interval (minutes)" FontSize="12" Foreground="#94A3B8"/>
-                                        <TextBox Text="{Binding SyncIntervalMinutes}" PlaceholderText="5"
-                                                 Background="#0F172A" Foreground="#F8FAFC" BorderBrush="#475569"
-                                                 CornerRadius="4" Padding="8,6"/>
-                                    </StackPanel>
-                                    <StackPanel Margin="12,20,0,0" VerticalAlignment="Center">
-                                        <ToggleButton Content="Auto-sync" IsChecked="{Binding AutoSyncEnabled}"
-                                                      Command="{Binding ToggleAutoSyncCommand}"
-                                                      Foreground="#CBD5E1"/>
-                                    </StackPanel>
-                                </Grid>
+                            <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center" Margin="20,0,0,0">
+                                <ToggleButton Content="Auto-sync" IsChecked="{Binding AutoSyncEnabled, Mode=OneWay}"
+                                              Command="{Binding ToggleAutoSyncCommand}"
+                                              Foreground="{StaticResource TextDimBrush}"/>
+                                <TextBlock Text="Fetch + push automatically on the interval above"
+                                           FontSize="11" Foreground="{StaticResource TextFaintBrush}"/>
                             </StackPanel>
-                        </Border>
+                        </Grid>
+                    </Border>
 
-                        <!-- Save Button -->
-                        <Button Content="Save All Settings" Background="#10B981" Foreground="White"
-                                FontWeight="SemiBold" CornerRadius="6" Padding="20,10" HorizontalAlignment="Left"
-                                Command="{Binding SaveSettingsCommand}"/>
-
+                    <!-- Save -->
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <Button Content="Save All Settings" Classes="primary" Command="{Binding SaveSettingsCommand}"/>
+                        <TextBlock Text="Settings are also saved automatically before every sync."
+                                   FontSize="11.5" Foreground="{StaticResource TextFaintBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
+                </StackPanel>
+            </ScrollViewer>
 
-            <!-- ─── Sync ─── -->
-            <TabItem Header="  Sync  ">
-                <ScrollViewer>
-                    <StackPanel Margin="4,8" Spacing="12">
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" Padding="20,7"
+                    BorderBrush="{StaticResource StrokeBrush}" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <TextBlock Grid.Column="0" Text="UKUU HR · ACCESS SYNC BRIDGE" FontSize="10.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextFaintBrush}" VerticalAlignment="Center" LetterSpacing="0.6"/>
+                    <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" FontSize="11"
+                               Foreground="{StaticResource TextFaintBrush}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="520"/>
+                    <TextBlock Grid.Column="2" FontSize="11" Foreground="{StaticResource TextFaintBrush}" VerticalAlignment="Center">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0} records synced">
+                                <Binding Path="TotalRecordsSynced"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </Grid>
+            </Border>
 
-                        <!-- Date Range Display -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="DATE RANGE FOR THIS SYNC" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8"/>
-                                <TextBlock Text="{Binding DateRangeDisplay}" FontSize="16" Foreground="#F8FAFC" FontWeight="SemiBold"/>
-                                <TextBlock Text="Change the date range in the Settings tab" FontSize="11" Foreground="#64748B"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Sync Control -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="24,20">
-                            <StackPanel Spacing="16" HorizontalAlignment="Center">
-                                <TextBlock Text="MANUAL SYNC" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" HorizontalAlignment="Center"/>
-                                <Button Content="Sync Now" Background="#10B981" Foreground="White"
-                                        FontSize="18" FontWeight="Bold" CornerRadius="8" Padding="48,16"
-                                        Command="{Binding SyncNowCommand}" HorizontalAlignment="Center"/>
-                                <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
-                                    <ToggleButton Content="Auto-sync" IsChecked="{Binding AutoSyncEnabled}"
-                                                  Command="{Binding ToggleAutoSyncCommand}"
-                                                  Foreground="#CBD5E1"/>
-                                    <TextBlock Foreground="#64748B" FontSize="12" VerticalAlignment="Center">
-                                        <TextBlock.Text>
-                                            <MultiBinding StringFormat="{}Every {0} min">
-                                                <Binding Path="SyncIntervalMinutes"/>
-                                            </MultiBinding>
-                                        </TextBlock.Text>
-                                    </TextBlock>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Sync Status -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="SYNC STATUS" FontSize="13" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,0,0,8"/>
-                                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Status:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="#CBD5E1" TextWrapping="Wrap"/>
-
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Is Syncing:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding IsSyncing}" FontSize="12" Foreground="#94A3B8"/>
-
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Total Synced:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TotalRecordsSynced}" FontSize="12" Foreground="#94A3B8"/>
-
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Fetched:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastSyncResult.RecordsFetched}" FontSize="12" Foreground="#94A3B8"/>
-
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Matched:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastSyncResult.EmployeesMatched}" FontSize="12" Foreground="#94A3B8"/>
-
-                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Imported:" FontSize="12" Foreground="#94A3B8" Margin="0,2"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LastSyncResult.RecordsImported}" FontSize="12" Foreground="#94A3B8"/>
-                                </Grid>
-                                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsSyncing}" Height="4" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Error Details -->
-                        <Border Background="#1E293B" CornerRadius="8" Padding="16,12" IsVisible="{Binding HasSyncError}">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="ERROR DETAILS" FontSize="13" FontWeight="SemiBold" Foreground="#EF4444"/>
-                                <TextBlock Text="{Binding LastSyncResult.ErrorMessage}" Foreground="#FCA5A5" FontSize="13" TextWrapping="Wrap"/>
-                                <TextBlock Text="Common fixes:&#x0a;  • Check that your API Key is set in Settings&#x0a;  • Verify the Cloud URL is correct&#x0a;  • Ensure the device is on the same network&#x0a;  • Try a different date range"
-                                           Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-        </TabControl>
-
-        <!-- ═══ Footer Status Bar ═══ -->
-        <Border Grid.Row="2" Background="#1E293B" Padding="16,8" BorderBrush="#334155" BorderThickness="0,1,0,0">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <TextBlock Grid.Column="0" Text="{Binding ConnectionStatus}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" FontSize="11" Foreground="#64748B"
-                           HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                <TextBlock Grid.Column="2" FontSize="11" Foreground="#64748B" VerticalAlignment="Center">
-                    <TextBlock.Text>
-                        <MultiBinding StringFormat="{}{0} records synced">
-                            <Binding Path="TotalRecordsSynced"/>
-                        </MultiBinding>
-                    </TextBlock.Text>
-                </TextBlock>
-            </Grid>
-        </Border>
-
+        </Grid>
     </Grid>
 </Window>
