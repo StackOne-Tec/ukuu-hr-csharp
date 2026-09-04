@@ -287,7 +287,7 @@
                     <!-- KPI cards -->
                     <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
                         <!-- Records synced -->
-                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                        <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
                             <StackPanel>
                                 <Border Height="3" Background="{StaticResource AccPurpleBrush}"/>
                                 <StackPanel Margin="16,14,16,16" Spacing="3">
@@ -300,7 +300,7 @@
                             </StackPanel>
                         </Border>
                         <!-- Last sync -->
-                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                        <Border Grid.Column="1" Classes="card" Padding="0" ClipToBounds="True">
                             <StackPanel>
                                 <Border Height="3" Background="{StaticResource AccGreenBrush}"/>
                                 <StackPanel Margin="16,14,16,16" Spacing="3">
@@ -313,7 +313,7 @@
                             </StackPanel>
                         </Border>
                         <!-- Fetched -->
-                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                        <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
                             <StackPanel>
                                 <Border Height="3" Background="{StaticResource AccAmberBrush}"/>
                                 <StackPanel Margin="16,14,16,16" Spacing="3">
@@ -326,7 +326,7 @@
                             </StackPanel>
                         </Border>
                         <!-- Imported -->
-                        <Border Classes="card" Padding="0" ClipToBounds="True">
+                        <Border Grid.Column="3" Classes="card" Padding="0" ClipToBounds="True">
                             <StackPanel>
                                 <Border Height="3" Background="{StaticResource AccVioletBrush}"/>
                                 <StackPanel Margin="16,14,16,16" Spacing="3">
@@ -381,7 +381,7 @@
 
                     <!-- Last result + Activity log -->
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                        <Border Classes="card">
+                        <Border Grid.Column="0" Classes="card">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="LAST SYNC RESULT" Classes="cardTitle"/>
                                 <Grid ColumnDefinitions="130,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="7">
@@ -423,7 +423,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Classes="card">
+                        <Border Grid.Column="1" Classes="card">
                             <DockPanel>
                                 <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -436,10 +436,10 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="svc:SyncLogEntry">
                                                 <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,2.5" ColumnSpacing="8">
-                                                    <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss}'}"
+                                                    <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss}'}"
                                                                Foreground="{StaticResource TextFaintBrush}" FontSize="11"
                                                                VerticalAlignment="Center"/>
-                                                    <Border Background="{Binding Level, Converter={StaticResource LogLevelBrush}}"
+                                                    <Border Grid.Column="1" Background="{Binding Level, Converter={StaticResource LogLevelBrush}}"
                                                             CornerRadius="4" Padding="5,1.5" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Level, StringFormat='{}{0}'}" FontSize="9.5"
                                                                    FontWeight="Bold" Foreground="#241D49"/>
@@ -550,32 +550,32 @@
                         <StackPanel Spacing="14">
                             <TextBlock Text="DEVICE CONNECTION" Classes="cardTitle"/>
                             <Grid ColumnDefinitions="*,140" ColumnSpacing="12">
-                                <StackPanel Spacing="4">
+                                <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="Device IP address" Classes="fieldLabel"/>
                                     <TextBox Text="{Binding DeviceIp}" PlaceholderText="192.168.1.137"/>
                                 </StackPanel>
-                                <StackPanel Spacing="4">
+                                <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="Port" Classes="fieldLabel"/>
                                     <TextBox Text="{Binding DevicePort}" PlaceholderText="80"/>
                                 </StackPanel>
                             </Grid>
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                                <StackPanel Spacing="4">
+                                <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="Username" Classes="fieldLabel"/>
                                     <TextBox Text="{Binding DeviceUsername}" PlaceholderText="admin"/>
                                 </StackPanel>
-                                <StackPanel Spacing="4">
+                                <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="Password" Classes="fieldLabel"/>
                                     <TextBox Text="{Binding DevicePassword, Mode=TwoWay}" PasswordChar="*"
                                              PlaceholderText="Device password"/>
                                 </StackPanel>
                             </Grid>
                             <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="16">
-                                <CheckBox Content="Use HTTPS" IsChecked="{Binding UseHttps}"
+                                <CheckBox Grid.Column="0" Content="Use HTTPS" IsChecked="{Binding UseHttps}"
                                           Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"/>
-                                <Button Content="Test Connection" Classes="primary"
+                                <Button Grid.Column="1" Content="Test Connection" Classes="primary"
                                         Command="{Binding TestConnectionCommand}"/>
-                                <TextBlock Text="{Binding ConnectionStatus}" FontSize="12" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="2" Text="{Binding ConnectionStatus}" FontSize="12" VerticalAlignment="Center"
                                            Foreground="{Binding IsDeviceConnected, Converter={StaticResource StatusBrush}}"/>
                             </Grid>
                         </StackPanel>
@@ -612,7 +612,7 @@
 
                             <Grid ColumnDefinitions="260,*" ColumnSpacing="18">
                                 <!-- Preset selector -->
-                                <StackPanel Spacing="4">
+                                <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="Preset" Classes="fieldLabel"/>
                                     <ComboBox ItemsSource="{Binding DateRangePresets}"
                                               SelectedItem="{Binding SelectedDatePresetItem, Mode=TwoWay}"
@@ -627,16 +627,18 @@
                                 </StackPanel>
 
                                 <!-- Custom calendar dates -->
-                                <StackPanel Spacing="4" IsVisible="{Binding IsCustomDateRange}">
+                                <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding IsCustomDateRange}">
                                     <TextBlock Text="Exact dates (calendar)" Classes="fieldLabel"/>
                                     <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                                        <StackPanel Spacing="5">
+                                        <StackPanel Grid.Column="0" Spacing="5">
                                             <TextBlock Text="From" FontSize="11.5" Foreground="{StaticResource TextFaintBrush}"/>
-                                            <DatePicker SelectedDate="{Binding CustomFrom, Mode=TwoWay}"/>
+                                            <DatePicker SelectedDate="{Binding CustomFrom, Mode=TwoWay}" MinWidth="0"
+                                                       HorizontalAlignment="Stretch"/>
                                         </StackPanel>
-                                        <StackPanel Spacing="5">
+                                        <StackPanel Grid.Column="1" Spacing="5">
                                             <TextBlock Text="To" FontSize="11.5" Foreground="{StaticResource TextFaintBrush}"/>
-                                            <DatePicker SelectedDate="{Binding CustomTo, Mode=TwoWay}"/>
+                                            <DatePicker SelectedDate="{Binding CustomTo, Mode=TwoWay}" MinWidth="0"
+                                                       HorizontalAlignment="Stretch"/>
                                         </StackPanel>
                                     </Grid>
                                 </StackPanel>
