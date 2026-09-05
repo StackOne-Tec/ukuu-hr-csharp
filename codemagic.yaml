@@ -127,8 +127,8 @@ workflows:
               <key>CFBundleName</key><string>Ukuu HR Sync</string>
               <key>CFBundleDisplayName</key><string>Ukuu HR Sync</string>
               <key>CFBundleIdentifier</key><string>com.ukuuhr.syncbridge</string>
-              <key>CFBundleVersion</key><string>3.0.0</string>
-              <key>CFBundleShortVersionString</key><string>3.0.0</string>
+              <key>CFBundleVersion</key><string>3.4.2</string>
+              <key>CFBundleShortVersionString</key><string>3.4.2</string>
               <key>CFBundleExecutable</key><string>UkuuHrSync</string>
               <key>CFBundleIconFile</key><string>UkuuHrSync</string>
               <key>CFBundlePackageType</key><string>APPL</string>
